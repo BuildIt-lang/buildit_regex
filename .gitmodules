@@ -1,3 +1,9 @@
 [submodule "buildit"]
 	path = buildit
 	url = git@github.com:AjayBrahmakshatriya/buildit.git
+[submodule "benchmarks/hyperscan"]
+	path = benchmarks/hyperscan
+	url = git@github.com:intel/hyperscan.git
+[submodule "benchmarks/re2"]
+	path = benchmarks/re2
+	url = git@github.com:google/re2.git
