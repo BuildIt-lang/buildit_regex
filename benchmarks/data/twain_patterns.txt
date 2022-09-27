@@ -1,0 +1,15 @@
+1:/Twain/
+2:/(?i)Twain/
+3:/[a-z]shing/
+4:/Huck[a-zA-Z]+|Saw[a-zA-Z]+/
+5:/[a-q][ˆu-z]{13}x/
+6:/Tom|Sawyer|Huckleberry|Finn/
+7:/(?i)Tom|Sawyer|Huckleberry|Finn/
+8:/.{0,2}(Tom|Sawyer|Huckleberry|Finn)/
+9:/.{2,4}(Tom|Sawyer|Huckleberry|Finn)/
+10:/Tom.{10,25}river|river.{10,25}Tom/
+11:/[a-zA-Z]+ing/
+12:/\s[a-zA-Z]{0,12}ing\s/
+13:/([A-Za-z]awyer|[A-Za-z]inn)\s/
+14:/["’][ˆ"’]{0,30}[?!\.][\"’]/
+15:/\p{Sm}/
