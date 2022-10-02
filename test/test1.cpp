@@ -6,7 +6,7 @@ General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_match(candidate, std::regex(pattern));
-    int len = sizeof(candidate) / sizeof(char);
+    int len = strlen(candidate);
     auto fptr = (int (*)(const char*, int))builder::compile_function(match_regex, pattern);
     int result = fptr((char*)candidate, len);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
