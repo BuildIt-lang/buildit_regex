@@ -11,7 +11,7 @@ It updates `states` such that if a character is inside brackets
 the next character we should look at in `progress` is just after the brackets.
 If it's outside brackets then look at the char right after the current one.
 */
-bool process_re(const char* re, static_var<int> *states) {
+bool process_re(const char* re, int *states, int *brackets) {
     const int re_len = strlen(re);
     static_var<int> idx = re_len - 1;
     while (idx >= 0) {
@@ -26,10 +26,10 @@ bool process_re(const char* re, static_var<int> *states) {
                 if (idx < 0)
                     return false;
             }
-            /*// mark the opening and closing brackets' indices
+            // mark the opening and closing brackets' indices
             brackets[idx] = s - 1;
             brackets[s - 1] = idx;
-            */
+            
         }
         // check for invalid characters
         // TODO: currently does not handle '.' inside brackets
@@ -47,7 +47,7 @@ bool is_normal(char m) {
     return (m >= 'a' && m <= 'z') || (m >= 'A' && m <= 'Z') || (m >= '0' && m <= '9');
 }
 
-void progress(const char *re, static_var<char> *next, static_var<int> *ns_arr, int p) {
+void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int p) {
     // unsigned int ns = p + 1;
     unsigned int ns = (unsigned int)ns_arr[p];
     if (strlen(re) == ns) {
@@ -57,21 +57,21 @@ void progress(const char *re, static_var<char> *next, static_var<int> *ns_arr, i
         if ('*' == re[ns+1]) {
         // We are allowed to skip this
         // so just progress again
-        progress(re, next, ns_arr, ns+1);
+        progress(re, next, ns_arr, brackets, ns+1);
         }
     } else if ('*' == re[ns]) {
         if (ns != 0 && re[ns-1] == ']') {
             // this * comes right after []
             // allow to match any of the chars from inside []
-            static_var<int> curr_idx = ns - 2;
-            while (re[curr_idx] != '[') {
-                next[curr_idx] = true;
-                curr_idx = curr_idx - 1;
-            }
-            if (re[curr_idx + 1] == '^') {
-                curr_idx = curr_idx + 2;
+            static_var<int> curr_idx = brackets[ns-1];
+            if (re[curr_idx+1] == '^') {
+                // only mark ^ for negative classes
+                next[curr_idx+1] = true;
+            } else {
+                // positive class - mark all chars from inside []
+                curr_idx = curr_idx + 1;
                 while (re[curr_idx] != ']') {
-                    next[curr_idx] = false;
+                    next[curr_idx] = true;
                     curr_idx = curr_idx + 1;
                 }
             }
@@ -79,24 +79,23 @@ void progress(const char *re, static_var<char> *next, static_var<int> *ns_arr, i
             // can match the char before *
             next[ns-1] = true;
         }
-        progress(re, next, ns_arr, ns);
+        progress(re, next, ns_arr, brackets, ns);
     } else if ('[' == re[ns]) {
         static_var<int> curr_idx = ns + 1;
         if (re[ns + 1] == '^') {
             // negative class - mark only '^' as true
             // the character matching is handled in `match_regex`
             next[ns + 1] = true;
-        }
-        while (re[curr_idx] != ']') {
-            if (re[ns + 1] != '^') {
+        } else {
+            while (re[curr_idx] != ']') {
                 // allowed to match any of the chars inside []
                 next[curr_idx] = true;
+                curr_idx = curr_idx + 1;
             }
-            curr_idx = curr_idx + 1;
         }
-        if (curr_idx < (int)strlen(re) - 1 && '*' == re[curr_idx+1])
+        if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
             // allowed to skip []
-            progress(re, next, ns_arr, curr_idx+1);
+            progress(re, next, ns_arr, brackets, brackets[ns]+1);
     }
 
 }
@@ -107,8 +106,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     //std::unique_ptr<static_var<char>> current_ptr(new static_var<char>[re_len + 1]);
     static_var<char> *current = new static_var<char>[re_len + 1];
     static_var<char> *next = new static_var<char>[re_len + 1];
-    static_var<int> *progress_ns = new static_var<int>[re_len];
-    bool re_valid = process_re(re, progress_ns);
+    std::unique_ptr<int> progress_ns_ptr(new int[re_len]);
+    int *progress_ns = progress_ns_ptr.get();
+    std::unique_ptr<int> brackets_ptr(new int[re_len]);
+    int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
+    bool re_valid = process_re(re, progress_ns, brackets);
     if (!re_valid) {
         printf("Invalid regex");
         return false;
@@ -116,7 +118,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 
     for (static_var<int> i = 0; i < re_len + 1; i++)
         current[i] = next[i] = 0;
-    progress(re, current, progress_ns, -1);
+    progress(re, current, progress_ns, brackets, -1);
     // dyn_var<int> str_len = d_strlen(str);
     dyn_var<int> to_match = 0;
     while (to_match < str_len) {
@@ -129,7 +131,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m) {
-                            progress(re, next, progress_ns, state);
+                            progress(re, next, progress_ns, brackets, state);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -139,10 +141,10 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        progress(re, next, progress_ns, state);
+                        progress(re, next, progress_ns, brackets, state);
                     }
                 } else if ('.' == m) {
-                    progress(re, next, progress_ns, state);
+                    progress(re, next, progress_ns, brackets, state);
                 } else if ('^' == m) {
                     // we are inside a [^] class
                     static_var<int> idx = state + 1;
@@ -156,7 +158,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                         idx = idx + 1;
                     }
                     if (matches == 1) {
-                        progress(re, next, progress_ns, state);
+                        progress(re, next, progress_ns, brackets, state);
                     }
                 } else {
                     printf("Invalid Character(%c)\n", (char)m);
