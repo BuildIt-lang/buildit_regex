@@ -1,15 +1,24 @@
 #include "match.h"
 
 /*
-The code below is taken from https://intimeand.space/docs/CGO2022-BuilDSL.pdf
+Parts of the code below are taken from https://intimeand.space/docs/CGO2022-BuilDSL.pdf
 */
 
 
 /**
 It returns whether `re` is a valid regular expression.
-It updates `states` such that if a character is inside brackets
+
+It updates `states` such that if a character is inside []
 the next character we should look at in `progress` is just after the brackets.
-If it's outside brackets then look at the char right after the current one.
+
+If a char is inside () the next char we look at should be the char right after
+the current one, except for the char that's just before ) - in that case we look
+at the character right after )
+
+If it's outside [] and () then look at the char right after the current one.
+
+`brackets` is an array of the same length as `re` that holds the index
+of a closing ( or [ for each opening one, and vice versa. 
 */
 bool process_re(const char* re, int *states, int *brackets) {
     const int re_len = strlen(re);
@@ -65,10 +74,16 @@ bool process_re(const char* re, int *states, int *brackets) {
     return true;
 }
 
+/**
+Returns if `m` is an alphanumeric character.
+*/
 bool is_normal(char m) {
     return (m >= 'a' && m <= 'z') || (m >= 'A' && m <= 'Z') || (m >= '0' && m <= '9');
 }
 
+/**
+Returna if `c` is between the chars `left` and `right`.
+*/
 dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
     if (!(is_normal(left) && is_normal(right))) {
         printf("Invalid Characters %c %c\n", left, right);
@@ -77,6 +92,10 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
     return left <= c && c <= right;
 }
 
+/**
+Given that the character `re[p]` has just been matched, finds all the characters
+in `re` that can be matched next and sets their corresponding locations in `next` to `true`.
+*/
 void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int p) {
     // unsigned int ns = p + 1;
     unsigned int ns = (unsigned int)ns_arr[p];
@@ -140,6 +159,11 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
 
 }
 
+/**
+Tries to match each character in `str` one by one.
+It relies on `progress` to get the possible states we can transition to
+from the current state.
+*/
 dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
     // allocate two state vectors
     const int re_len = strlen(re);
@@ -159,7 +183,6 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     for (static_var<int> i = 0; i < re_len + 1; i++)
         current[i] = next[i] = 0;
     progress(re, current, progress_ns, brackets, -1);
-    // dyn_var<int> str_len = d_strlen(str);
     dyn_var<int> to_match = 0;
     while (to_match < str_len) {
         // Don’t do anything for $.
@@ -208,6 +231,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                             matches = 0;
                             break;
                         } else if (re[idx] == '-') {
+                            // this is used for ranges, e.g. [a-d]
                             matches = !is_in_range(re[idx-1], re[idx+1], str[to_match]);
                             if (!matches)
                                 break;

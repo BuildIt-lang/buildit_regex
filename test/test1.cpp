@@ -73,6 +73,8 @@ void test_grouping() {
     check_correctness("a(bcd)*tr", "abcdtr");
     check_correctness("a(bcd)*(tr432)*", "abcdtr432tr432");
     check_correctness("a(bcd)*(tr432)*", "abctr432tr432");
+    check_correctness("a[bcd]*(tr432)*", "abtr432tr432");
+    check_correctness("(4324)*(abc)", "432443244324abc");
 }
 
 
