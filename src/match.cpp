@@ -14,6 +14,7 @@ If it's outside brackets then look at the char right after the current one.
 bool process_re(const char* re, int *states, int *brackets) {
     const int re_len = strlen(re);
     static_var<int> idx = re_len - 1;
+    static_var<int> closed_paran = -1;
     while (idx >= 0) {
         if (re[idx] == ']') {
             static_var<int> s = idx + 1;
@@ -23,22 +24,43 @@ bool process_re(const char* re, int *states, int *brackets) {
                 states[idx] = s;
                 idx = idx - 1;
                 // couldn't find a closing bracket => invalid regex
-                if (idx < 0)
+                if (idx < 0) {
+                    printf("Couldn't find a matching bracket!\n");
                     return false;
+                }
             }
             // mark the opening and closing brackets' indices
             brackets[idx] = s - 1;
             brackets[s - 1] = idx;
-            
+        } else if (idx < re_len - 1 && re[idx + 1] == ')') {
+            if (re[idx] == '(') {
+                printf("Cannot have empty parantheses!\n");
+                return false;
+            }
+            closed_paran = idx + 1;
+            // the char before ) should map to the char after the )
+            states[idx] = idx + 2;
+            idx = idx - 1;
+            continue;
+        } else if (re[idx] == '(') {
+            brackets[closed_paran] = idx;
+            brackets[idx] = closed_paran;
+            closed_paran = -1;
+        } else {
+            // check for invalid characters
+            // TODO: currently does not handle '.' inside brackets
+            if (!(is_normal(re[idx]) || re[idx] == '*' || re[idx] == ')')) {
+                printf("Invalid character: %c\n", (char)re[idx]);
+                return false;
+            }
         }
-        // check for invalid characters
-        // TODO: currently does not handle '.' inside brackets
-        if (!(is_normal(re[idx]) || re[idx] == '[' || re[idx] == '*'))
-            return false;
-        // if the current char is not inside brackets,
         // the next state is after the current char
         states[idx] = idx + 1;
         idx = idx - 1;
+    }
+    if (closed_paran != -1) {
+        printf("Couldn't find a matching paranthesis!\n");
+        return false;
     }
     return true;
 }
@@ -83,6 +105,10 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
                     curr_idx = curr_idx + 1;
                 }
             }
+        } else if (ns != 0 && re[ns-1] == ')') {
+            // there is a () group just before *
+            // can match the char right after (
+            next[brackets[ns-1]+1] = true;
         } else {
             // can match the char before *
             next[ns-1] = true;
@@ -103,6 +129,12 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
         }
         if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
             // allowed to skip []
+            progress(re, next, ns_arr, brackets, brackets[ns]+1);
+    } else if ('(' == re[ns]) {
+        // can  match the char after (
+        next[ns + 1] = true;
+        // if () are followed by *, it's possible to skip the () group
+        if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
             progress(re, next, ns_arr, brackets, brackets[ns]+1);
     }
 

@@ -65,6 +65,16 @@ void test_brackets_and_star() {
     check_correctness("3[^db]*", "3");    
 }
 
+void test_grouping() {
+    check_correctness("a(bcd)*", "abcdbcd");
+    check_correctness("a(bcd)", "abcdbcd");
+    check_correctness("a(bcd)", "abcd");
+    check_correctness("a(bcd)*", "a");
+    check_correctness("a(bcd)*tr", "abcdtr");
+    check_correctness("a(bcd)*(tr432)*", "abcdtr432tr432");
+    check_correctness("a(bcd)*(tr432)*", "abctr432tr432");
+}
+
 
 int main() {
     test_simple();
@@ -72,6 +82,7 @@ int main() {
     test_brackets();
     test_negative_brackets();
     test_brackets_and_star();
+    test_grouping();
 }
 
 
