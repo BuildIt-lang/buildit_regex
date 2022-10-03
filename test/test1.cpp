@@ -40,6 +40,8 @@ void test_brackets() {
     check_correctness("a[bc]d", "abcd");
     //check_correctness("a[.]d", "akd");
     check_correctness("a[vd][45]", "ad4");
+    check_correctness("2[a-g]", "2d");
+    check_correctness("2[a-g]*", "2dcag");
 }
 
 void test_negative_brackets() {
@@ -48,6 +50,9 @@ void test_negative_brackets() {
     check_correctness("3[^db]4", "3b4"); 
     check_correctness("[abd][^35]*", "a4555dsd");
     check_correctness("[abd]*[^35fds]", "abdd4");
+    check_correctness("2[^a-g]", "25");
+    check_correctness("2[^a-g]", "2h");
+    check_correctness("2[^a-g]", "2a");
 }
 
 void test_brackets_and_star() {

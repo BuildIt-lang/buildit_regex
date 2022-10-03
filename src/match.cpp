@@ -47,6 +47,14 @@ bool is_normal(char m) {
     return (m >= 'a' && m <= 'z') || (m >= 'A' && m <= 'Z') || (m >= '0' && m <= '9');
 }
 
+dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
+    if (!(is_normal(left) && is_normal(right))) {
+        printf("Invalid Characters %c %c\n", left, right);
+        return 0; 
+    }
+    return left <= c && c <= right;
+}
+
 void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int p) {
     // unsigned int ns = p + 1;
     unsigned int ns = (unsigned int)ns_arr[p];
@@ -154,12 +162,21 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                         if (re[idx] == str[to_match]) {
                             matches = 0;
                             break;
+                        } else if (re[idx] == '-') {
+                            matches = !is_in_range(re[idx-1], re[idx+1], str[to_match]);
+                            if (!matches)
+                                break;
                         }
                         idx = idx + 1;
                     }
                     if (matches == 1) {
                         progress(re, next, progress_ns, brackets, state);
                     }
+                } else if ('-' == m) {
+                    static_var<char> left = re[state - 1];
+                    static_var<char> right = re[state + 1];
+                    if (is_in_range(left, right, str[to_match]))
+                        progress(re, next, progress_ns, brackets, state);
                 } else {
                     printf("Invalid Character(%c)\n", (char)m);
                     return false;
