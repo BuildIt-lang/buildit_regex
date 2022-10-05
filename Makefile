@@ -71,8 +71,9 @@ $(LIBRARY): $(OBJS)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(INCLUDES)
 	$(CXX) $(CFLAGS) $< -o $@ $(INCLUDE_FLAG) -c
 
-run: executables
-	./build/sample1
+test: executables
+	./build/test1
+	rm $(BUILDIT_DIR)/scratch/*
 
 clean:
 	rm -rf $(BUILD_DIR)
