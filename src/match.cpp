@@ -30,8 +30,9 @@ bool process_re(const char* re, int *next_states, int *prev_states, int *bracket
         if (is_repetition_char(re[idx])) {
             prev_states[idx] = idx - 1;    
         }
+        if (re[idx] == ')') closed_paran = idx;
         if (re[idx] == ']') {
-            static_var<int> s = idx + 1;
+            static_var<int> s = (re[idx+1] == '|' || re[idx+1] == ')') ? closed_paran + 1 : idx + 1;
             while (re[idx] != '[') {
                 // the current char is inside brackets
                 // the next state is after the closing bracket
@@ -54,7 +55,6 @@ bool process_re(const char* re, int *next_states, int *prev_states, int *bracket
                 printf("Cannot have empty parantheses!\n");
                 return false;
             }
-            closed_paran = idx + 1;
             // the char before ) should map to the char after the )
             next_states[idx] = idx + 2;
             idx = idx - 1;
@@ -95,6 +95,11 @@ bool process_re(const char* re, int *next_states, int *prev_states, int *bracket
         printf("Couldn't find a matching paranthesis!\n");
         return false;
     }
+    /*printf("------\n");
+    for (static_var<int> i = 0; i < re_len; i = i + 1) {
+        printf("%d, ", next_states[i]);    
+    }
+    printf("\n-----\n");*/
     return true;
 }
 
@@ -136,9 +141,8 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *prev_arr
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         next[ns] = true;
         if ('*' == re[ns+1]) {
-        // We are allowed to skip this
-        // so just progress again
-        progress(re, next, ns_arr, prev_arr, brackets, ors, ns+1);
+            // we can also skip this char
+            progress(re, next, ns_arr, prev_arr, brackets, ors, ns+1);
         }
     } else if ('*' == re[ns]) {
         int prev_state = prev_arr[ns];
@@ -160,18 +164,14 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *prev_arr
             // allowed to skip []
             progress(re, next, ns_arr, prev_arr, brackets, ors, brackets[ns]+1);
     } else if ('(' == re[ns]) {
-        // can  match the char after (
-        //next[ns + 1] = true;
-        // TODO: change for |
         progress(re, next, ns_arr, prev_arr, brackets, ors, ns); // char right after (
+        // start by trying to match the first char after each |
         for (static_var<int> k = 0; k < ors[brackets[ns]]; k = k + 1) {
             progress(re, next, ns_arr, prev_arr, brackets, ors, ors[brackets[ns]-1-k]);
         }
         // if () are followed by *, it's possible to skip the () group
         if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
             progress(re, next, ns_arr, prev_arr, brackets, ors, brackets[ns]+1);
-    } else {
-        //progress(re, next, ns_arr, prev_arr, brackets, ors, ns);    
     } 
 }
 
