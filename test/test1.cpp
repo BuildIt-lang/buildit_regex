@@ -127,6 +127,12 @@ void test_question() {
     check_correctness("(abc)*(ab)?", "ab");
 }
 
+void test_combined() {
+    check_correctness("(45|ab?)", "ab");    
+    check_correctness("(ab?|45)", "ab");    
+    check_correctness("(ab?|45)", "ab45");    
+    check_correctness("(ab?|45)", "a");    
+}
 
 int main() {
     test_simple();
@@ -138,6 +144,7 @@ int main() {
     test_or_groups();
     test_plus();
     test_question();
+    test_combined();
 }
 
 

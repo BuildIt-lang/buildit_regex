@@ -63,10 +63,10 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
             next_states[idx] = next_states[last_bracket];
         } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?' || c == '+') {
             char next_c = re[idx + 1];
-            if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[' || next_c == '?' || next_c == '+') {
+            if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[' || next_c == '+') {
+                next_states[idx] = idx + 1;   
+            } else if (next_c == ')' || next_c == ']' || next_c == '?') {
                 // if it's a `?` it means we've already had a match, so just skip it
-                next_states[idx] = (next_c == '?') ? idx + 2 : idx + 1;   
-            } else if (next_c == ')' || next_c == ']') {
                 next_states[idx] = next_states[idx+1];    
             } else {
                 printf("Invalid character: %c %d\n", next_c, last_bracket);
