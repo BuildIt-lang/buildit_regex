@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
     builder::builder_context context;
     std::ofstream code_file;
     code_file.open("generated_code/sample1.h");
-    auto ast = context.extract_function_ast(match_regex, "match_re", "a*b*c");
+    auto ast = context.extract_function_ast(match_regex, "match_re", "[abc]+");
     code_file << "#include <string.h>" << std::endl;
     block::c_code_generator::generate_code(ast, code_file);
     code_file.close();
