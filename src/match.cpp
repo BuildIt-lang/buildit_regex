@@ -26,7 +26,7 @@ bool process_re(const char* re, int *next_states, int *prev_states, int *bracket
     static_var<int> closed_paran = -1;
     static_var<int> or_count = 0;
     while (idx >= 0) {
-        // by default assume that the char before * or {} is a normal char
+        // by default assume that the char before *, +, or {} is a normal char
         if (is_repetition_char(re[idx])) {
             prev_states[idx] = idx - 1;    
         }
@@ -115,7 +115,7 @@ bool is_digit(char m) {
 }
 
 bool is_repetition_char(char c) {
-    return c == '*' || c == '{';    
+    return c == '*' || c == '{' || c == '+';    
 }
 
 /**
@@ -160,7 +160,7 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *prev_arr
                 curr_idx = curr_idx + 1;
             }
         }
-        if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
+        if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1]))
             // allowed to skip []
             progress(re, next, ns_arr, prev_arr, brackets, ors, brackets[ns]+1);
     } else if ('(' == re[ns]) {
@@ -170,7 +170,7 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *prev_arr
             progress(re, next, ns_arr, prev_arr, brackets, ors, ors[brackets[ns]-1-k]);
         }
         // if () are followed by *, it's possible to skip the () group
-        if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
+        if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1]))
             progress(re, next, ns_arr, prev_arr, brackets, ors, brackets[ns]+1);
     } 
 }
