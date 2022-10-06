@@ -34,6 +34,7 @@ void test_star() {
 void test_brackets() {
     check_correctness("a[bc]d", "abd");
     check_correctness("a[bc]d", "acd");
+    check_correctness("a[bc]d", "abcd");
     check_correctness("a[]d", "ad");
     check_correctness("[amn]", "m");
     check_correctness("[amn]", "mn");

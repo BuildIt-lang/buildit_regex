@@ -4,103 +4,78 @@
 Parts of the code below are taken from https://intimeand.space/docs/CGO2022-BuilDSL.pdf
 */
 
-
 /**
 It returns whether `re` is a valid regular expression.
 
-It updates `states` such that if a character is inside []
-the next character we should look at in `progress` is just after the brackets.
-
-If a char is inside () the next char we look at should be the char right after
-the current one, except for the char that's just before ) - in that case we look
-at the character right after )
-
-If it's outside [] and () then look at the char right after the current one.
+`next_state` an array of length `strlen(re)`; for each char in `re`,
+given that that char has just been matched against the input string,
+it stores the index of the next char / state in `re` that should be processed
 
 `brackets` is an array of the same length as `re` that holds the index
 of a closing ( or [ for each opening one, and vice versa. 
+
+`ors` is an array of the same length as `re` which holds the number
+of `|` chars inside each pair of () (stored at the `)` location), with
+the exact `|` indices stored at the indices preceding `)'
 */
-bool process_re(const char* re, int *next_states, int *prev_states, int *brackets, int *ors) {
-    const int re_len = strlen(re);
-    static_var<int> idx = re_len - 1;
-    static_var<int> closed_paran = -1;
-    static_var<int> or_count = 0;
+bool process_re(const char *re, int *next_states, int *brackets, int *ors) {
+    int re_len = (int)strlen(re);
+    int last_paran = -1;
+    int last_bracket = -1;
+    int or_count = 0;
+    int idx = re_len - 1;
     while (idx >= 0) {
-        // by default assume that the char before * or {} is a normal char
-        if (is_repetition_char(re[idx])) {
-            prev_states[idx] = idx - 1;    
-        }
-        if (re[idx] == ')') closed_paran = idx;
-        if (re[idx] == ']') {
-            static_var<int> s = (re[idx+1] == '|' || re[idx+1] == ')') ? closed_paran + 1 : idx + 1;
-            while (re[idx] != '[') {
-                // the current char is inside brackets
-                // the next state is after the closing bracket
-                next_states[idx] = s;
-                idx = idx - 1;
-                // couldn't find a closing bracket => invalid regex
-                if (idx < 0) {
-                    printf("Couldn't find a matching bracket!\n");
-                    return false;
-                }
-            }
-            // mark the opening and closing brackets' indices
-            brackets[idx] = s - 1;
-            brackets[s - 1] = idx;
-            if (is_repetition_char(re[s])) {
-                prev_states[s] = idx;
-            }
-        } else if (idx < re_len - 1 && re[idx + 1] == ')') {
-            if (re[idx] == '(') {
-                printf("Cannot have empty parantheses!\n");
-                return false;
-            }
-            // the char before ) should map to the char after the )
-            next_states[idx] = idx + 2;
-            idx = idx - 1;
-            continue;
-        } else if (re[idx] == '(') {
-            brackets[closed_paran] = idx;
-            brackets[idx] = closed_paran;
-            if (is_repetition_char(re[closed_paran+1])) {
-                prev_states[closed_paran+1] = idx;
-            }
-            ors[closed_paran] = (int)or_count;
-            closed_paran = -1;
+        char c = re[idx];
+        // keep track of () and [] pairs
+        if (c == ']') last_bracket = idx;
+        else if (c == ')') last_paran = idx;
+        else if (c == '[') {
+            brackets[idx] = last_bracket;
+            brackets[last_bracket] = idx;
+            last_bracket = -1;
+        } else if (c == '(') {
+            brackets[idx] = last_paran;
+            brackets[last_paran] = idx;
+            ors[last_paran] = or_count;
+            last_paran = -1;
             or_count = 0;
-        } else {
-            // check for invalid characters
-            // TODO: currently does not handle '.' inside brackets
-            if (!(is_normal(re[idx]) || re[idx] == '|' || re[idx] == '*' || re[idx] == ')')) {
-                printf("Invalid character: %c\n", (char)re[idx]);
+        }
+
+        // if c has just been matched against the string
+        // find the next character/state from re that should be matched
+        if (idx == re_len - 1) {
+            next_states[idx] = idx + 1;
+        } else if (c == '|') {
+            next_states[idx] = idx + 1;
+            ors[last_paran - 1 - or_count] = idx;
+            or_count = or_count + 1;
+        } else if (re[idx+1] == '|') {
+            // we are right before |
+            // map to the state just after the enclosing () that contain the |'s
+            next_states[idx] = next_states[last_paran];
+        } else if (c != ']' && last_bracket != -1) {
+            // we are inside brackets
+            // all chars map to the same state as the closing bracket
+            next_states[idx] = next_states[last_bracket];
+        } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.') {
+            char next_c = re[idx + 1];
+            if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[') {
+                next_states[idx] = idx + 1;    
+            } else if (next_c == ')' || next_c == ']') {
+                next_states[idx] = next_states[idx+1];    
+            } else {
+                printf("Invalid character: %c %d\n", next_c, last_bracket);
                 return false;
             }
+        } else {
+            printf("Invalid character: %c\n", c);
+            return false;
         }
-        
-        if (closed_paran != -1) {
-            // look for | inside ()
-            if (re[idx+1] == '|') {
-                next_states[idx] = closed_paran + 1;
-                ors[closed_paran - 1 - or_count] = idx + 1;
-                or_count = or_count + 1;
-                idx = idx - 1;
-                continue;
-            }
-        }
-        // the next state is after the current char
-        next_states[idx] = idx + 1;
+
         idx = idx - 1;
     }
-    if (closed_paran != -1) {
-        printf("Couldn't find a matching paranthesis!\n");
-        return false;
-    }
-    /*printf("------\n");
-    for (static_var<int> i = 0; i < re_len; i = i + 1) {
-        printf("%d, ", next_states[i]);    
-    }
-    printf("\n-----\n");*/
     return true;
+    
 }
 
 /**
@@ -112,10 +87,6 @@ bool is_normal(char m) {
 
 bool is_digit(char m) {
     return m >= '0' && m <= '9';
-}
-
-bool is_repetition_char(char c) {
-    return c == '*' || c == '{';    
 }
 
 /**
@@ -133,7 +104,7 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
 Given that the character `re[p]` has just been matched, finds all the characters
 in `re` that can be matched next and sets their corresponding locations in `next` to `true`.
 */
-void progress(const char *re, static_var<char> *next, int *ns_arr, int *prev_arr, int *brackets, int *ors, int p) {
+void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *ors, int p) {
     // unsigned int ns = p + 1;
     unsigned int ns = (unsigned int)ns_arr[p];
     if (strlen(re) == ns) {
@@ -142,11 +113,11 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *prev_arr
         next[ns] = true;
         if ('*' == re[ns+1]) {
             // we can also skip this char
-            progress(re, next, ns_arr, prev_arr, brackets, ors, ns+1);
+            progress(re, next, ns_arr, brackets, ors, ns+1);
         }
     } else if ('*' == re[ns]) {
-        int prev_state = prev_arr[ns];
-        progress(re, next, ns_arr, prev_arr, brackets, ors, prev_state-1);
+        int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
+        progress(re, next, ns_arr, brackets, ors, prev_state-1);
     } else if ('[' == re[ns]) {
         static_var<int> curr_idx = ns + 1;
         if (re[ns + 1] == '^') {
@@ -162,16 +133,16 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *prev_arr
         }
         if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
             // allowed to skip []
-            progress(re, next, ns_arr, prev_arr, brackets, ors, brackets[ns]+1);
+            progress(re, next, ns_arr, brackets, ors, brackets[ns]+1);
     } else if ('(' == re[ns]) {
-        progress(re, next, ns_arr, prev_arr, brackets, ors, ns); // char right after (
+        progress(re, next, ns_arr, brackets, ors, ns); // char right after (
         // start by trying to match the first char after each |
         for (static_var<int> k = 0; k < ors[brackets[ns]]; k = k + 1) {
-            progress(re, next, ns_arr, prev_arr, brackets, ors, ors[brackets[ns]-1-k]);
+            progress(re, next, ns_arr, brackets, ors, ors[brackets[ns]-1-k]);
         }
         // if () are followed by *, it's possible to skip the () group
         if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
-            progress(re, next, ns_arr, prev_arr, brackets, ors, brackets[ns]+1);
+            progress(re, next, ns_arr, brackets, ors, brackets[ns]+1);
     } 
 }
 
@@ -187,13 +158,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     static_var<char> *next = new static_var<char>[re_len + 1];
     std::unique_ptr<int> next_state_ptr(new int[re_len]);
     int *next_state = next_state_ptr.get();
-    std::unique_ptr<int> prev_state_ptr(new int[re_len]);
-    int *prev_state = prev_state_ptr.get();
     std::unique_ptr<int> brackets_ptr(new int[re_len]);
     int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
     std::unique_ptr<int> ors_ptr(new int[re_len]);
     int *ors = ors_ptr.get();
-    bool re_valid = process_re(re, next_state, prev_state, brackets, ors);
+    bool re_valid = process_re(re, next_state, brackets, ors);
     if (!re_valid) {
         printf("Invalid regex");
         return false;
@@ -201,7 +170,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 
     for (static_var<int> i = 0; i < re_len + 1; i++)
         current[i] = next[i] = 0;
-    progress(re, current, next_state, prev_state, brackets, ors, -1);
+    progress(re, current, next_state, brackets, ors, -1);
     dyn_var<int> to_match = 0;
     while (to_match < str_len) {
         // Don’t do anything for $.
@@ -223,7 +192,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m) {
-                            progress(re, next, next_state, prev_state, brackets, ors, state);
+                            progress(re, next, next_state, brackets, ors, state);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -234,11 +203,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        progress(re, next, next_state, prev_state, brackets, ors, state);
+                        progress(re, next, next_state, brackets, ors, state);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    progress(re, next, next_state, prev_state, brackets, ors, state);
+                    progress(re, next, next_state, brackets, ors, state);
                     state_match = 1;
                 } else if ('^' == m) {
                     // we are inside a [^] class
@@ -259,13 +228,13 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     }
                     if (matches == 1) {
                         state_match = 1;
-                        progress(re, next, next_state, prev_state, brackets, ors, state);
+                        progress(re, next, next_state, brackets, ors, state);
                     }
                 } else if ('-' == m) {
                     static_var<char> left = re[state - 1];
                     static_var<char> right = re[state + 1];
                     if (is_in_range(left, right, str[to_match])) {
-                        progress(re, next, next_state, prev_state, brackets, ors, state);
+                        progress(re, next, next_state, brackets, ors, state);
                         state_match = 1;
                     }
                 } else {
