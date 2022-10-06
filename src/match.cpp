@@ -140,11 +140,11 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *prev_arr
         next[ns] = true;
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         next[ns] = true;
-        if ('*' == re[ns+1]) {
+        if ('*' == re[ns+1] || '?' == re[ns+1]) {
             // we can also skip this char
             progress(re, next, ns_arr, prev_arr, brackets, ors, ns+1);
         }
-    } else if ('*' == re[ns]) {
+    } else if ('*' == re[ns] || '+' == re[ns]) { // can match char p again
         int prev_state = prev_arr[ns];
         progress(re, next, ns_arr, prev_arr, brackets, ors, prev_state-1);
     } else if ('[' == re[ns]) {
