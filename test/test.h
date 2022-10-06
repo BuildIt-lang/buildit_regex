@@ -15,3 +15,5 @@ void test_brackets_and_star();
 void test_negative_brackets();
 void test_grouping();
 void test_or_groups();
+void test_plus();
+void test_question();

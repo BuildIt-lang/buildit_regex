@@ -90,7 +90,7 @@ bool is_digit(char m) {
 }
 
 /**
-Returna if `c` is between the chars `left` and `right`.
+Returns if `c` is between the chars `left` and `right`.
 */
 dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
     if (!(is_normal(left) && is_normal(right))) {
@@ -111,11 +111,11 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
         next[ns] = true;
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         next[ns] = true;
-        if ('*' == re[ns+1]) {
+        if ('*' == re[ns+1] || '?' == re[ns+1]) {
             // we can also skip this char
             progress(re, next, ns_arr, brackets, ors, ns+1);
         }
-    } else if ('*' == re[ns]) {
+    } else if ('*' == re[ns] || '+' == re[ns]) { // can match char p again
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
         progress(re, next, ns_arr, brackets, ors, prev_state-1);
     } else if ('[' == re[ns]) {
@@ -131,7 +131,7 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
                 curr_idx = curr_idx + 1;
             }
         }
-        if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
+        if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1]))
             // allowed to skip []
             progress(re, next, ns_arr, brackets, ors, brackets[ns]+1);
     } else if ('(' == re[ns]) {
@@ -141,7 +141,7 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
             progress(re, next, ns_arr, brackets, ors, ors[brackets[ns]-1-k]);
         }
         // if () are followed by *, it's possible to skip the () group
-        if (brackets[ns] < (int)strlen(re) - 1 && '*' == re[brackets[ns]+1])
+        if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1]))
             progress(re, next, ns_arr, brackets, ors, brackets[ns]+1);
     } 
 }
