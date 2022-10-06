@@ -61,6 +61,7 @@ void test_brackets_and_star() {
     check_correctness("a[bc]*d", "ad");
     check_correctness("a[bc]*d", "abd");
     check_correctness("a[bc]*d", "abcdd");
+    check_correctness("a[bc]*c", "ac");
     check_correctness("3[^db]*4", "3ca8a4");    
     check_correctness("3[^db]*", "3");    
 }
@@ -94,6 +95,11 @@ void test_or_groups() {
     check_correctness("(bc|de|[23]*)", "22323");
     check_correctness("(bc|de|[23]*)", "bc");
     check_correctness("(bc|de|[23]*)", "bcbc");
+    check_correctness("(bc|de|[23]*)", "bc23");
+    check_correctness("a(bc|de|[23]*)", "a");
+    check_correctness("a(bc|de|[23]+)", "a");
+    check_correctness("a(bc|de|[23]+)", "a2332");
+    check_correctness("a(bc|de|[23]?)", "a23");
 }
 
 void test_plus() {
