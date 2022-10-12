@@ -6,8 +6,11 @@ General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_match(candidate, std::regex(pattern));
-    int len = strlen(candidate);
-    auto fptr = (int (*)(const char*, int))builder::compile_function(match_regex, pattern);
+    int len = strlen(candidate); 
+	builder::builder_context context;
+	context.feature_unstructured = true;
+	context.run_rce = true;
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex, pattern);
     int result = fptr((char*)candidate, len);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
