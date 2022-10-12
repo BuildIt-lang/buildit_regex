@@ -142,6 +142,14 @@ void test_combined() {
     check_correctness("(ab?|45)", "a");    
 }
 
+void test_partial() {
+	check_correctness("ab", "aab");
+	check_correctness("ab", "aba");
+	check_correctness("a?", "aaaa");
+	check_correctness("c[ab]+", "abc");
+	check_correctness("c[ab]+", "caaaabcc");
+}
+
 int main() {
     test_simple();
     test_star();
@@ -154,6 +162,7 @@ int main() {
     test_plus();
     test_question();
     test_combined();
+    test_partial();
 }
 
 
