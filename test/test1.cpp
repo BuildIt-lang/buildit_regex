@@ -79,6 +79,14 @@ void test_grouping() {
     check_correctness("(4324)*(abc)", "432443244324abc");
 }
 
+void test_nested_grouping() {
+    check_correctness("a((bcd)*34)*", "abcdbcd34bcd34");
+    check_correctness("a(a(bc|45))*", "aacaca4a5");
+    check_correctness("a(a(bc|45))*", "aabcabca45");
+    check_correctness("(a(bc|45)c)?d", "a45cd");
+    check_correctness("(a(bc|45)c)?d", "d");
+}
+
 void test_or_groups() {
     check_correctness("ab(c|56|de)", "ab56");
     check_correctness("ab(c|56|de)k", "abck");
@@ -141,6 +149,7 @@ int main() {
     test_negative_brackets();
     test_brackets_and_star();
     test_grouping();
+    test_nested_grouping();
     test_or_groups();
     test_plus();
     test_question();

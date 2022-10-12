@@ -4,9 +4,12 @@
 #include "builder/dyn_var.h"
 #include "builder/static_var.h"
 #include "blocks/c_code_generator.h"
+#include <stdlib.h>
+#include <vector>
 
 using builder::static_var;
 using builder::dyn_var;
+using namespace std;
 
 bool is_normal(char m);
 bool is_digit(char m);
