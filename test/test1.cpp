@@ -5,7 +5,7 @@
 General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
-    bool expected = std::regex_match(candidate, std::regex(pattern));
+    bool expected = std::regex_search(candidate, std::regex(pattern));
     int len = strlen(candidate);
 
 	builder::builder_context context;

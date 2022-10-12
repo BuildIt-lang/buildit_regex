@@ -181,10 +181,10 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         current[i] = next[i] = 0;
     progress(re, current, next_state, brackets, helper_states, -1);
     dyn_var<int> to_match = 0;
-    static_var<int> is_match = 0;
+    dyn_var<int> is_match = 0;
     while (to_match < str_len) {
 		if (current[re_len]) { // partial match stop early
-        	is_match = 1;
+	       	is_match = 1;
 			break;
 		}
         // Don’t do anything for $.
@@ -271,7 +271,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         if (count == 0)
             return false;
         to_match = to_match + 1;
-	    progress(re, current, next_state, brackets, helper_states, -1); // partial match match from start again
+        progress(re, current, next_state, brackets, helper_states, -1); // partial match match from start again
     }
     // Now that the string is done,
     // we should have $ in the state
