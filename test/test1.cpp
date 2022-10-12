@@ -135,6 +135,18 @@ void test_question() {
     check_correctness("(abc)*(ab)?", "ab");
 }
 
+void test_repetition() {
+    check_correctness("a{5}", "aaaaa");    
+    check_correctness("a{5}", "aaaaaa");    
+    check_correctness("a{5}", "aaaa");  
+    check_correctness("ab{3}", "abbb");  
+    check_correctness("ab{3}", "ababab");  
+    check_correctness("ab{3}c", "abbbc");  
+    check_correctness("ab{3}c", "abbc");  
+    check_correctness("ab{3}c", "abbbbc");  
+    check_correctness("ab{10}c", "abbbbbbbbbbc");  
+}
+
 void test_combined() {
     check_correctness("(45|ab?)", "ab");    
     check_correctness("(ab?|45)", "ab");    
@@ -153,6 +165,7 @@ int main() {
     test_or_groups();
     test_plus();
     test_question();
+    test_repetition();
     test_combined();
 }
 

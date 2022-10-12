@@ -18,4 +18,5 @@ void test_nested_grouping();
 void test_or_groups();
 void test_plus();
 void test_question();
+void test_repetition();
 void test_combined();
