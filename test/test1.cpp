@@ -154,11 +154,14 @@ void test_combined() {
     check_correctness("(45|ab?)", "ab");    
     check_correctness("(ab?|45)", "ab");    
     check_correctness("(ab?|45)", "ab45");    
-    check_correctness("(ab?|45)", "a");    
+    check_correctness("(ab?|45)", "a");
+    check_correctness("(ab){4}", "abababab");
+    check_correctness("[bde]{2}", "bd");
+    check_correctness("((abcd){1}45{3}){2}", "abcd4555abcd4555"); 
 }
 
 int main() {
-    test_simple();
+/*    test_simple();
     test_star();
     test_brackets();
     test_negative_brackets();
@@ -169,7 +172,9 @@ int main() {
     test_plus();
     test_question();
     test_repetition();
-    test_combined();
+    test_combined();*/
+
+    check_correctness("(ab){4}", "abababab");
 }
 
 
