@@ -161,7 +161,7 @@ void test_combined() {
 }
 
 int main() {
-/*    test_simple();
+    test_simple();
     test_star();
     test_brackets();
     test_negative_brackets();
@@ -172,9 +172,13 @@ int main() {
     test_plus();
     test_question();
     test_repetition();
-    test_combined();*/
+    test_combined();
+    check_correctness("[bde]{2}", "bd");
+    check_correctness("(ab){4}", "ababababab");
+    check_correctness("(ab){4}", "ababab");
 
     check_correctness("(ab){4}", "abababab");
+    check_correctness("(ab){4}", "aaaabbbb");
 }
 
 
