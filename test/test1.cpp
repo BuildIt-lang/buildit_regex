@@ -5,9 +5,8 @@
 General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
-    bool expected = std::regex_search(candidate, std::regex(pattern));
-    int len = strlen(candidate);
-
+  bool expected = std::regex_match(candidate, std::regex(pattern));
+  int len = strlen(candidate); 
 	builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
@@ -139,11 +138,29 @@ void test_question() {
     check_correctness("(abc)*(ab)?", "ab");
 }
 
+void test_repetition() {
+    check_correctness("a{5}", "aaaaa");    
+    check_correctness("a{5}", "aaaaaa");    
+    check_correctness("a{5}", "aaaa");  
+    check_correctness("ab{3}", "abbb");  
+    check_correctness("ab{3}", "ababab");  
+    check_correctness("ab{3}c", "abbbc");  
+    check_correctness("ab{3}c", "abbc");  
+    check_correctness("ab{3}c", "abbbbc");  
+    check_correctness("ab{10}c", "abbbbbbbbbbc");  
+}
+
 void test_combined() {
     check_correctness("(45|ab?)", "ab");    
     check_correctness("(ab?|45)", "ab");    
     check_correctness("(ab?|45)", "ab45");    
-    check_correctness("(ab?|45)", "a");    
+    check_correctness("(ab?|45)", "a");
+    check_correctness("(ab){4}", "abababab");
+    check_correctness("[bde]{2}", "bd");
+    check_correctness("((abcd){1}45{3}){2}", "abcd4555abcd4555"); 
+    check_correctness("(ab){4}", "ababababab");
+    check_correctness("(ab){4}", "ababab");
+    check_correctness("(ab){4}", "aaaabbbb");
 }
 
 void test_partial() {
@@ -165,6 +182,7 @@ int main() {
     test_or_groups();
     test_plus();
     test_question();
+    test_repetition();
     test_combined();
     test_partial();
 }

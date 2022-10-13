@@ -9,6 +9,7 @@
 int main(int argc, char* argv[]) {
     builder::builder_context context;
     context.feature_unstructured = true;
+    context.run_rce = true;
     std::ofstream code_file;
     code_file.open("generated_code/sample1.h");
     auto ast = context.extract_function_ast(match_regex, "match_re", "[abc]+");
