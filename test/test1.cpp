@@ -1,5 +1,6 @@
 #include <iostream>
 #include "test.h"
+#include "../include/util.h"
 
 /**
 General function to compare results.
@@ -161,7 +162,7 @@ void test_combined() {
 }
 
 int main() {
-    test_simple();
+/*    test_simple();
     test_star();
     test_brackets();
     test_negative_brackets();
@@ -179,6 +180,17 @@ int main() {
 
     check_correctness("(ab){4}", "abababab");
     check_correctness("(ab){4}", "aaaabbbb");
+*/
+    std::tuple<std::string, int> res1 = expand_regex(std::string("a{5}"), 3);
+    std::cout << get<0>(res1) << std::endl;
+    std::cout << get<0>(res1).compare(std::string("a{5}")) << std::endl;
+    std::tuple<std::string, int> res2 = expand_regex(std::string("(abc){5}"), 7);
+    std::cout << get<0>(res2) << std::endl;
+    
+    std::tuple<std::string, int> res3 = expand_regex(std::string("((abc){3}4){2}"), 13);
+    std::cout << get<0>(res3) << std::endl;
+    std::tuple<std::string, int> res4 = expand_regex(std::string("((3|4){1}[bc]{5}){2}"), 19);
+    std::cout << get<0>(res4) << std::endl;
 }
 
 
