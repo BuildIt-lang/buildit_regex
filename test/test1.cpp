@@ -1,6 +1,5 @@
 #include <iostream>
 #include "test.h"
-#include "../include/util.h"
 
 /**
 General function to compare results.
@@ -43,7 +42,6 @@ void test_brackets() {
     check_correctness("[amn]", "m");
     check_correctness("[amn]", "mn");
     check_correctness("a[bc]d", "abcd");
-    //check_correctness("a[.]d", "akd");
     check_correctness("a[vd][45]", "ad4");
     check_correctness("2[a-g]", "2d");
     check_correctness("2[a-g]*", "2dcag");
@@ -148,7 +146,15 @@ void test_repetition() {
     check_correctness("ab{3}c", "abbbc");  
     check_correctness("ab{3}c", "abbc");  
     check_correctness("ab{3}c", "abbbbc");  
-    check_correctness("ab{10}c", "abbbbbbbbbbc");  
+    check_correctness("ab{10}c", "abbbbbbbbbbc");
+    check_correctness("4{2,4}", "44");
+    check_correctness("4{2,4}", "444");
+    check_correctness("4{2,4}", "4444");
+    check_correctness("4{2,4}", "44444");
+    check_correctness("4{2,4}", "4");
+    check_correctness("a{1,4}b{2}", "aabb");
+    check_correctness("(a{1,4}b{2}){2}", "aabbaaab");
+    check_correctness("(a{1,4}b{2}){2}", "aabbaaabb");
 }
 
 void test_combined() {
@@ -158,11 +164,14 @@ void test_combined() {
     check_correctness("(ab?|45)", "a");
     check_correctness("(ab){4}", "abababab");
     check_correctness("[bde]{2}", "bd");
-    check_correctness("((abcd){1}45{3}){2}", "abcd4555abcd4555"); 
+    check_correctness("((abcd){1}45{3}){2}", "abcd4555abcd4555");
+    check_correctness("([abc]3){2}", "a3a3");
+    check_correctness("([abc]3){2}", "c3b3");
+    check_correctness("([abc]3){2}", "a3c3c3");
+    check_correctness("([abc]3){2}", "ac");
 }
 
 int main() {
-
     test_simple();
     test_star();
     test_brackets();

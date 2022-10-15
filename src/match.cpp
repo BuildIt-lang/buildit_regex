@@ -47,8 +47,7 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
             helper_states[last_paran] = or_count;
             or_count = 0;
         } else if (c == '{') {
-            counters[idx] = get_counter(re, last_brace - 1) - 1;
-            helper_states[idx] = counters[idx];
+            get_counters(re, last_brace - 1, counters);
             brackets[idx] = last_brace;
             brackets[last_brace] = idx;
             last_brace = -1;
@@ -90,12 +89,12 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
 
         idx = idx - 1;
     }
-    /*printf("----\n");
+/*    printf("----\n");
     for (static_var<int> i = 0; i < re_len; i++) {
         printf("%d, ", (int)counters[i]);
     }
     printf("\n----\n");
-    */
+*/    
     return true;
     
 }
@@ -111,18 +110,60 @@ bool is_digit(char m) {
     return m >= '0' && m <= '9';
 }
 
-int get_counter(const char *re, static_var<int> idx) {
+/**
+Parses the counters for {} repetitions. For {a,b} it places `a`
+at {'s index in counters, and `b` at }'s index. For {b} it
+places 'b' at both {'s and }'s index.
+It also saves the counter at { at the location just after {, and the counter
+at } at the location just before }. These 2 copies are not mutated during
+matching, and are used to reset the original counters at { and } for nested
+repetitions.
+*/
+void get_counters(const char *re, static_var<int> idx, static_var<int> *counters) {
     static_var<int> result = 0;
     static_var<int> factor = 1;
+    int closing_paran = idx + 1;
+    bool comma = false;
     while (re[idx] != '{') {
-        int digit = re[idx] - '0';
-        result = result + digit * factor;
-        factor = factor * 10;
-        idx = idx - 1;
+        if (re[idx] == ',') {
+	        counters[closing_paran] = result;
+            result = 0;
+            factor = 1;
+            idx = idx - 1;
+            comma = true;
+    	} else {
+            int digit = re[idx] - '0';
+            result = result + digit * factor;
+            factor = factor * 10;
+            idx = idx - 1;
+        }
     }
-    return result;
+    // lower bound
+    counters[idx] = result;
+    if (!comma)
+        // lower bound == upper_bound
+        counters[closing_paran] = result;
+
+    // save copies of the counters which won't be changing
+    counters[closing_paran-1] = counters[closing_paran];
+    counters[idx + 1] = counters[idx];
+    // if closing_paran - 1 == idx + 1 this is still okay
+    // because in that case lower == upper bound
 }
 
+/**
+Resets the decremented counters for repetation to their original values.
+This is needed for nested repetition.
+*/
+void reset_counters(const char *re, int curr_idx, static_var<int> *counters) {
+    for (int i = 0; i < curr_idx; i++) {
+        if (re[i] == '{') {
+            counters[i] = counters[i+1];    
+        } else if (re[i] == '}') {
+            counters[i] = counters[i-1];    
+        }
+    }
+}
 
 /**
 Returns if `c` is between the chars `left` and `right`.
@@ -179,13 +220,29 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
         if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1] || ('+' == re[brackets[ns]+1] && helper_states[brackets[ns]+1] == 1)))
             progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, counters);
     } else if ('{' == re[ns]) {
-        if (counters[ns] > 0) {
-            counters[ns] = counters[ns] - 1;
-            int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
-            progress(re, next, ns_arr, brackets, helper_states, prev_state-1, counters);
+        int closed = brackets[ns];
+        // if this is the first time we are seeing this {, reset all counters that come before it
+        if (counters[ns] == counters[ns + 1] && counters[closed] == counters[closed - 1]) {
+            reset_counters(re, (int)ns, counters);    
+        }
+        int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
+        if (counters[ns] == 1) {
+            // we've satisfied the lower bound
+            if (counters[closed] == 1) {
+                // we've reached the upper bound => continue to the next state
+                progress(re, next, ns_arr, brackets, helper_states, brackets[ns], counters);
+            } else {
+                counters[closed] = counters[closed] - 1;
+                // repeat again
+                progress(re, next, ns_arr, brackets, helper_states, prev_state-1, counters);
+                // or skip to the next state 
+                progress(re, next, ns_arr, brackets, helper_states, brackets[ns], counters);
+            }
         } else {
-            counters[ns] = helper_states[ns]; // reset counter (needed for nested repetition)
-            progress(re, next, ns_arr, brackets, helper_states, brackets[ns], counters);
+            // decrement both counters and repeat
+            counters[ns] = counters[ns] - 1;
+            counters[closed] = counters[closed] - 1;
+            progress(re, next, ns_arr, brackets, helper_states, prev_state-1, counters);
         }
     }
 }
