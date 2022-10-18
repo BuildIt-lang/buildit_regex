@@ -6,11 +6,19 @@
 #include <re2/re2.h>
 #include <re2/stringpiece.h>
 #include <src/hs.h>
-
+#include <cstring>
+#include "blocks/c_code_generator.h"
+#include "builder/builder_context.h"
+#include "builder/builder_dynamic.h"
+#include "builder/dyn_var.h"
+#include "builder/static_var.h"
+#include "match.h"
 
 using namespace std;
 using namespace re2;
 using namespace std::chrono;
+
+typedef int (*GeneratedFunction) (const char* word, int len);
 
 /**
 Loads the patterns from a file into a vector.
@@ -98,15 +106,71 @@ void time_hyperscan(vector<string> &patterns, string &text, int n_iters) {
     printf("Hyperscan compile + run time: %f ms\n", dur * 1.0 / n_iters);
 }
 
+void time_full_match(vector<string> &patterns, vector<string> &words, int n_iters) {
+    
+    // pattern compilation
+    vector<GeneratedFunction> buildit_patterns;
+    vector<unique_ptr<RE2>> re2_patterns;
+    for (int i = 0; i < patterns.size(); i++) {
+        // buildit
+        builder::builder_context context;
+        context.feature_unstructured = true;
+        context.run_rce = true;
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex, patterns[i].c_str());
+        buildit_patterns.push_back(fptr);
+        // re2
+        re2_patterns.push_back(make_unique<RE2>(patterns[i]));
+    }
+
+    // re2 timing
+    auto start = high_resolution_clock::now();
+    vector<bool> expected;
+    for (int i = 0; i < n_iters; i++) {
+        for (int j = 0; j < patterns.size(); j++) {
+            expected.push_back(RE2::FullMatch(words[j], *re2_patterns[j].get()));
+        }
+    }
+    auto end = high_resolution_clock::now();
+    float re2_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / n_iters;
+    
+    // buildit timing
+    start = high_resolution_clock::now();
+    vector<bool> result;
+    for (int i = 0; i < n_iters; i++) {
+        for (int j = 0; j < patterns.size(); j++) {
+            result.push_back(buildit_patterns[j](words[j].c_str(), words[j].length()));
+        }
+    }
+    end = high_resolution_clock::now();
+    float buildit_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / n_iters;
+    
+    // check if correct
+    for (int i = 0; i < patterns.size(); i++) {
+        cout << patterns[i] << " " << words[i] << ": re2 = " << expected[i] << " buildit = " << result[i] << endl;    
+    }
+    cout << "TIME re2: " << re2_dur << " ns" << endl;
+    cout << "TIME buildit: " << buildit_dur << " ns" << endl;
+
+}
+
+
 int main() {
     string patterns_file = "./data/twain_patterns.txt";
     string corpus_file = "./data/twain.txt";
     string text = load_corpus(corpus_file);
     vector<string> patterns = load_patterns(patterns_file);
-    int n_iters = 10;
+    int n_iters = 50;
+    vector<string> twain_patterns = {
+        "Twain",
+        "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
+//        "[a-q][ˆu-z]{13}x",
+        "(Tom|Sawyer|Huckleberry|Finn)",
+    };
+    vector<string> words = {"Twain", "HuckleberryFinn", "Huckleberry", "Sawyer", "SaHuckleberry"};
+    time_full_match(twain_patterns, words, n_iters);
     
-    time_re2(patterns, text, n_iters);
+    //time_re2(patterns, text, n_iters);
 
-    time_hyperscan(patterns, text, n_iters);
+    //time_hyperscan(patterns, text, n_iters);
 }
 
