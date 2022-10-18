@@ -5,12 +5,12 @@
 General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
-    bool expected = std::regex_match(candidate, std::regex(pattern));
+    bool expected = std::regex_search(candidate, std::regex(pattern));
     int len = strlen(candidate); 
 	builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex, pattern);
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, pattern);
     int result = fptr((char*)candidate, len);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
@@ -171,6 +171,17 @@ void test_combined() {
     check_correctness("([abc]3){2}", "ac");
 }
 
+void test_partial() {
+	check_correctness("ab", "aab");
+	check_correctness("ab", "aba");
+	check_correctness("a?", "aaaa");
+	check_correctness("c[ab]+", "abc");
+	check_correctness("c[ab]+", "aaba");
+	check_correctness("c[ab]+", "caaaabcc");
+	check_correctness("123", "a123a");
+	check_correctness("(123)*1", "112312311");
+}
+
 int main() {
     test_simple();
     test_star();
@@ -184,6 +195,7 @@ int main() {
     test_question();
     test_repetition();
     test_combined();
+	test_partial();
 }
 
 

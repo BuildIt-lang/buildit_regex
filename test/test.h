@@ -18,3 +18,4 @@ void test_plus();
 void test_question();
 void test_repetition();
 void test_combined();
+void test_partial();
