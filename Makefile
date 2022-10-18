@@ -72,7 +72,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(INCLUDES)
 	$(CXX) $(CFLAGS) $< -o $@ $(INCLUDE_FLAG) -c
 
 test: executables
-	./build/test1
+	./build/test_full
 	rm $(BUILDIT_DIR)/scratch/*
 
 clean:
