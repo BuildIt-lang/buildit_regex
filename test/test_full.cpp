@@ -155,6 +155,15 @@ void test_repetition() {
     check_correctness("a{1,4}b{2}", "aabb");
     check_correctness("(a{1,4}b{2}){2}", "aabbaaab");
     check_correctness("(a{1,4}b{2}){2}", "aabbaaabb");
+    check_correctness("ba{0,2}", "b");
+    check_correctness("ba{0,2}", "ba");
+    check_correctness("ba{0,2}", "baa");
+    check_correctness("ba{0,2}", "baaaa");
+    check_correctness("ba{0}", "b");
+    check_correctness("c(a|b){0,2}", "cba");
+    check_correctness("c(a|b){0,2}", "c");
+    check_correctness("c[a-d]{0,2}", "cad");
+    check_correctness("c[a-d]{0,2}", "c");
 }
 
 void test_combined() {
@@ -169,6 +178,7 @@ void test_combined() {
     check_correctness("([abc]3){2}", "c3b3");
     check_correctness("([abc]3){2}", "a3c3c3");
     check_correctness("([abc]3){2}", "ac");
+    check_correctness("[a-q][^u-z]{3}x", "q444x");
 }
 
 int main() {

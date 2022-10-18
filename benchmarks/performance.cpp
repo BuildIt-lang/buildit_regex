@@ -112,6 +112,7 @@ void time_full_match(vector<string> &patterns, vector<string> &words, int n_iter
     vector<GeneratedFunction> buildit_patterns;
     vector<unique_ptr<RE2>> re2_patterns;
     for (int i = 0; i < patterns.size(); i++) {
+        cout << patterns[i] << endl;
         // buildit
         builder::builder_context context;
         context.feature_unstructured = true;
@@ -163,10 +164,13 @@ int main() {
     vector<string> twain_patterns = {
         "Twain",
         "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
-//        "[a-q][ˆu-z]{13}x",
+        "[a-q][^u-z]{5}x",
         "(Tom|Sawyer|Huckleberry|Finn)",
+        ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
+//        "(Tom.{10,25}river|river.{10,25}Tom)",
+        "[a-zA-Z]+ing",
     };
-    vector<string> words = {"Twain", "HuckleberryFinn", "Huckleberry", "Sawyer", "SaHuckleberry"};
+    vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "SaHuckleberry", "swimming"};
     time_full_match(twain_patterns, words, n_iters);
     
     //time_re2(patterns, text, n_iters);

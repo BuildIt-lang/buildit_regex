@@ -79,7 +79,7 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
                 // if it's a `?` it means we've already had a match, so just skip it
                 next_states[idx] = next_states[idx+1];    
             } else {
-                printf("Invalid character: %c %d\n", next_c, last_bracket);
+                printf("Invalid character: %c\n", next_c);
                 return false;
             }
         } else {
@@ -182,9 +182,15 @@ in `re` that can be matched next and sets their corresponding locations in `next
 */
 void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, static_var<int> *counters) {
     unsigned int ns = (p == -1) ? 0 : (unsigned int)ns_arr[p];
+    
     if (strlen(re) == ns) {
         next[ns] = true;
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
+        if (re[ns+1] == '{' && counters[ns+1] == 0) {
+            // this happens in the case of a{0,5} - in this case we want to skip a
+            progress(re, next, ns_arr, brackets, helper_states, ns, counters);
+            return;
+        }
         next[ns] = true;
         if ('*' == re[ns+1] || '?' == re[ns+1] || ('+' == re[ns+1] && helper_states[ns+1] == 1)) {
             // we can also skip this char
@@ -195,6 +201,11 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
         progress(re, next, ns_arr, brackets, helper_states, prev_state-1, counters);
     } else if ('[' == re[ns]) {
+        if (re[brackets[ns]+1] == '{' && counters[brackets[ns]+1] == 0) {
+            // this happens in the case of [abc]{0,5} - we want to skip the whole [abc] class
+            progress(re, next, ns_arr, brackets, helper_states, brackets[ns], counters);
+            return;
+        }
         static_var<int> curr_idx = ns + 1;
         if (re[ns + 1] == '^') {
             // negative class - mark only '^' as true
@@ -211,6 +222,11 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
             // allowed to skip []
             progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, counters);
     } else if ('(' == re[ns]) {
+        if (re[brackets[ns]+1] == '{' && counters[brackets[ns]+1] == 0) {
+            // this happens in the case of (abc){0,5} - we want to skip the whole (abc) group
+            progress(re, next, ns_arr, brackets, helper_states, brackets[ns], counters);
+            return;
+        }
         progress(re, next, ns_arr, brackets, helper_states, ns, counters); // char right after (
         // start by trying to match the first char after each |
         for (static_var<int> k = 0; k < helper_states[brackets[ns]]; k = k + 1) {
@@ -226,9 +242,17 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
             reset_counters(re, (int)ns, counters);    
         }
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
-        if (counters[ns] == 1) {
+        if (counters[ns] <= 1) {
             // we've satisfied the lower bound
-            if (counters[closed] == 1) {
+            
+            // counters[ns+1] = 0 only when we have c{0,a} or c{0} for some a
+            // in that case we've already skipped c once so we want to repeat until
+            // the counter becomes 0 instead of 1
+            int bound = (counters[ns+1] == 0) ? 0 : 1;
+            // change the counter so that next time we do not skip the char
+            if (counters[ns] == 0) counters[ns] = 1;
+            
+            if (counters[closed] == bound) {
                 // we've reached the upper bound => continue to the next state
                 progress(re, next, ns_arr, brackets, helper_states, brackets[ns], counters);
             } else {
