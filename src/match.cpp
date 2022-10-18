@@ -252,20 +252,26 @@ Tries to match each character in `str` one by one.
 It relies on `progress` to get the possible states we can transition to
 from the current state.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial) {
     // allocate two state vectors
     const int re_len = strlen(re);
     static_var<char> *current = new static_var<char>[re_len + 1];
     static_var<char> *next = new static_var<char>[re_len + 1];
     static_var<int> *counters = new static_var<int>[re_len + 1];
+	static_var<int> *zero_counters = new static_var<int>[re_len + 1];
+
     std::unique_ptr<int> next_state_ptr(new int[re_len]);
     int *next_state = next_state_ptr.get();
+
     std::unique_ptr<int> brackets_ptr(new int[re_len]);
     int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
+
     std::unique_ptr<int> helper_states_ptr(new int[re_len]);
     int *helper_states = helper_states_ptr.get();
+
     for (static_var<int> i = 0; i < re_len + 1; i++)
-        current[i] = next[i] = counters[i] = 0;
+        current[i] = next[i] = counters[i] = zero_counters[i] = 0;
+
     bool re_valid = process_re(re, next_state, brackets, helper_states, counters);
     if (!re_valid) {
         printf("Invalid regex");
@@ -275,6 +281,10 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     progress(re, current, next_state, brackets, helper_states, -1, counters);
     dyn_var<int> to_match = 0;
     while (to_match < str_len) {
+		if (enable_partial && current[re_len]) { // partial match stop early
+			return true;
+		}
+
         // Don’t do anything for $.
         static_var<int> early_break = -1;
         static_var<int> open_bracket = 0;
@@ -359,6 +369,10 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         if (count == 0)
             return false;
         to_match = to_match + 1;
+
+		if (enable_partial) {
+			progress(re, current, next_state, brackets, helper_states, -1, zero_counters); // partial match match from start again
+		}
     }
     // Now that the string is done,
     // we should have $ in the state
@@ -370,4 +384,15 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     }
     return is_match;
 }
+
+dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
+	return match_regex(re, str, str_len, false);
+}
+
+dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
+	return match_regex(re, str, str_len, true);
+}
+
+
+
 
