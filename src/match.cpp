@@ -25,7 +25,7 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
     vector<int> closed_parans; 
     int last_bracket = -1;
     int last_brace = -1;
-    int or_count = 0;
+    vector<int> or_count;
     int idx = re_len - 1;
     while (idx >= 0) {
         char c = re[idx];
@@ -35,6 +35,7 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
         else if (c == '}') last_brace = idx;
         else if (c == ')') {
             closed_parans.push_back(idx);
+            or_count.push_back(0);
         } else if (c == '[') {
             brackets[idx] = last_bracket;
             brackets[last_bracket] = idx;
@@ -44,8 +45,8 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
             closed_parans.pop_back();
             brackets[idx] = last_paran;
             brackets[last_paran] = idx;
-            helper_states[last_paran] = or_count;
-            or_count = 0;
+            helper_states[last_paran] = or_count.back();
+            or_count.pop_back();
         } else if (c == '{') {
             get_counters(re, last_brace - 1, counters);
             brackets[idx] = last_brace;
@@ -61,8 +62,8 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
             next_states[idx] = idx + 1;
         } else if (c == '|') {
             next_states[idx] = idx + 1;
-            helper_states[closed_parans.back() - 1 - or_count] = idx;
-            or_count = or_count + 1;
+            helper_states[closed_parans.back() - 1 - or_count.back()] = idx;
+            or_count.back() = or_count.back() + 1;
         } else if (re[idx+1] == '|') {
             // we are right before |
             // map to the state just after the enclosing () that contain the |'s

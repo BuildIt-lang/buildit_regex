@@ -179,6 +179,10 @@ void test_combined() {
     check_correctness("([abc]3){2}", "a3c3c3");
     check_correctness("([abc]3){2}", "ac");
     check_correctness("[a-q][^u-z]{3}x", "q444x");
+    check_correctness("(ab|(cd|ef){2}|4)", "cdcd");
+    check_correctness("(ab|(cd|ef){2}|4)", "cdef");
+    check_correctness("(ab|(cd|ef){2}|4)", "ab");
+    check_correctness("(ab|(cd|ef){2}|4)", "4");
 }
 
 int main() {
