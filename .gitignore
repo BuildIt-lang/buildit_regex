@@ -4,3 +4,4 @@ benchmarks/data/twain.txt
 benchmarks/build
 benchmarks/hyperscan
 benchmarks/re2
+benchmarks/build

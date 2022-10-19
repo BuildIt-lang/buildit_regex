@@ -120,7 +120,7 @@ void time_full_match(vector<string> &patterns, vector<string> &words, int n_iter
         auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, patterns[i].c_str());
         buildit_patterns.push_back(fptr);
         // re2
-        re2_patterns.push_back(make_unique<RE2>(patterns[i]));
+        re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
     }
 
     // re2 timing
