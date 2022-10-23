@@ -13,6 +13,7 @@
 #include "builder/dyn_var.h"
 #include "builder/static_var.h"
 #include "match.h"
+#include "util.h"
 
 using namespace std;
 using namespace re2;
@@ -106,7 +107,7 @@ void time_hyperscan(vector<string> &patterns, string &text, int n_iters) {
     printf("Hyperscan compile + run time: %f ms\n", dur * 1.0 / n_iters);
 }
 
-void time_full_match(vector<string> &patterns, vector<string> &words, int n_iters) {
+void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
     
     // pattern compilation
     vector<GeneratedFunction> buildit_patterns;
@@ -117,7 +118,57 @@ void time_full_match(vector<string> &patterns, vector<string> &words, int n_iter
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, patterns[i].c_str());
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, patterns[i].c_str());
+        buildit_patterns.push_back(fptr);
+        // re2
+        re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
+    }
+
+    // re2 timing
+    auto start = high_resolution_clock::now();
+    vector<bool> expected;
+    for (int i = 0; i < n_iters; i++) {
+        for (int j = 0; j < patterns.size(); j++) {
+            expected.push_back(RE2::PartialMatch(text, *re2_patterns[j].get()));
+        }
+    }
+    auto end = high_resolution_clock::now();
+    float re2_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / n_iters;
+    
+    // buildit timing
+    start = high_resolution_clock::now();
+    vector<bool> result;
+    for (int i = 0; i < n_iters; i++) {
+        for (int j = 0; j < patterns.size(); j++) {
+            result.push_back(buildit_patterns[j](text.c_str(), text.length()));
+        }
+    }
+    end = high_resolution_clock::now();
+    float buildit_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / n_iters;
+    
+    // check if correct
+    for (int i = 0; i < patterns.size(); i++) {
+        cout << patterns[i] << " " << ": re2 = " << expected[i] << " buildit = " << result[i] << endl;    
+    }
+    cout << "TIME re2: " << re2_dur << " ns" << endl;
+    cout << "TIME buildit: " << buildit_dur << " ns" << endl;
+
+}
+
+
+void time_full_match(vector<string> &patterns, vector<string> &words, int n_iters) {
+    
+    // pattern compilation
+    vector<GeneratedFunction> buildit_patterns;
+    vector<unique_ptr<RE2>> re2_patterns;
+    for (int i = 0; i < patterns.size(); i++) {
+        cout << patterns[i] << endl;
+        // buildit
+        string processed_re = expand_regex(patterns[i]);
+        builder::builder_context context;
+        context.feature_unstructured = true;
+        context.run_rce = true;
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str());
         buildit_patterns.push_back(fptr);
         // re2
         re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
@@ -160,19 +211,21 @@ int main() {
     string corpus_file = "./data/twain.txt";
     string text = load_corpus(corpus_file);
     vector<string> patterns = load_patterns(patterns_file);
-    int n_iters = 50;
+    int n_iters = 1000;
     vector<string> twain_patterns = {
         "Twain",
         "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
         "[a-q][^u-z]{5}x",
         "(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-//        "(Tom.{10,25}river|river.{10,25}Tom)",
+        ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
+        "(Tom.{10,15}river|river.{10,15}Tom)",
         "[a-zA-Z]+ing",
     };
-    vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "SaHuckleberry", "swimming"};
+    vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};
     time_full_match(twain_patterns, words, n_iters);
     
+//    time_partial_match(twain_patterns, text, n_iters);
     //time_re2(patterns, text, n_iters);
 
     //time_hyperscan(patterns, text, n_iters);

@@ -1,5 +1,6 @@
 #include <iostream>
 #include "test.h"
+#include "../include/util.h"
 
 /**
 General function to compare results.
@@ -7,10 +8,12 @@ General function to compare results.
 void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_search(candidate, std::regex(pattern));
     int len = strlen(candidate); 
-	builder::builder_context context;
+	string processed_re = expand_regex(pattern);
+//    cout << "processed re: " << processed_re << endl;
+    builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, pattern);
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
     int result = fptr((char*)candidate, len);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
@@ -180,9 +183,11 @@ void test_partial() {
 	check_correctness("c[ab]+", "caaaabcc");
 	check_correctness("123", "a123a");
 	check_correctness("(123)*1", "112312311");
+    check_correctness("Twain", "MarkTwainTomSawyer");
 }
 
 int main() {
+    
     test_simple();
     test_star();
     test_brackets();
@@ -196,6 +201,8 @@ int main() {
     test_repetition();
     test_combined();
 	test_partial();
+	
+//    check_correctness("123", "a123a");
 }
 
 
