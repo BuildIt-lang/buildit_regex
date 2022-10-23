@@ -279,6 +279,10 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
             }
         }
         // All the states have been checked
+		if (enable_partial) {
+            // if partial add the first state as well
+			progress(re, next, next_state, brackets, helper_states, -1); // partial match match from start again
+		}
         // Now swap the states and clear next
         static_var<int> count = 0;
         for (static_var<int> i = 0; i < re_len + 1; i++) {
@@ -291,9 +295,6 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
             return false;
         to_match = to_match + 1;
 
-		if (enable_partial) {
-			progress(re, current, next_state, brackets, helper_states, -1); // partial match match from start again
-		}
     }
     // Now that the string is done,
     // we should have $ in the state

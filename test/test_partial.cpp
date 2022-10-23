@@ -186,8 +186,7 @@ void test_partial() {
     check_correctness("Twain", "MarkTwainTomSawyer");
 }
 
-int main() {
-    
+int main() {    
     test_simple();
     test_star();
     test_brackets();
@@ -201,8 +200,6 @@ int main() {
     test_repetition();
     test_combined();
 	test_partial();
-	
-//    check_correctness("123", "a123a");
 }
 
 
