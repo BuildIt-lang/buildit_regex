@@ -14,17 +14,18 @@ it stores the index of the next char / state in `re` that should be processed
 `brackets` is an array of the same length as `re` that holds the index
 of a closing ( or [ for each opening one, and vice versa. 
 
-`helper_states` is an array of the same length as `re` which holds the number
-of `|` chars inside each pair of () (stored at the `)` location), with
-the exact `|` indices stored at the indices preceding `)'. It also stores
-0 for '+' initially, which is changed to 1 when '+' sends a state back for
+`helper_states` is an array of the same length as `re` which holds the indices
+of `|` chars inside each pair of (). The `(` location stores the index of the
+first `|`, the location of the first `|` stores the index of the second `|`, and
+so on, the last `|` has the index of `)`
+It also stores 0 for '+' initially, which is changed to 1 when '+' sends a state back for
 the first time.
 */
 bool process_re(const char *re, int *next_states, int *brackets, int *helper_states) {
     int re_len = (int)strlen(re);
     vector<int> closed_parans; 
     int last_bracket = -1;
-    vector<int> or_count;
+    vector<int> or_indices;
     int idx = re_len - 1;
     while (idx >= 0) {
         char c = re[idx];
@@ -33,7 +34,7 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
         if (c == ']') last_bracket = idx;
         else if (c == ')') {
             closed_parans.push_back(idx);
-            or_count.push_back(0);
+            or_indices.push_back(idx);
         } else if (c == '[') {
             brackets[idx] = last_bracket;
             brackets[last_bracket] = idx;
@@ -43,8 +44,8 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
             closed_parans.pop_back();
             brackets[idx] = last_paran;
             brackets[last_paran] = idx;
-            helper_states[last_paran] = or_count.back();
-            or_count.pop_back();
+            helper_states[idx] = or_indices.back();
+            or_indices.pop_back();
         }
 
         if (c == '+') helper_states[idx] = 0;
@@ -55,8 +56,9 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
             next_states[idx] = idx + 1;
         } else if (c == '|') {
             next_states[idx] = idx + 1;
-            helper_states[closed_parans.back() - 1 - or_count.back()] = idx;
-            or_count.back() = or_count.back() + 1;
+            helper_states[idx] = or_indices.back();
+            or_indices.pop_back();
+            or_indices.push_back(idx);
         } else if (re[idx+1] == '|') {
             // we are right before |
             // map to the state just after the enclosing () that contain the |'s
@@ -92,12 +94,11 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
     }
 /*    printf("----\n");
     for (static_var<int> i = 0; i < re_len; i++) {
-        printf("%d, ", (int)next_states[i]);
+        printf("%d, ", (int)helper_states[i]);
     }
     printf("\n----\n");
-  */  
-    return true;
-    
+    */
+    return true;  
 }
 
 /**
@@ -161,9 +162,11 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
     } else if ('(' == re[ns]) {
         progress(re, next, ns_arr, brackets, helper_states, ns); // char right after (
         // start by trying to match the first char after each |
-        for (static_var<int> k = 0; k < helper_states[brackets[ns]]; k = k + 1) {
-            progress(re, next, ns_arr, brackets, helper_states, helper_states[brackets[ns]-1-k]);
-        }
+        int or_index = helper_states[ns];
+        while (or_index != brackets[ns]) {
+            progress(re, next, ns_arr, brackets, helper_states, or_index);
+            or_index = helper_states[or_index];
+        } 
         // if () are followed by *, it's possible to skip the () group
         if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1] || ('+' == re[brackets[ns]+1] && helper_states[brackets[ns]+1] == 1)))
             progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1);

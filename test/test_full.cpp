@@ -220,7 +220,7 @@ int main() {
     test_question();
     test_repetition();
     test_combined();
-    
+   
     //test_expand_regex();
 }
 
