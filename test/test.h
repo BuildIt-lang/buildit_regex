@@ -19,3 +19,4 @@ void test_question();
 void test_repetition();
 void test_combined();
 void test_partial();
+void test_expand_regex();

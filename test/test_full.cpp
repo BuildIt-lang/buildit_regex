@@ -1,5 +1,6 @@
 #include <iostream>
 #include "test.h"
+#include "../include/util.h"
 
 /**
 General function to compare results.
@@ -185,6 +186,23 @@ void test_combined() {
     check_correctness("(ab|(cd|ef){2}|4)", "4");
 }
 
+void test_expand_regex() {
+    string res = expand_regex(std::string("abc"));
+    std::cout << res << " " << res.compare(std::string("abc")) << std::endl;
+    string res1 = expand_regex(std::string("a{5}"));
+    std::cout << res1 << " " << res1.compare(std::string("aaaaa")) << std::endl;
+    string res2 = expand_regex(std::string("(abc){5}"));
+    std::cout << res2 << " " << res2.compare(std::string("(abc)(abc)(abc)(abc)(abc)")) << std::endl;
+    string res3 = expand_regex(std::string("((abc){3}4){2}"));
+    std::cout << res3 << " " << res3.compare(std::string("((abc)(abc)(abc)4)((abc)(abc)(abc)4)")) << std::endl;
+    std::string res4 = expand_regex(std::string("((3|4){1}[bc]{5}){2}"));
+    std::cout << res4 << " " << res4.compare("((3|4)[bc][bc][bc][bc][bc])((3|4)[bc][bc][bc][bc][bc])") << std::endl;
+    string res5 = expand_regex(std::string("a(bc)*"));
+    std::cout << res5 << " " << res5.compare(std::string("a(bc)*")) << std::endl;
+    string res6 = expand_regex(std::string("a(bc){2,5}"));
+    std::cout << res6 << " " << res6.compare(std::string("a(bc)(bc)(bc)?(bc)?(bc)?")) << std::endl;
+}
+
 int main() {
     test_simple();
     test_star();
@@ -198,6 +216,8 @@ int main() {
     test_question();
     test_repetition();
     test_combined();
+    
+    //test_expand_regex();
 }
 
 
