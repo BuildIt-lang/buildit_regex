@@ -6,19 +6,20 @@
 General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
-    bool expected = std::regex_match(candidate, std::regex(pattern));
-    int len = strlen(candidate); 
+    bool expected = regex_match(candidate, regex(pattern));
+    int len = strlen(candidate);
+    string processed_re = expand_regex(pattern);
 	builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, pattern);
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, processed_re.c_str());
     int result = fptr((char*)candidate, len);
-    std::cout << "Matching " << pattern << " with " << candidate << " -> ";
+    cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {
-        std::cout << "ok. Result is: " << result << std::endl;
+        cout << "ok. Result is: " << result << endl;
     } else {
-        std::cout << "failed\nExpected: " << expected << ", got: " << result << std::endl;
+        cout << "failed\nExpected: " << expected << ", got: " << result << endl;
     }
 }
 
@@ -187,23 +188,26 @@ void test_combined() {
 }
 
 void test_expand_regex() {
-    string res = expand_regex(std::string("abc"));
-    std::cout << res << " " << res.compare(std::string("abc")) << std::endl;
-    string res1 = expand_regex(std::string("a{5}"));
-    std::cout << res1 << " " << res1.compare(std::string("aaaaa")) << std::endl;
-    string res2 = expand_regex(std::string("(abc){5}"));
-    std::cout << res2 << " " << res2.compare(std::string("(abc)(abc)(abc)(abc)(abc)")) << std::endl;
-    string res3 = expand_regex(std::string("((abc){3}4){2}"));
-    std::cout << res3 << " " << res3.compare(std::string("((abc)(abc)(abc)4)((abc)(abc)(abc)4)")) << std::endl;
-    std::string res4 = expand_regex(std::string("((3|4){1}[bc]{5}){2}"));
-    std::cout << res4 << " " << res4.compare("((3|4)[bc][bc][bc][bc][bc])((3|4)[bc][bc][bc][bc][bc])") << std::endl;
-    string res5 = expand_regex(std::string("a(bc)*"));
-    std::cout << res5 << " " << res5.compare(std::string("a(bc)*")) << std::endl;
-    string res6 = expand_regex(std::string("a(bc){2,5}"));
-    std::cout << res6 << " " << res6.compare(std::string("a(bc)(bc)(bc)?(bc)?(bc)?")) << std::endl;
+    string res = expand_regex(string("abc"));
+    cout << res << " " << res.compare(string("abc")) << endl;
+    string res1 = expand_regex(string("a{5}"));
+    cout << res1 << " " << res1.compare(string("aaaaa")) << endl;
+    string res2 = expand_regex(string("(abc){5}"));
+    cout << res2 << " " << res2.compare(string("(abc)(abc)(abc)(abc)(abc)")) << endl;
+    string res3 = expand_regex(string("((abc){3}4){2}"));
+    cout << res3 << " " << res3.compare(string("((abc)(abc)(abc)4)((abc)(abc)(abc)4)")) << endl;
+    string res4 = expand_regex(string("((3|4){1}[bc]{5}){2}"));
+    cout << res4 << " " << res4.compare("((3|4)[bc][bc][bc][bc][bc])((3|4)[bc][bc][bc][bc][bc])") << endl;
+    string res5 = expand_regex(string("a(bc)*"));
+    cout << res5 << " " << res5.compare(string("a(bc)*")) << endl;
+    string res6 = expand_regex(string("a(bc){2,5}"));
+    cout << res6 << " " << res6.compare(string("a(bc)(bc)(bc)?(bc)?(bc)?")) << endl;
+    string res7 = expand_regex(string("(ab|(cd|ef){2}|4)"));
+    cout << res7 << " " << res7.compare("(ab|(cd|ef)(cd|ef)|4)") << endl;
 }
 
 int main() {
+    
     test_simple();
     test_star();
     test_brackets();

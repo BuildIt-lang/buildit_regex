@@ -67,7 +67,14 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
         } else if (re[idx+1] == '|') {
             // we are right before |
             // map to the state just after the enclosing () that contain the |'s
-            next_states[idx] = next_states[closed_parans.back()];
+            if (re[idx] == ')') {
+                int last = closed_parans.back();
+                closed_parans.pop_back();
+                next_states[idx] = next_states[closed_parans.back()];
+                closed_parans.push_back(last);
+            } else {
+                next_states[idx] = next_states[closed_parans.back()];
+            }
         } else if ((c != ']' && last_bracket != -1) || (c != '}' && last_brace !=-1)) {
             // we are inside brackets
             // all chars map to the same state as the closing bracket
@@ -92,10 +99,10 @@ bool process_re(const char *re, int *next_states, int *brackets, int *helper_sta
     }
 /*    printf("----\n");
     for (static_var<int> i = 0; i < re_len; i++) {
-        printf("%d, ", (int)counters[i]);
+        printf("%d, ", (int)next_states[i]);
     }
     printf("\n----\n");
-*/    
+  */  
     return true;
     
 }
