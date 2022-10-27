@@ -212,10 +212,11 @@ int main() {
     string patterns_file = "./data/twain_patterns.txt";
     string corpus_file = "./data/twain.txt";
     string text = load_corpus(corpus_file);
-	text = "Twain HuckleberryFinn qabscabx Sawyer Tom swam in the river swimming Huckleberry";
+//	text = "Twain HuckleberryFinn qabscabx Sawyer Tom swam in the river swimming Huckleberry";
+    std::cout << "Twain Text Length: " << text.length() << std::endl;
 
     vector<string> patterns = load_patterns(patterns_file);
-    int n_iters = 1;
+    int n_iters = 1000;
     vector<string> twain_patterns = {
         "Twain",
         "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
@@ -228,10 +229,10 @@ int main() {
     };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};
 	//time_full_match(twain_patterns, words, n_iters);
-    
-    time_partial_match(twain_patterns, text, n_iters);
-    //time_re2(patterns, text, n_iters);
 
+    time_partial_match(twain_patterns, text, n_iters);
+
+    //time_re2(patterns, text, n_iters);
     //time_hyperscan(patterns, text, n_iters);
 }
 
