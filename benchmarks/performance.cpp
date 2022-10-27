@@ -115,11 +115,13 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
     for (int i = 0; i < patterns.size(); i++) {
         cout << patterns[i] << endl;
         // buildit
+		string processed_re = expand_regex(patterns[i]);
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, patterns[i].c_str());
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
         buildit_patterns.push_back(fptr);
+
         // re2
         re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
     }
@@ -134,7 +136,7 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
     }
     auto end = high_resolution_clock::now();
     float re2_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / n_iters;
-    
+
     // buildit timing
     start = high_resolution_clock::now();
     vector<bool> result;
@@ -210,22 +212,24 @@ int main() {
     string patterns_file = "./data/twain_patterns.txt";
     string corpus_file = "./data/twain.txt";
     string text = load_corpus(corpus_file);
+	text = "Twain HuckleberryFinn qabscabx Sawyer Tom swam in the river swimming Huckleberry";
+
     vector<string> patterns = load_patterns(patterns_file);
-    int n_iters = 1000;
+    int n_iters = 1;
     vector<string> twain_patterns = {
         "Twain",
         "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
-        "[a-q][^u-z]{5}x",
+      //  "[a-q][^u-z]{5}x",
         "(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-        "(Tom.{10,15}river|river.{10,15}Tom)",
+   //     "(Tom.{10,15}river|river.{10,15}Tom)",
         "[a-zA-Z]+ing",
     };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};
-    time_full_match(twain_patterns, words, n_iters);
+	//time_full_match(twain_patterns, words, n_iters);
     
-//    time_partial_match(twain_patterns, text, n_iters);
+    time_partial_match(twain_patterns, text, n_iters);
     //time_re2(patterns, text, n_iters);
 
     //time_hyperscan(patterns, text, n_iters);

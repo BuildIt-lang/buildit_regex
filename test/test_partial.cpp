@@ -184,6 +184,8 @@ void test_partial() {
 	check_correctness("123", "a123a");
 	check_correctness("(123)*1", "112312311");
     check_correctness("Twain", "MarkTwainTomSawyer");
+//	check_correctness("[a-q][^u-z]{5}x", "qax");
+//	check_correctness("[a-q][^u-z]{5}x", "qabcdex");
 }
 
 int main() {    
