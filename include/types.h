@@ -18,6 +18,12 @@ const char set_t_name[] = "std::set";
 template <typename T>
 using set_t = builder::name<set_t_name, T>;
 
+const char map_t_name[] = "std::map";
+
+template <typename K, typename V>
+using map_t = builder::name<map_t_name, K, V>;
+
+
 namespace builder {
 // Use specialization instead of inheritance
 template <typename T>
@@ -64,11 +70,26 @@ class dyn_var<set_t<T>*>: public dyn_var_impl<set_t<T>*> {
         }
 };
 
+template <typename K, typename V>
+class dyn_var<map_t<K,V>>: public dyn_var_impl<map_t<K,V>> {
+    public:
+        typedef dyn_var_impl<map_t<K,V>> super;
+        using super::super;
+        using super::operator=;
+        builder operator= (const dyn_var<map_t<K,V>> &t) {
+            return (*this) = (builder)t;
+        }   
+        dyn_var(const dyn_var& t): dyn_var_impl<map_t<K,V>>((builder)t){}
+        dyn_var(): dyn_var_impl<map_t<K,V>>() {}
+        
+};
+
 }
 
 dyn_var<set_t<int>(set_t<int>, set_t<int>)> set_t_union(builder::as_global("regex_runtime::get_union"));
 
 dyn_var<void(set_t<int>, set_t<int>)> set_t_update(builder::as_global("regex_runtime::update_set"));
 
+dyn_var<void(map_t<int, set_t<int>>, int, set_t<int>)> map_t_update(builder::as_global("regex_runtime::update_map"));
 
 #endif

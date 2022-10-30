@@ -2,6 +2,7 @@
 #define RUNTIME_H
 
 #include <set>
+#include <map>
 #include <algorithm>
 
 
@@ -23,6 +24,14 @@ namespace regex_runtime {
     template <typename T>
     void update_set(std::set<T> s1, std::set<T> s2) {
         s1.insert(s2.begin(), s2.end());    
+    }
+
+    /**
+    Insert a key value pair in the map.
+    */
+    template <typename K, typename V>
+    void update_map(std::map<K,V> m, K key, V val) {
+        m.insert({key, val});
     }
 }
 

@@ -13,7 +13,7 @@ void check_correctness(const char* pattern, const char* candidate) {
 //    cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.dynamic_use_cxx = true;
-    context.dynamic_header_includes = "#include <set>\n#include \"../../include/runtime.h\"";
+    context.dynamic_header_includes = "#include <set>\n#include <map>\n#include \"../../include/runtime.h\"";
     context.feature_unstructured = true;
 	context.run_rce = true;
     std::set<int> all_matches;
@@ -188,12 +188,12 @@ void test_partial() {
 	check_correctness("ab", "aab");
 	check_correctness("ab", "aba");
 	check_correctness("a?", "aaaa");
-	check_correctness("c[ab]+", "abc");
-	check_correctness("c[ab]+", "aaba");
-	check_correctness("c[ab]+", "caaaabcc");
+	//check_correctness("c[ab]+", "abc");
+	//check_correctness("c[ab]+", "aaba");
+	//check_correctness("c[ab]+", "caaaabcc");
 	check_correctness("123", "a123a");
 	check_correctness("(123)*1", "112312311");
-    check_correctness("Twain", "MarkTwainTomSawyer");
+    //check_correctness("Twain", "MarkTwainTomSawyer");
 }
 
 int main() {    
@@ -212,10 +212,11 @@ int main() {
 	test_partial();
   */
 
-    check_correctness("3[^db]4", "3c4");    
+//    check_correctness("3[^db]4", "3c4");    
   //  check_correctness("2[a-g]*", "2dcag");
    // check_correctness("a[bc]d", "abd");
-//    check_correctness("abc", "abc");
+//   check_correctness("abc", "abc");
+   test_partial();
 }
 
 
