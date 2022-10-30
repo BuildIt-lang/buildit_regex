@@ -22,7 +22,7 @@ static void test_set(int size) {
     dyn_var<set_t<int>> s2 = {2, 4};
     //s2.insert(3);
     //s2.insert(5);
-    //dyn_var<set_t<int>> s3 = set_t_union(s1, s2);
+    dyn_var<set_t<int>> s3 = set_t_union(s1, s2);
 }
 
 int main(int argc, char* argv[]) {

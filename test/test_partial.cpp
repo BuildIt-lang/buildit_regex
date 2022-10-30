@@ -1,6 +1,7 @@
 #include <iostream>
 #include "test.h"
 #include "../include/util.h"
+#include <set>
 
 /**
 General function to compare results.
@@ -12,10 +13,12 @@ void check_correctness(const char* pattern, const char* candidate) {
 //    cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.dynamic_use_cxx = true;
-    context.dynamic_header_includes = "#include <set>";
+    context.dynamic_header_includes = "#include <set>\n#include \"../../include/runtime.h\"";
     context.feature_unstructured = true;
-//	context.run_rce = true;
+	context.run_rce = true;
+    std::set<int> all_matches;
     auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
+    //auto fptr = (int (*)(const char*, int, std::set<int>*))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str());
     int result = fptr((char*)candidate, len);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
@@ -24,6 +27,11 @@ void check_correctness(const char* pattern, const char* candidate) {
     } else {
         std::cout << "failed\nExpected: " << expected << ", got: " << result << std::endl;
     }
+    std::cout << "All matches: ";
+    for (int i: all_matches) {
+        cout << i << " ";    
+    }
+    std::cout << std::endl;
 }
 
 void test_simple() {
@@ -189,7 +197,7 @@ void test_partial() {
 }
 
 int main() {    
-    test_simple();
+  /*  test_simple();
     test_star();
     test_brackets();
     test_negative_brackets();
@@ -202,8 +210,11 @@ int main() {
     test_repetition();
     test_combined();
 	test_partial();
+  */
 
-
+    check_correctness("3[^db]4", "3c4");    
+  //  check_correctness("2[a-g]*", "2dcag");
+   // check_correctness("a[bc]d", "abd");
 //    check_correctness("abc", "abc");
 }
 

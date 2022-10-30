@@ -66,8 +66,9 @@ class dyn_var<set_t<T>*>: public dyn_var_impl<set_t<T>*> {
 
 }
 
+dyn_var<set_t<int>(set_t<int>, set_t<int>)> set_t_union(builder::as_global("regex_runtime::get_union"));
 
-//dyn_var<set_t<int>(set_t<int>, set_t<int>)> set_t_union("regex_runtime::get_union");
+dyn_var<void(set_t<int>, set_t<int>)> set_t_update(builder::as_global("regex_runtime::update_set"));
 
 
 #endif

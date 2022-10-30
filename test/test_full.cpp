@@ -10,6 +10,8 @@ void check_correctness(const char* pattern, const char* candidate) {
     int len = strlen(candidate);
     string processed_re = expand_regex(pattern);
 	builder::builder_context context;
+	context.dynamic_use_cxx = true;
+    context.dynamic_header_includes = "#include <set>\n#include \"../../include/runtime.h\"";
 	context.feature_unstructured = true;
 	context.run_rce = true;
     auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, processed_re.c_str());
