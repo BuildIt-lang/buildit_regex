@@ -73,7 +73,8 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(INCLUDES)
 
 test: executables
 	./build/test_full
-	rm $(BUILDIT_DIR)/scratch/*
+#	rm $(BUILDIT_DIR)/scratch/*
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm $(BUILDIT_DIR)/scratch/*

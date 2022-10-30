@@ -128,7 +128,7 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
 Given that the character `re[p]` has just been matched, finds all the characters
 in `re` that can be matched next and sets their corresponding locations in `next` to `true`.
 */
-void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, dyn_var<vector_t<int>> **next_v, dyn_var<vector_t<int>>* start_pos) {
+void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p) {
     unsigned int ns = (p == -1) ? 0 : (unsigned int)ns_arr[p];
     
     if (strlen(re) == ns) {
@@ -137,12 +137,12 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
         next[ns] = true;
         if ('*' == re[ns+1] || '?' == re[ns+1] || ('+' == re[ns+1] && helper_states[ns+1] == 1)) {
             // we can also skip this char
-            progress(re, next, ns_arr, brackets, helper_states, ns+1, next_v, start_pos);
+            progress(re, next, ns_arr, brackets, helper_states, ns+1);
         }
     } else if ('*' == re[ns] || '+' == re[ns]) { // can match char p again
         helper_states[ns] = true;
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
-        progress(re, next, ns_arr, brackets, helper_states, prev_state-1, next_v, start_pos);
+        progress(re, next, ns_arr, brackets, helper_states, prev_state-1);
     } else if ('[' == re[ns]) {
         static_var<int> curr_idx = ns + 1;
         if (re[ns + 1] == '^') {
@@ -158,18 +158,18 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
         }
         if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1] || ('+' == re[brackets[ns]+1] && helper_states[brackets[ns]+1] == 1)))
             // allowed to skip []
-            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, next_v, start_pos);
+            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1);
     } else if ('(' == re[ns]) {
-        progress(re, next, ns_arr, brackets, helper_states, ns, next_v, start_pos); // char right after (
+        progress(re, next, ns_arr, brackets, helper_states, ns); // char right after (
         // start by trying to match the first char after each |
         int or_index = helper_states[ns];
         while (or_index != brackets[ns]) {
-            progress(re, next, ns_arr, brackets, helper_states, or_index, next_v, start_pos);
+            progress(re, next, ns_arr, brackets, helper_states, or_index);
             or_index = helper_states[or_index];
         } 
         // if () are followed by *, it's possible to skip the () group
         if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1] || ('+' == re[brackets[ns]+1] && helper_states[brackets[ns]+1] == 1)))
-            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, next_v, start_pos);
+            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1);
     }
 }
 
@@ -184,8 +184,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     const int re_len = strlen(re);
     static_var<char> *current = new static_var<char>[re_len + 1];
     static_var<char> *next = new static_var<char>[re_len + 1];
-    dyn_var<vector_t<int>>** current_v = new dyn_var<vector_t<int>>*[re_len + 1];
-    dyn_var<vector_t<int>>** next_v = new dyn_var<vector_t<int>>*[re_len + 1];
+    
+    dyn_var<set_t<int>[]> current_start;
+    resize(current_start, (int)re_len + 1);
+    dyn_var<set_t<int>[]> next_start;
+    resize(next_start, (int)re_len + 1);
     
     std::unique_ptr<int> next_state_ptr(new int[re_len]);
     int *next_state = next_state_ptr.get();
@@ -196,12 +199,8 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     std::unique_ptr<int> helper_states_ptr(new int[re_len]);
     int *helper_states = helper_states_ptr.get();
 
-    for (dyn_var<int> i = 0; i < re_len + 1; i = i + 1) {
+    for (static_var<int> i = 0; i < re_len + 1; i = i + 1) {
         current[i] = next[i]  = 0;
-//        next_v[i] = new_vector_t();
-  //      current_v[i] = new_vector_t();
-        next_v[i] = new dyn_var<vector_t<int>>;
-        current_v[i] = new dyn_var<vector_t<int>>;
     }
 
     bool re_valid = process_re(re, next_state, brackets, helper_states);
@@ -209,10 +208,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         printf("Invalid regex");
         return false;
     }
-//    dyn_var<vector_t<int>> matching_substrings;
-//    current_v[0]->push(0);
-    //dyn_var<vector_t<int>> emp = {};
-    progress(re, current, next_state, brackets, helper_states, -1, current_v, current_v[0]);
+    progress(re, current, next_state, brackets, helper_states, -1);
     dyn_var<char> to_match = 0;
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
@@ -239,7 +235,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m) {
-                            progress(re, next, next_state, brackets, helper_states, state, next_v, current_v[state]);
+                            progress(re, next, next_state, brackets, helper_states, state);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -250,11 +246,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        progress(re, next, next_state, brackets, helper_states, state, next_v, current_v[state]);
+                        progress(re, next, next_state, brackets, helper_states, state);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    progress(re, next, next_state, brackets, helper_states, state, next_v, current_v[state]);
+                    progress(re, next, next_state, brackets, helper_states, state);
                     state_match = 1;
                 } else if ('^' == m) {
                     // we are inside a [^] class
@@ -275,13 +271,13 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     }
                     if (matches == 1) {
                         state_match = 1;
-                        progress(re, next, next_state, brackets, helper_states, state, next_v, current_v[state]);
+                        progress(re, next, next_state, brackets, helper_states, state);
                     }
                 } else if ('-' == m) {
                     static_var<char> left = re[state - 1];
                     static_var<char> right = re[state + 1];
                     if (is_in_range(left, right, str[to_match])) {
-                        progress(re, next, next_state, brackets, helper_states, state, next_v, current_v[state]);
+                        progress(re, next, next_state, brackets, helper_states, state);
                         state_match = 1;
                     }
                 } else {
@@ -295,9 +291,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         // All the states have been checked
 		if (enable_partial) {
             // if partial add the first state as well
-//            next_v[0].push(to_match+1);
-      //      dyn_var<vector_t<int>> emp = {};
-			progress(re, next, next_state, brackets, helper_states, -1, next_v, next_v[0]); // partial match match from start again
+            progress(re, next, next_state, brackets, helper_states, -1); // partial match match from start again
 		}
         // Now swap the states and clear next
         static_var<int> count = 0;

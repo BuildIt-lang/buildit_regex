@@ -12,7 +12,7 @@ void check_correctness(const char* pattern, const char* candidate) {
 //    cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.dynamic_use_cxx = true;
-    context.dynamic_header_includes = "#include <vector>";
+    context.dynamic_header_includes = "#include <set>";
     context.feature_unstructured = true;
 //	context.run_rce = true;
     auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
@@ -189,7 +189,7 @@ void test_partial() {
 }
 
 int main() {    
-  /*  test_simple();
+    test_simple();
     test_star();
     test_brackets();
     test_negative_brackets();
@@ -202,9 +202,9 @@ int main() {
     test_repetition();
     test_combined();
 	test_partial();
-*/
 
-    check_correctness("abc", "abc");
+
+//    check_correctness("abc", "abc");
 }
 
 
