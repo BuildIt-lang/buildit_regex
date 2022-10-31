@@ -5,7 +5,6 @@
 #include "builder/static_var.h"
 #include "blocks/c_code_generator.h"
 #include <stdlib.h>
-#include <set>
 #include "types.h"
 #include "runtime.h"
 
@@ -22,4 +21,4 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len);
 dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len);
 bool process_re(const char *re, int *next_states, int *brackets, int *helper_states);
-//dyn_var<int> find_all_matches(const char* re, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<set_t<int>*> all_matches);
+dyn_var<int> find_all_matches(const char* re, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<map_t<int, set_t<int>>> all_matches);

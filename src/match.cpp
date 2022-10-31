@@ -356,10 +356,10 @@ dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int
 	dyn_var<map_t<int, set_t<int>>> all_matches;
     return match_regex(re, str, str_len, true, all_matches);
 }
-/*
-dyn_var<int> find_all_matches(const char* re, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<set_t<int>*> all_matches) {
-    return match_regex(re, str, str_len, true, *all_matches);
+
+dyn_var<int> find_all_matches(const char* re, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<map_t<int, set_t<int>>> all_matches) {
+    return match_regex(re, str, str_len, true, all_matches);
 }
-*/
+
 
 

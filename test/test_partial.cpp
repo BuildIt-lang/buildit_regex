@@ -16,10 +16,11 @@ void check_correctness(const char* pattern, const char* candidate) {
     context.dynamic_header_includes = "#include <set>\n#include <map>\n#include \"../../include/runtime.h\"";
     context.feature_unstructured = true;
 	context.run_rce = true;
-    std::set<int> all_matches;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
-    //auto fptr = (int (*)(const char*, int, std::set<int>*))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str());
-    int result = fptr((char*)candidate, len);
+    std::map<int, std::set<int>> all_matches;
+    //auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
+    //int result = fptr((char*)candidate, len);
+    auto fptr = (int (*)(const char*, int, std::map<int, std::set<int>>))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str());
+    int result = fptr((char*)candidate, len, all_matches);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {
@@ -28,9 +29,9 @@ void check_correctness(const char* pattern, const char* candidate) {
         std::cout << "failed\nExpected: " << expected << ", got: " << result << std::endl;
     }
     std::cout << "All matches: ";
-    for (int i: all_matches) {
-        cout << i << " ";    
-    }
+    //for (int i: all_matches) {
+      //  cout << i << " ";    
+    //}
     std::cout << std::endl;
 }
 
