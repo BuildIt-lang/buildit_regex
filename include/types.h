@@ -13,12 +13,12 @@ using builder::as_member_of;
 template <typename T>
 void resize(T &t, int size) {block::to<block::array_type>(t.block_var->var_type)->size = size;}
 
-const char set_t_name[] = "std::set";
+extern const char set_t_name[];
+extern const char map_t_name[];
 
 template <typename T>
 using set_t = builder::name<set_t_name, T>;
 
-const char map_t_name[] = "std::map";
 
 template <typename K, typename V>
 using map_t = builder::name<map_t_name, K, V>;
@@ -86,10 +86,8 @@ class dyn_var<map_t<K,V>>: public dyn_var_impl<map_t<K,V>> {
 
 }
 
-dyn_var<set_t<int>(set_t<int>, set_t<int>)> set_t_union(builder::as_global("regex_runtime::get_union"));
-
-dyn_var<void(set_t<int>, set_t<int>)> set_t_update(builder::as_global("regex_runtime::update_set"));
-
-dyn_var<void(map_t<int, set_t<int>>, int, set_t<int>)> map_t_update(builder::as_global("regex_runtime::update_map"));
+extern dyn_var<set_t<int>(set_t<int>, set_t<int>)> set_t_union;
+extern dyn_var<void(set_t<int>, set_t<int>)> set_t_update;
+extern dyn_var<void(map_t<int, set_t<int>>, int, set_t<int>)> map_t_update;
 
 #endif
