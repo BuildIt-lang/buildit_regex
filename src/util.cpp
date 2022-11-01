@@ -40,13 +40,17 @@ tuple<string, int> expand_sub_regex(string re, int start) {
         int idx = get_counters(re, start - 1, counters);
         tuple<string, int> sub_s = expand_sub_regex(re, idx);
         string s = "";
-        for (int i = 0; i < counters[0]; i++) {
+        for (int i = 0; i < counters[0]; i++) { // exact match component i.e expand(a{2,5}) -> aa <variable component>
             s += get<0>(sub_s);
             counters[1] -= 1;
         }
-        for (int i = 0; i < counters[1]; i++) {
-            s += get<0>(sub_s) + "?";        
+		s += "(";
+		string pat_build = "";
+        for (int i = 0; i < counters[1]; i++) { // variable match component i.e. expand(a{2,5}) -> <exact component>(a | aa | aaa)?
+			pat_build += get<0>(sub_s);
+            s += pat_build + "|";        
         }
+		s += ")?";
         return tuple<string, int>{s, get<1>(sub_s)};
     } else {
         string s = ""; 
