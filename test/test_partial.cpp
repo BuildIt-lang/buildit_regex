@@ -188,14 +188,15 @@ void test_combined() {
 
 void test_partial() {
 	check_correctness("ab", "aab");
-	check_correctness("ab", "aba");
-	//check_correctness("a?", "aaaa");
-	//check_correctness("c[ab]+", "abc");
-	//check_correctness("c[ab]+", "aaba");
-	//check_correctness("c[ab]+", "caaaabcc");
+    check_correctness("ab", "aba");
+	check_correctness("a?", "aaaa");
+	check_correctness("a+", "aaaa");
+	check_correctness("c[ab]+", "abc");
+	check_correctness("c[ab]+", "aaba");
+	check_correctness("c[ab]+", "caaaabcc");
 	check_correctness("123", "a123a");
-	//check_correctness("(123)*1", "112312311");
-    //check_correctness("Twain{2}", "MarkTwainTwainTomSawyer");
+	check_correctness("(123)*1", "112312311");
+    check_correctness("Twain", "MarkTwainTwainTomSawyer");
 }
 
 int main() {    
