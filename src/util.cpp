@@ -44,14 +44,20 @@ tuple<string, int> expand_sub_regex(string re, int start) {
             s += get<0>(sub_s);
             counters[1] -= 1;
         }
-		s += "(";
-		string pat_build = "";
-        for (int i = 0; i < counters[1]; i++) { // variable match component i.e. expand(a{2,5}) -> <exact component>(a | aa | aaa)?
-			pat_build += get<0>(sub_s);
-            s += pat_build + "|";        
-        }
-		s += ")?";
-        return tuple<string, int>{s, get<1>(sub_s)};
+		
+		if (counters[1] > 0) {
+			s += "(";
+			string pat_build = "";
+       		for (int i = 0; i < counters[1]; i++) { // variable match component i.e. expand(a{2,5}) -> <exact component>(a | aa | aaa)?
+				pat_build += get<0>(sub_s);
+           		s += pat_build;
+				if (i != counters[1] - 1) {
+					s += "|";
+				}        
+        	}
+			s += ")?";
+		}
+	    return tuple<string, int>{s, get<1>(sub_s)};
     } else {
         string s = ""; 
         return tuple<string, int>{s + re[start], start - 1};    
