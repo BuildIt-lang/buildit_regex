@@ -16,22 +16,23 @@ void check_correctness(const char* pattern, const char* candidate) {
     context.dynamic_header_includes = "#include <set>\n#include <map>\n#include \"../../include/runtime.h\"";
     context.feature_unstructured = true;
 	context.run_rce = true;
-    std::map<int, std::set<int>> all_matches;
-    //auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
-    //int result = fptr((char*)candidate, len);
-    auto fptr = (int (*)(const char*, int, std::map<int, std::set<int>>))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str());
-    int result = fptr((char*)candidate, len, all_matches);
+    auto fptr = (std::map<int, std::set<int>> (*)(const char*, int))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str());
+    std::map<int, std::set<int>> result = fptr((char*)candidate, len);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
-    bool match = (result == expected);
+    bool match = (!result.empty() == expected);
     if (match) {
-        std::cout << "ok. Result is: " << result << std::endl;
+        std::cout << "ok. Result is: " << !result.empty() << std::endl;
     } else {
-        std::cout << "failed\nExpected: " << expected << ", got: " << result << std::endl;
+        std::cout << "failed\nExpected: " << expected << ", got: " << !result.empty() << std::endl;
     }
     std::cout << "All matches: ";
-    //for (int i: all_matches) {
-      //  cout << i << " ";    
-    //}
+    for (auto const& k: result) {
+        std::cout << k.first << ": ";
+        for (int v: k.second) {
+            std::cout << v << " ";
+        }
+        std::cout << std::endl;
+    }
     std::cout << std::endl;
 }
 
@@ -188,13 +189,13 @@ void test_combined() {
 void test_partial() {
 	check_correctness("ab", "aab");
 	check_correctness("ab", "aba");
-	check_correctness("a?", "aaaa");
+	//check_correctness("a?", "aaaa");
 	//check_correctness("c[ab]+", "abc");
 	//check_correctness("c[ab]+", "aaba");
 	//check_correctness("c[ab]+", "caaaabcc");
 	check_correctness("123", "a123a");
-	check_correctness("(123)*1", "112312311");
-    //check_correctness("Twain", "MarkTwainTomSawyer");
+	//check_correctness("(123)*1", "112312311");
+    //check_correctness("Twain{2}", "MarkTwainTwainTomSawyer");
 }
 
 int main() {    

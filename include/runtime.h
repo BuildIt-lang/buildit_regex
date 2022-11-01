@@ -30,8 +30,9 @@ namespace regex_runtime {
     Insert a key value pair in the map.
     */
     template <typename K, typename V>
-    void update_map(std::map<K,V> m, K key, V val) {
+    std::map<K,V> update_map(std::map<K,V> m, K key, V val) {
         m.insert({key, val});
+        return m;
     }
 }
 

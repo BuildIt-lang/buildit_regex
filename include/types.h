@@ -81,6 +81,7 @@ class dyn_var<map_t<K,V>>: public dyn_var_impl<map_t<K,V>> {
         }   
         dyn_var(const dyn_var& t): dyn_var_impl<map_t<K,V>>((builder)t){}
         dyn_var(): dyn_var_impl<map_t<K,V>>() {}
+        dyn_var<int(void)> empty = as_member_of(this, "empty");
         
 };
 
@@ -88,6 +89,6 @@ class dyn_var<map_t<K,V>>: public dyn_var_impl<map_t<K,V>> {
 
 extern dyn_var<set_t<int>(set_t<int>, set_t<int>)> set_t_union;
 extern dyn_var<void(set_t<int>, set_t<int>)> set_t_update;
-extern dyn_var<void(map_t<int, set_t<int>>, int, set_t<int>)> map_t_update;
+extern dyn_var<map_t<int, set_t<int>>(map_t<int, set_t<int>>, int, set_t<int>)> map_t_update;
 
 #endif

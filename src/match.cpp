@@ -138,15 +138,15 @@ void update_start_positions(dyn_var<set_t<int>*> next_start, dyn_var<set_t<int>*
 Given that the character `re[p]` has just been matched, finds all the characters
 in `re` that can be matched next and sets their corresponding locations in `next` to `true`.
 */
-void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, std::set<int> new_states) {
+void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, std::set<int>* new_states) {
     int ns = (p == -1) ? 0 : (unsigned int)ns_arr[p];
     
     if ((int)strlen(re) == ns) {
         next[ns] = true;
-        new_states.insert(ns);
+        (*new_states).insert(ns);
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         next[ns] = true;
-        new_states.insert(ns);
+        (*new_states).insert(ns);
         if ('*' == re[ns+1] || '?' == re[ns+1] || ('+' == re[ns+1] && helper_states[ns+1] == 1)) {
             // we can also skip this char
             progress(re, next, ns_arr, brackets, helper_states, ns+1, new_states);
@@ -161,12 +161,12 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
             // negative class - mark only '^' as true
             // the character matching is handled in `match_regex`
             next[ns + 1] = true;
-            new_states.insert(ns + 1);
+            (*new_states).insert(ns + 1);
         } else {
             while (re[curr_idx] != ']') {
                 // allowed to match any of the chars inside []
                 next[curr_idx] = true;
-                new_states.insert(curr_idx);
+                (*new_states).insert(curr_idx);
                 curr_idx = curr_idx + 1;
             }
         }
@@ -193,7 +193,7 @@ Tries to match each character in `str` one by one.
 It relies on `progress` to get the possible states we can transition to
 from the current state.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, dyn_var<map_t<int, set_t<int>>> all_matches) {
+dyn_var<map_t<int, set_t<int>>> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial) {
     // allocate two state vectors
     const int re_len = strlen(re);
     static_var<char> *current = new static_var<char>[re_len + 1];
@@ -217,22 +217,22 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         current[i] = next[i]  = 0;
     }
 
+    dyn_var<map_t<int, set_t<int>>> all_matches;
     bool re_valid = process_re(re, next_state, brackets, helper_states);
     if (!re_valid) {
         printf("Invalid regex");
-        return false;
+        return all_matches;
     }
-    
-    std::set<int> next_start_pos;
-    progress(re, current, next_state, brackets, helper_states, -1, next_start_pos);
-    update_start_positions(current_start, current_start, 0, -1, next_start_pos, re_len);
+    std::set<int> next_pos;
+    progress(re, current, next_state, brackets, helper_states, -1, &next_pos);
+    update_start_positions(current_start, current_start, 0, -1, next_pos, re_len);
     dyn_var<int> to_match = 0;
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
             // adds the elements from the second set to the first one
             //set_t_update(all_matches, current_start[re_len]);
-            map_t_update(all_matches, to_match, current_start[re_len]);
-            return true;
+            all_matches = map_t_update(all_matches, to_match-1, current_start[re_len]);
+            return all_matches;
 		}
 
         // Don’t do anything for $.
@@ -255,7 +255,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m) {
-                            progress(re, next, next_state, brackets, helper_states, state, next_start_pos);
+                            progress(re, next, next_state, brackets, helper_states, state, &next_start_pos);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -266,11 +266,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        progress(re, next, next_state, brackets, helper_states, state, next_start_pos);
+                        progress(re, next, next_state, brackets, helper_states, state, &next_start_pos);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    progress(re, next, next_state, brackets, helper_states, state, next_start_pos);
+                    progress(re, next, next_state, brackets, helper_states, state, &next_start_pos);
                     state_match = 1;
                 } else if ('^' == m) {
                     // we are inside a [^] class
@@ -291,18 +291,18 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     }
                     if (matches == 1) {
                         state_match = 1;
-                        progress(re, next, next_state, brackets, helper_states, state, next_start_pos);
+                        progress(re, next, next_state, brackets, helper_states, state, &next_start_pos);
                     }
                 } else if ('-' == m) {
                     static_var<char> left = re[state - 1];
                     static_var<char> right = re[state + 1];
                     if (is_in_range(left, right, str[to_match])) {
-                        progress(re, next, next_state, brackets, helper_states, state, next_start_pos);
+                        progress(re, next, next_state, brackets, helper_states, state, &next_start_pos);
                         state_match = 1;
                     }
                 } else {
                     printf("Invalid Character(%c)\n", (char)m);
-                    return false;
+                    return all_matches;
                 }
 
                 update_start_positions(next_start, current_start, to_match, state, next_start_pos, re_len);
@@ -313,7 +313,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 		if (enable_partial) {
             // if partial add the first state as well
             std::set<int> next_start_pos;
-            progress(re, next, next_state, brackets, helper_states, -1, next_start_pos); // partial match match from start again
+            progress(re, next, next_state, brackets, helper_states, -1, &next_start_pos); // partial match match from start again
             update_start_positions(next_start, current_start, to_match + 1, -1, next_start_pos, re_len);
 		}
         // Now swap the states and clear next
@@ -325,11 +325,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                 count++;
         }
         if (count == 0)
-            return false;
+            return all_matches;
 
         // update start positions
         // TODO: change i to dyn_var, but dyn_var is giving label errors (fpermissive)
-        for (static_var<int> i = 0; i < re_len + 1; i=i+1) {
+        for (dyn_var<int> i = 0; i < re_len + 1; i=i+1) {
             current_start[i] = next_start[i];
             dyn_var<set_t<int>> emp_set;
             next_start[i] = emp_set;
@@ -344,21 +344,22 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         next[i] = 0;
         current[i] = 0;
     }
-    return is_match;
+    all_matches = map_t_update(all_matches, str_len, current_start[re_len]);
+    return all_matches;
 }
 
 dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
-	dyn_var<map_t<int, set_t<int>>> all_matches;
-    return match_regex(re, str, str_len, false, all_matches);
+	dyn_var<map_t<int, set_t<int>>> all_matches = match_regex(re, str, str_len, false);
+    return !all_matches.empty();
 }
 
 dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
-	dyn_var<map_t<int, set_t<int>>> all_matches;
-    return match_regex(re, str, str_len, true, all_matches);
+	dyn_var<map_t<int, set_t<int>>> all_matches = match_regex(re, str, str_len, true);
+    return !all_matches.empty();
 }
 
-dyn_var<int> find_all_matches(const char* re, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<map_t<int, set_t<int>>> all_matches) {
-    return match_regex(re, str, str_len, true, all_matches);
+dyn_var<map_t<int, set_t<int>>> find_all_matches(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
+    return match_regex(re, str, str_len, true);
 }
 
 
