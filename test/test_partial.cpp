@@ -9,7 +9,7 @@ void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_search(candidate, std::regex(pattern));
     int len = strlen(candidate); 
 	string processed_re = expand_regex(pattern);
-//    cout << "processed re: " << processed_re << endl;
+    cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;

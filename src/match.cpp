@@ -128,14 +128,14 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
 Given that the character `re[p]` has just been matched, finds all the characters
 in `re` that can be matched next and sets their corresponding locations in `next` to `true`.
 */
-void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, static_var<char> *cache, static_var<char *> *cache_states) {
+void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, char *cache, int *cache_states) {
     const int re_len = strlen(re);
 
     unsigned int ns = (p == -1) ? 0 : (unsigned int)ns_arr[p];
     if (cache[ns]) {
         for (static_var<int> i = 0; i < re_len + 1; i++) {
-	    next[i] = cache_states[ns][i];
-	}
+            next[i] = cache_states[ns * (re_len + 1) + i];
+        }
     }
 
     if (strlen(re) == ns) {
@@ -180,7 +180,7 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
     }
     cache[ns] = true;
     for (static_var<int> i = ns; i < re_len + 1; i++) {
-        cache_states[ns][i] = next[i];
+        cache_states[ns  * (re_len + 1) + i] = next[i];
     }
 }
 
@@ -191,8 +191,11 @@ from the current state.
 */
 dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial) {
     const int re_len = strlen(re);
-    static_var<char> *cache = new static_var<char>[re_len + 1];
-    static_var<char *> *cache_states = new static_var<char *>[re_len + 1][re_len + 1];
+    const int cache_size = (re_len + 1) * (re_len + 1);
+    std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
+    std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
+    char* cache = cache_ptr.get();
+    int* cache_states = cache_states_ptr.get();
 
     // allocate two state vectors
     static_var<char> *current = new static_var<char>[re_len + 1];
@@ -209,9 +212,6 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         current[i] = next[i] = cache[i] = 0;
-	for (static_var<int> j = 0; j < re_len + 1; j++) {
-	    cache_states[i][j] = 0;
-	}
     }
 
     bool re_valid = process_re(re, next_state, brackets, helper_states);
