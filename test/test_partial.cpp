@@ -2,15 +2,16 @@
 #include "test.h"
 #include "../include/util.h"
 #include <set>
+#include <iterator>
 
 /**
 General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
-    bool expected = std::regex_search(candidate, std::regex(pattern));
+    int expected = std::regex_search(candidate, std::regex(pattern));
+    print_expected_all_matches(pattern, candidate);
     int len = strlen(candidate); 
 	string processed_re = expand_regex(pattern);
-//    cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.dynamic_use_cxx = true;
     context.dynamic_header_includes = "#include <set>\n#include <map>\n#include \"../../include/runtime.h\"";
@@ -25,7 +26,7 @@ void check_correctness(const char* pattern, const char* candidate) {
     } else {
         std::cout << "failed\nExpected: " << expected << ", got: " << !result.empty() << std::endl;
     }
-    std::cout << "All matches: ";
+    std::cout << "All matches: " << std::endl;
     for (auto const& k: result) {
         std::cout << k.first << ": ";
         for (int v: k.second) {
@@ -34,6 +35,19 @@ void check_correctness(const char* pattern, const char* candidate) {
         std::cout << std::endl;
     }
     std::cout << std::endl;
+}
+
+void print_expected_all_matches(const char* pattern, const char* candidate) {
+    std::string s(candidate);
+    std::regex r(pattern);
+    auto matches_begin = std::sregex_iterator(s.begin(), s.end(), r);
+    auto matches_end = std::sregex_iterator();
+    std::cout << "Expected number of matches " << std::distance(matches_begin, matches_end) << ": " << std::endl;
+    for (std::sregex_iterator i = matches_begin; i != matches_end; i++) {
+        std::smatch match = *i;
+        std::string match_str = match.str();
+        std::cout << match_str << std::endl;
+     }
 }
 
 void test_simple() {
@@ -187,16 +201,21 @@ void test_combined() {
 }
 
 void test_partial() {
-	check_correctness("ab", "aab");
-    check_correctness("ab", "aba");
+	//check_correctness("ab", "aab");
+    //check_correctness("ab", "aba");
 	check_correctness("a?", "aaaa");
-	check_correctness("a+", "aaaa");
-	check_correctness("c[ab]+", "abc");
-	check_correctness("c[ab]+", "aaba");
-	check_correctness("c[ab]+", "caaaabcc");
-	check_correctness("123", "a123a");
-	check_correctness("(123)*1", "112312311");
-    check_correctness("Twain", "MarkTwainTwainTomSawyer");
+	//check_correctness("a+", "aaaa");
+	check_correctness("[ab]", "ab");
+    //check_correctness("a?", "bb");
+	//check_correctness("aa*", "bb");
+	//check_correctness("a+", "bb");
+    //check_correctness("aa", "aaa");
+	//check_correctness("c[ab]+", "abc");
+	//check_correctness("c[ab]+", "aaba");
+	//check_correctness("c[ab]+", "caaaabcc");
+	//check_correctness("123", "a123a");
+	//check_correctness("(123)*1", "112312311");
+    //check_correctness("Twain", "MarkTwainTwainTomSawyer");
 }
 
 int main() {    

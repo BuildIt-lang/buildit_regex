@@ -5,6 +5,7 @@
 #include "builder/builder_dynamic.h"
 #include "match.h"
 
+void print_expected_all_matches(const char* pattern, const char* candidate);
 void check_correctness(const char* pattern, const char* candidate);                                                                                   
 void test_simple();
 void test_star();

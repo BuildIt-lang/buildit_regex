@@ -154,7 +154,7 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
             progress(re, next, ns_arr, brackets, helper_states, ns+1, next_start, current_start);
         }
     } else if ('*' == re[ns] || '+' == re[ns]) { // can match char p again
-        helper_states[ns] = true;
+        helper_states[ns] = 1;
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
         progress(re, next, ns_arr, brackets, helper_states, prev_state-1, next_start, current_start);
     } else if ('[' == re[ns]) {
@@ -237,7 +237,7 @@ dyn_var<map_t<int, set_t<int>>> match_regex(const char* re, dyn_var<char*> str, 
             // adds the elements from the second set to the first one
             //set_t_update(all_matches, current_start[re_len]);
             all_matches = map_t_update(all_matches, to_match, current_start[re_len]);
-            return all_matches;
+            //return all_matches;
 		}
 
         // Don’t do anything for $.
