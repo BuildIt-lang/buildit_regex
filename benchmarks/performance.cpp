@@ -19,7 +19,7 @@ using namespace std;
 using namespace re2;
 using namespace std::chrono;
 
-typedef int (*GeneratedFunction) (const char* word, int len);
+typedef int (*GeneratedFunction) (const char*, int);
 
 /**
 Loads the patterns from a file into a vector.
@@ -119,7 +119,7 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), false);
         buildit_patterns.push_back(fptr);
 
         // re2
@@ -170,7 +170,7 @@ void time_full_match(vector<string> &patterns, vector<string> &words, int n_iter
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str());
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), true);
         buildit_patterns.push_back(fptr);
         // re2
         re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
@@ -224,7 +224,7 @@ int main() {
         "(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-   //     "(Tom.{10,15}river|river.{10,15}Tom)",
+        "(Tom.{10,15}river|river.{10,15}Tom)",
         "[a-zA-Z]+ing",
     };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};

@@ -9,12 +9,12 @@ void check_correctness(const char* pattern, const char* candidate) {
     bool expected = regex_match(candidate, regex(pattern));
     int len = strlen(candidate);
     string processed_re = expand_regex(pattern);
-	cout << "Expanded Regex: " << processed_re << " ";
+	//cout << "Expanded Regex: " << processed_re << " ";
 
 	builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, processed_re.c_str());
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), true);
     int result = fptr((char*)candidate, len);
     cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);

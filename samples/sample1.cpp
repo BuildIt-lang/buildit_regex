@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
     context.run_rce = true;
     std::ofstream code_file;
     code_file.open("generated_code/sample1.h");
-    auto ast = context.extract_function_ast(match_regex_full, "match_re", "[abc]+");
+    auto ast = context.extract_function_ast(match_regex_full, "match_re", "[abc]+", false);
     code_file << "#include <string.h>" << std::endl;
     block::c_code_generator::generate_code(ast, code_file);
     code_file.close();

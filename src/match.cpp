@@ -128,14 +128,15 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
 Given that the character `re[p]` has just been matched, finds all the characters
 in `re` that can be matched next and sets their corresponding locations in `next` to `true`.
 */
-void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, char *cache, int *cache_states) {
+void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, char *cache, int *cache_states, bool use_cache) {
     const int re_len = strlen(re);
 
     unsigned int ns = (p == -1) ? 0 : (unsigned int)ns_arr[p];
-    if (cache[ns]) {
+    if (use_cache && cache[p+1]) {
         for (static_var<int> i = 0; i < re_len + 1; i++) {
-            next[i] = cache_states[ns * (re_len + 1) + i];
+            next[i] = cache_states[(p+1) * (re_len + 1) + i];
         }
+        return;
     }
 
     if (strlen(re) == ns) {
@@ -144,12 +145,12 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
         next[ns] = true;
         if ('*' == re[ns+1] || '?' == re[ns+1] || ('+' == re[ns+1] && helper_states[ns+1] == 1)) {
             // we can also skip this char
-            progress(re, next, ns_arr, brackets, helper_states, ns+1, cache, cache_states);
+            progress(re, next, ns_arr, brackets, helper_states, ns+1, cache, cache_states, use_cache);
         }
     } else if ('*' == re[ns] || '+' == re[ns]) { // can match char p again
         helper_states[ns] = true;
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
-        progress(re, next, ns_arr, brackets, helper_states, prev_state-1, cache, cache_states);
+        progress(re, next, ns_arr, brackets, helper_states, prev_state-1, cache, cache_states, use_cache);
     } else if ('[' == re[ns]) {
         static_var<int> curr_idx = ns + 1;
         if (re[ns + 1] == '^') {
@@ -165,22 +166,24 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
         }
         if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1] || ('+' == re[brackets[ns]+1] && helper_states[brackets[ns]+1] == 1)))
             // allowed to skip []
-            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states);
+            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states, use_cache);
     } else if ('(' == re[ns]) {
-        progress(re, next, ns_arr, brackets, helper_states, ns, cache, cache_states); // char right after (
+        progress(re, next, ns_arr, brackets, helper_states, ns, cache, cache_states, use_cache); // char right after (
         // start by trying to match the first char after each |
         int or_index = helper_states[ns];
         while (or_index != brackets[ns]) {
-            progress(re, next, ns_arr, brackets, helper_states, or_index, cache, cache_states);
+            progress(re, next, ns_arr, brackets, helper_states, or_index, cache, cache_states, use_cache);
             or_index = helper_states[or_index];
         } 
         // if () are followed by *, it's possible to skip the () group
         if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1] || ('+' == re[brackets[ns]+1] && helper_states[brackets[ns]+1] == 1)))
-            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states);
+            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states, use_cache);
     }
-    cache[ns] = true;
-    for (static_var<int> i = ns; i < re_len + 1; i++) {
-        cache_states[ns  * (re_len + 1) + i] = next[i];
+    if (use_cache) {
+        cache[p+1] = true;
+        for (static_var<int> i = 0; i < re_len + 1; i++) {
+            cache_states[(p+1) * (re_len + 1) + i] = next[i];
+        }
     }
 }
 
@@ -189,10 +192,10 @@ Tries to match each character in `str` one by one.
 It relies on `progress` to get the possible states we can transition to
 from the current state.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial) {
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, bool use_cache) {
     const int re_len = strlen(re);
-    const int cache_size = (re_len + 1) * (re_len + 1);
-    std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
+    const int cache_size = (re_len + 2) * (re_len + 1);
+    std::unique_ptr<char> cache_ptr(new char[re_len + 2]);
     std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
     char* cache = cache_ptr.get();
     int* cache_states = cache_states_ptr.get();
@@ -220,7 +223,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         return false;
     }
 
-    progress(re, current, next_state, brackets, helper_states, -1, cache, cache_states);
+    progress(re, current, next_state, brackets, helper_states, -1, cache, cache_states, use_cache);
     dyn_var<int> to_match = 0;
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
@@ -246,7 +249,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m) {
-                            progress(re, next, next_state, brackets, helper_states, state, cache, cache_states);
+                            progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -257,11 +260,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states);
+                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    progress(re, next, next_state, brackets, helper_states, state, cache, cache_states);
+                    progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache);
                     state_match = 1;
                 } else if ('^' == m) {
                     // we are inside a [^] class
@@ -282,13 +285,13 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     }
                     if (matches == 1) {
                         state_match = 1;
-                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states);
+                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache);
                     }
                 } else if ('-' == m) {
                     static_var<char> left = re[state - 1];
                     static_var<char> right = re[state + 1];
                     if (is_in_range(left, right, str[to_match])) {
-                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states);
+                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache);
                         state_match = 1;
                     }
                 } else {
@@ -302,7 +305,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         // All the states have been checked
 		if (enable_partial) {
             // if partial add the first state as well
-			progress(re, next, next_state, brackets, helper_states, -1, cache, cache_states); // partial match match from start again
+			progress(re, next, next_state, brackets, helper_states, -1, cache, cache_states, use_cache); // partial match match from start again
 		}
         // Now swap the states and clear next
         static_var<int> count = 0;
@@ -327,12 +330,12 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     return is_match;
 }
 
-dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
-	return match_regex(re, str, str_len, false);
+dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool use_cache) {
+	return match_regex(re, str, str_len, false, use_cache);
 }
 
-dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len) {
-	return match_regex(re, str, str_len, true);
+dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool use_cache) {
+	return match_regex(re, str, str_len, true, use_cache);
 }
 
 
