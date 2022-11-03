@@ -9,7 +9,7 @@ void check_correctness(const char* pattern, const char* candidate) {
     bool expected = regex_match(candidate, regex(pattern));
     int len = strlen(candidate);
     string processed_re = expand_regex(pattern);
-	//cout << "Expanded Regex: " << processed_re << " ";
+//	cout << "Expanded Regex: " << processed_re << " ";
 
 	builder::builder_context context;
 	context.feature_unstructured = true;
@@ -210,6 +210,8 @@ void test_expand_regex() {
 
 int main() {
     
+   // check_correctness("a*b*c", "aaabbc");
+    //check_correctness("ba{0,2}", "baaaa");
     test_simple();
     test_star();
     test_brackets();

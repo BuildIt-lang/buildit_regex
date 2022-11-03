@@ -112,6 +112,7 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
     // pattern compilation
     vector<GeneratedFunction> buildit_patterns;
     vector<unique_ptr<RE2>> re2_patterns;
+    auto start = high_resolution_clock::now();
     for (int i = 0; i < patterns.size(); i++) {
         cout << patterns[i] << endl;
         // buildit
@@ -125,16 +126,18 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
         // re2
         re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
     }
+    auto end = high_resolution_clock::now();
+    float compile_dur = (duration_cast<milliseconds>(end - start)).count();
 
     // re2 timing
-    auto start = high_resolution_clock::now();
+    start = high_resolution_clock::now();
     vector<bool> expected;
     for (int i = 0; i < n_iters; i++) {
         for (int j = 0; j < patterns.size(); j++) {
             expected.push_back(RE2::PartialMatch(text, *re2_patterns[j].get()));
         }
     }
-    auto end = high_resolution_clock::now();
+    end = high_resolution_clock::now();
     float re2_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / n_iters;
 
     // buildit timing
@@ -154,6 +157,7 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
     }
     cout << "TIME re2: " << re2_dur << " ns" << endl;
     cout << "TIME buildit: " << buildit_dur << " ns" << endl;
+    cout << "Compilation time: " << compile_dur << " ms" << endl;
 
 }
 
@@ -224,7 +228,7 @@ int main() {
         "(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-        "(Tom.{10,15}river|river.{10,15}Tom)",
+//        "(Tom.{10,15}river|river.{10,15}Tom)",
         "[a-zA-Z]+ing",
     };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};

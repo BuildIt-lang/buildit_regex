@@ -50,6 +50,10 @@ tuple<string, int> expand_sub_regex(string re, int start) {
             s += get<0>(sub_s) + "?";        
         }
         return tuple<string, int>{s, get<1>(sub_s)};
+    } else if (re[start] == '+') {
+        tuple<string, int> sub_s = expand_sub_regex(re, start-1);
+        string s = get<0>(sub_s);
+        return tuple<string, int>{s + s + "*", get<1>(sub_s)};
     } else {
         string s = ""; 
         return tuple<string, int>{s + re[start], start - 1};    
