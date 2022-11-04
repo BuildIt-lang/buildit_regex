@@ -9,12 +9,26 @@ void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_search(candidate, std::regex(pattern));
     int len = strlen(candidate); 
 	string processed_re = expand_regex(pattern);
+    const int re_len = processed_re.length();
+    const int cache_size = (re_len + 1) * (re_len + 1); 
+    char* cache = new char[re_len+1];
+    int* cache_states = new int[cache_size];
+    std::unique_ptr<int> next_state_ptr(new int[re_len]);
+    int *next_state = next_state_ptr.get();
+
+    std::unique_ptr<int> brackets_ptr(new int[re_len]);
+    int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
+
+    std::unique_ptr<int> helper_states_ptr(new int[re_len]);
+    int *helper_states = helper_states_ptr.get();
     //cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), true);
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
     int result = fptr((char*)candidate, len);
+    delete[] cache;
+    delete[] cache_states;
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {
@@ -189,6 +203,8 @@ void test_partial() {
 }
 
 int main() {    
+
+    //check_correctness("a+b+c", "aabbbc");
     test_simple();
     test_star();
     test_brackets();
@@ -202,6 +218,7 @@ int main() {
     test_repetition();
     test_combined();
 	test_partial();
+
 }
 
 

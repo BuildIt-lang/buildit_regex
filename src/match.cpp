@@ -133,14 +133,10 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
 
     unsigned int ns = (p == -1) ? 0 : (unsigned int)ns_arr[p];
     if (use_cache && cache[p+1]) {
-//        printf("getting\n");
-  //      printf("i: %d\n", (int)(p+1));
         for (static_var<int> i = 0; i < re_len + 1; i++) {
             next[i] = cache_states[(p+1) * (re_len + 1) + i] || next[i];
             temp[i] = cache_states[(p+1) * (re_len + 1) + i];
-    //        printf("%d, ", (int)next[i]);
         }
-      //  printf("\n");
         return;
     }
 
@@ -189,15 +185,10 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
             progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states, use_cache, temp);
     }
     if (use_cache && !cache[p+1]) {
-        //printf("setting\n");
         cache[p+1] = true;
-        //printf("i: %d\n", (int)(p+1));
         for (static_var<int> i = 0; i < re_len + 1; i++) {
-            //if (i < p + 1) cache_states[(p+1) * (re_len + 1) + i] = 0;
             cache_states[(p+1) * (re_len + 1) + i] = temp[i];
-          //  printf("%d, ", (int)temp[i]);
         }
-       // printf("\n");
     }
 }
 
@@ -206,28 +197,14 @@ Tries to match each character in `str` one by one.
 It relies on `progress` to get the possible states we can transition to
 from the current state.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, bool use_cache) {
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, bool use_cache, char* cache, int* cache_states, int* next_state, int* brackets, int* helper_states) {
     const int re_len = strlen(re);
-    const int cache_size = (re_len + 1) * (re_len + 1);
-    std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
-    std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
-    char* cache = cache_ptr.get();
-    int* cache_states = cache_states_ptr.get();
 
     // allocate two state vectors
     static_var<char> *current = new static_var<char>[re_len + 1];
     static_var<char> *next = new static_var<char>[re_len + 1];
     static_var<char> *temp = new static_var<char>[re_len + 1];
-
-    std::unique_ptr<int> next_state_ptr(new int[re_len]);
-    int *next_state = next_state_ptr.get();
-
-    std::unique_ptr<int> brackets_ptr(new int[re_len]);
-    int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
-
-    std::unique_ptr<int> helper_states_ptr(new int[re_len]);
-    int *helper_states = helper_states_ptr.get();
-
+    
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         current[i] = next[i] = cache[i] = temp[i] = 0;
     }
@@ -363,12 +340,12 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     return is_match;
 }
 
-dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool use_cache) {
-	return match_regex(re, str, str_len, false, use_cache);
+dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool use_cache, char* cache, int* cache_states, int* next_state, int* brackets, int* helper_states) {
+	return match_regex(re, str, str_len, false, use_cache, cache, cache_states, next_state, brackets, helper_states);
 }
 
-dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool use_cache) {
-	return match_regex(re, str, str_len, true, use_cache);
+dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool use_cache, char* cache, int* cache_states, int* next_state, int* brackets, int* helper_states) {
+	return match_regex(re, str, str_len, true, use_cache, cache, cache_states, next_state, brackets, helper_states);
 }
 
 
