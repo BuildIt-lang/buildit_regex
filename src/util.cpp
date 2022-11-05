@@ -1,3 +1,5 @@
+
+
 #include "util.h"
 
 
@@ -6,11 +8,11 @@ int get_counters(string re, int idx, int *counters) {
     int factor = 1;
     while (re[idx] != '{') {
         if (re[idx] == ',') {
-	        counters[1] = result;
+            counters[1] = result;
             result = 0;
             factor = 1;
             idx = idx - 1;
-    	} else {
+        } else {
             int digit = re[idx] - '0';
             result = result + digit * factor;
             factor = factor * 10;
@@ -48,6 +50,10 @@ tuple<string, int> expand_sub_regex(string re, int start) {
             s += get<0>(sub_s) + "?";        
         }
         return tuple<string, int>{s, get<1>(sub_s)};
+    } else if (re[start] == '+') {
+        tuple<string, int> sub_s = expand_sub_regex(re, start-1);
+        string s = get<0>(sub_s);
+        return tuple<string, int>{s + s + "*", get<1>(sub_s)};
     } else {
         string s = ""; 
         return tuple<string, int>{s + re[start], start - 1};    
@@ -64,6 +70,5 @@ string expand_regex(string re) {
         start = get<1>(sub_s);
     }
     return s;
-    
-}
 
+}

@@ -19,7 +19,7 @@ using namespace std;
 using namespace re2;
 using namespace std::chrono;
 
-typedef int (*GeneratedFunction) (const char* word, int len);
+typedef int (*GeneratedFunction) (const char*, int);
 
 /**
 Loads the patterns from a file into a vector.
@@ -116,14 +116,34 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
         cout << patterns[i] << endl;
         // buildit
 		string processed_re = expand_regex(patterns[i]);
+        const int re_len = processed_re.length();
+        std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
+        const int cache_size = (re_len + 1) * (re_len + 1); 
+        std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
+        char* cache = cache_ptr.get();
+        int* cache_states = cache_states_ptr.get();
+        std::unique_ptr<int> next_state_ptr(new int[re_len]);
+        int *next_state = next_state_ptr.get();
+
+        std::unique_ptr<int> brackets_ptr(new int[re_len]);
+        int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
+
+        std::unique_ptr<int> helper_states_ptr(new int[re_len]);
+        int *helper_states = helper_states_ptr.get();
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str());
+        auto start = high_resolution_clock::now();
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
+        auto end = high_resolution_clock::now();
+        cout << "buildit compilation time: " << (duration_cast<milliseconds>(end - start)).count() << "ms" << endl;
         buildit_patterns.push_back(fptr);
-
+        
+        auto re_start = high_resolution_clock::now();
         // re2
         re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
+        auto re_end = high_resolution_clock::now();
+        cout << "re compile time: " << (duration_cast<nanoseconds>(re_end - re_start)).count() << "ns" << endl;
     }
 
     // re2 timing
@@ -167,13 +187,34 @@ void time_full_match(vector<string> &patterns, vector<string> &words, int n_iter
         cout << patterns[i] << endl;
         // buildit
         string processed_re = expand_regex(patterns[i]);
+        const int re_len = processed_re.length();
+        std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
+        const int cache_size = (re_len + 1) * (re_len + 1); 
+        std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
+        char* cache = cache_ptr.get();
+        int* cache_states = cache_states_ptr.get();
+        std::unique_ptr<int> next_state_ptr(new int[re_len]);
+        int *next_state = next_state_ptr.get();
+
+        std::unique_ptr<int> brackets_ptr(new int[re_len]);
+        int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
+
+        std::unique_ptr<int> helper_states_ptr(new int[re_len]);
+        int *helper_states = helper_states_ptr.get();
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str());
+        auto start = high_resolution_clock::now();
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
+        auto end = high_resolution_clock::now();
+        cout << "compilation time: " << (duration_cast<milliseconds>(end - start)).count() << "ms" << endl;
         buildit_patterns.push_back(fptr);
+        
+        auto re_start = high_resolution_clock::now();
         // re2
         re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
+        auto re_end = high_resolution_clock::now();
+        cout << "re compile time: " << (duration_cast<nanoseconds>(re_end - re_start)).count() << "ns" << endl;
     }
 
     // re2 timing
@@ -223,12 +264,13 @@ int main() {
       //  "[a-q][^u-z]{5}x",
         "(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-        ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-   //     "(Tom.{10,15}river|river.{10,15}Tom)",
+        //".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
+        //"Tom.{10,15}",
+        //"(Tom.{10,15}river|river.{10,15}Tom)",
         "[a-zA-Z]+ing",
     };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};
-	//time_full_match(twain_patterns, words, n_iters);
+	time_full_match(twain_patterns, words, n_iters);
 
     time_partial_match(twain_patterns, text, n_iters);
 
