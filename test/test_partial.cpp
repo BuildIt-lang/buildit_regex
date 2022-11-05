@@ -2,6 +2,8 @@
 #include "test.h"
 #include "../include/util.h"
 
+using namespace std::chrono;
+
 /**
 General function to compare results.
 */
@@ -204,7 +206,7 @@ void test_partial() {
 
 int main() {    
 
-    //check_correctness("a+b+c", "aabbbc");
+    auto start = high_resolution_clock::now();
     test_simple();
     test_star();
     test_brackets();
@@ -218,6 +220,9 @@ int main() {
     test_repetition();
     test_combined();
 	test_partial();
+    auto end = high_resolution_clock::now();
+    auto dur = (duration_cast<seconds>(end - start)).count();
+    cout << "time: " << dur << "s" << endl;
 
 }
 

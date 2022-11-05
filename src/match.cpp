@@ -216,11 +216,9 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     }
 
     progress(re, current, next_state, brackets, helper_states, -1, cache, cache_states, use_cache, temp);
-  //  if (use_cache) {
-        for (static_var<int> k = 0; k < re_len + 1; k++) {
-            temp[k] = 0;
-        }
-    //}
+    for (static_var<int> k = 0; k < re_len + 1; k++) {
+        temp[k] = 0;
+    }
     dyn_var<int> to_match = 0;
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
@@ -298,11 +296,9 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 
                 if (state_match == 1 && open_bracket == 1) bracket_match = 1;
 
-      //          if (use_cache) {
-                    for (static_var<int> k = 0; k < re_len + 1; k++) {
-                        temp[k] = 0;
-                    }
-              //  }
+                for (static_var<int> k = 0; k < re_len + 1; k++) {
+                    temp[k] = 0;
+                }
             }
         }
         // All the states have been checked

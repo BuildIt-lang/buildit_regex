@@ -2,28 +2,31 @@
 #include "test.h"
 #include "../include/util.h"
 
+using namespace std::chrono;
+
 /**
 General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
     bool expected = regex_match(candidate, regex(pattern));
     int len = strlen(candidate);
+    
     string processed_re = expand_regex(pattern);
+    
     const int re_len = processed_re.length();
     std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
+    
     const int cache_size = (re_len + 1) * (re_len + 1);
+
     std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
     char* cache = cache_ptr.get();
     int* cache_states = cache_states_ptr.get();
     std::unique_ptr<int> next_state_ptr(new int[re_len]);
     int *next_state = next_state_ptr.get();
-
     std::unique_ptr<int> brackets_ptr(new int[re_len]);
     int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
-
     std::unique_ptr<int> helper_states_ptr(new int[re_len]);
     int *helper_states = helper_states_ptr.get();
-//	cout << "Expanded Regex: " << processed_re << " ";
 
 	builder::builder_context context;
 	context.feature_unstructured = true;
@@ -223,9 +226,7 @@ void test_expand_regex() {
 }
 
 int main() {
-    
-   // check_correctness("a*b*c", "aaabbc");
-    //check_correctness("ba{0,2}", "baaaa");
+    auto start = high_resolution_clock::now();
     test_simple();
     test_star();
     test_brackets();
@@ -238,8 +239,9 @@ int main() {
     test_question();
     test_repetition();
     test_combined();
-   
-    //test_expand_regex();
+    auto end = high_resolution_clock::now();
+    auto dur = (duration_cast<seconds>(end - start)).count();
+    cout << "time: " << dur << "s" << endl;
 }
 
 
