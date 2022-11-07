@@ -20,6 +20,7 @@ void check_correctness(const char* pattern, const char* candidate) {
 
     std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
     char* cache = cache_ptr.get();
+    for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
     int* cache_states = cache_states_ptr.get();
     std::unique_ptr<int> next_state_ptr(new int[re_len]);
     int *next_state = next_state_ptr.get();

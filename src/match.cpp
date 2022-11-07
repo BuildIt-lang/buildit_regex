@@ -206,7 +206,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     static_var<char> *temp = new static_var<char>[re_len + 1];
     
     for (static_var<int> i = 0; i < re_len + 1; i++) {
-        current[i] = next[i] = cache[i] = temp[i] = 0;
+        current[i] = next[i] = temp[i] = 0;
     }
 
     bool re_valid = process_re(re, next_state, brackets, helper_states);

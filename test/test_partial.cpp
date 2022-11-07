@@ -14,6 +14,7 @@ void check_correctness(const char* pattern, const char* candidate) {
     const int re_len = processed_re.length();
     const int cache_size = (re_len + 1) * (re_len + 1); 
     char* cache = new char[re_len+1];
+    for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
     int* cache_states = new int[cache_size];
     std::unique_ptr<int> next_state_ptr(new int[re_len]);
     int *next_state = next_state_ptr.get();

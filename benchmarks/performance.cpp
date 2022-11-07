@@ -121,6 +121,7 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
         const int cache_size = (re_len + 1) * (re_len + 1); 
         std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
         char* cache = cache_ptr.get();
+        for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
         int* cache_states = cache_states_ptr.get();
         std::unique_ptr<int> next_state_ptr(new int[re_len]);
         int *next_state = next_state_ptr.get();
@@ -192,6 +193,7 @@ void time_full_match(vector<string> &patterns, vector<string> &words, int n_iter
         const int cache_size = (re_len + 1) * (re_len + 1); 
         std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
         char* cache = cache_ptr.get();
+        for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
         int* cache_states = cache_states_ptr.get();
         std::unique_ptr<int> next_state_ptr(new int[re_len]);
         int *next_state = next_state_ptr.get();
