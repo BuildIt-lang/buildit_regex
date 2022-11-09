@@ -4,6 +4,8 @@
 #include <set>
 #include <iterator>
 
+using namespace std::chrono;
+
 /**
 General function to compare results.
 */
@@ -12,13 +14,29 @@ void check_correctness(const char* pattern, const char* candidate) {
     print_expected_all_matches(pattern, candidate);
     int len = strlen(candidate); 
 	string processed_re = expand_regex(pattern);
+    const int re_len = processed_re.length();
+    const int cache_size = (re_len + 1) * (re_len + 1); 
+    char* cache = new char[re_len+1];
+    for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
+    int* cache_states = new int[cache_size];
+    std::unique_ptr<int> next_state_ptr(new int[re_len]);
+    int *next_state = next_state_ptr.get();
+
+    std::unique_ptr<int> brackets_ptr(new int[re_len]);
+    int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
+
+    std::unique_ptr<int> helper_states_ptr(new int[re_len]);
+    int *helper_states = helper_states_ptr.get();
+    //cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.dynamic_use_cxx = true;
     context.dynamic_header_includes = "#include <set>\n#include <map>\n#include \"../../include/runtime.h\"";
     context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (std::map<int, std::set<int>> (*)(const char*, int))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str());
+    auto fptr = (std::map<int, std::set<int>> (*)(const char*, int))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str(), false, cache, cache_states, next_state, brackets, helper_states);
     std::map<int, std::set<int>> result = fptr((char*)candidate, len);
+    delete[] cache;
+    delete[] cache_states;
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (!result.empty() == expected);
     if (match) {
@@ -201,16 +219,14 @@ void test_combined() {
 }
 
 void test_partial() {
-	//check_correctness("ab", "aab");
-    //check_correctness("ab", "aba");
+	check_correctness("ab", "aab");
+    check_correctness("ab", "aba");
 	check_correctness("a?", "aaaa");
-	//check_correctness("a+", "aaaa");
+	check_correctness("a+", "aaaa");
 	check_correctness("[ab]", "ab");
-    //check_correctness("a?", "bb");
-	//check_correctness("aa*", "bb");
-	//check_correctness("a+", "bb");
+    check_correctness("a?", "bb");
     //check_correctness("aa", "aaa");
-	//check_correctness("c[ab]+", "abc");
+	check_correctness("c[ab]+", "abc");
 	//check_correctness("c[ab]+", "aaba");
 	//check_correctness("c[ab]+", "caaaabcc");
 	//check_correctness("123", "a123a");
@@ -219,7 +235,8 @@ void test_partial() {
 }
 
 int main() {    
-  /*  test_simple();
+/*    auto start = high_resolution_clock::now();
+    test_simple();
     test_star();
     test_brackets();
     test_negative_brackets();
@@ -232,13 +249,11 @@ int main() {
     test_repetition();
     test_combined();
 	test_partial();
-  */
-
-//    check_correctness("3[^db]4", "3c4");    
-  //  check_correctness("2[a-g]*", "2dcag");
-   // check_correctness("a[bc]d", "abd");
-//   check_correctness("abc", "abc");
-   test_partial();
+    auto end = high_resolution_clock::now();
+    auto dur = (duration_cast<seconds>(end - start)).count();
+    cout << "time: " << dur << "s" << endl;
+*/
+    test_partial();
 }
 
 
