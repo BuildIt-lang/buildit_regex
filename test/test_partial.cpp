@@ -33,7 +33,8 @@ void check_correctness(const char* pattern, const char* candidate) {
     context.dynamic_header_includes = "#include <set>\n#include <map>\n#include \"../../include/runtime.h\"";
     context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (std::map<int, std::set<int>> (*)(const char*, int))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str(), false, cache, cache_states, next_state, brackets, helper_states);
+    auto fptr = (std::map<int, std::set<int>> (*)(const char*, int))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
+    cout << "before function call" << endl;
     std::map<int, std::set<int>> result = fptr((char*)candidate, len);
     delete[] cache;
     delete[] cache_states;
@@ -60,7 +61,7 @@ void print_expected_all_matches(const char* pattern, const char* candidate) {
     std::regex r(pattern);
     auto matches_begin = std::sregex_iterator(s.begin(), s.end(), r);
     auto matches_end = std::sregex_iterator();
-    std::cout << "Expected number of matches " << std::distance(matches_begin, matches_end) << ": " << std::endl;
+    std::cout << "Expected number of matches for " << pattern << " " << candidate << ": " << std::distance(matches_begin, matches_end) << ": " << std::endl;
     for (std::sregex_iterator i = matches_begin; i != matches_end; i++) {
         std::smatch match = *i;
         std::string match_str = match.str();
@@ -226,6 +227,7 @@ void test_partial() {
 	check_correctness("[ab]", "ab");
     check_correctness("a?", "bb");
     //check_correctness("aa", "aaa");
+	check_correctness("c[ab]", "ca");
 	check_correctness("c[ab]+", "abc");
 	//check_correctness("c[ab]+", "aaba");
 	//check_correctness("c[ab]+", "caaaabcc");
@@ -254,6 +256,7 @@ int main() {
     cout << "time: " << dur << "s" << endl;
 */
     test_partial();
+    //check_correctness("c[ab]", "ac");
 }
 
 

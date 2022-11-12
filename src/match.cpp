@@ -124,11 +124,27 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
     return left <= c && c <= right;
 }
 
+
+void update_start_positions(dyn_var<int> current_state, static_var<char> *next_states, dyn_var<set_t<int>*> current_start, dyn_var<set_t<int>*> next_start, int re_len) {
+    for (static_var<int> i = 0; i < re_len + 1; i = i + 1) {
+        // TODO: cannot index into a static array with dyn variable
+        if (next_states[i]) {
+            if (current_state < 0) {
+                dyn_var<int> start = -1 * (current_state + 1);
+                set_t_insert(next_start[i], start);
+            } else {
+                next_start[i] = set_t_union(next_start[i], current_start[current_state]);
+            }
+        }
+    }
+        
+} 
+
 /**
 Given that the character `re[p]` has just been matched, finds all the characters
 in `re` that can be matched next and sets their corresponding locations in `next` to `true`.
 */
-void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, char *cache, int *cache_states, bool use_cache, static_var<char> *temp, dyn_var<set_t<int>*> next_start, dyn_var<set_t<int>> current_start) {
+void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets, int *helper_states, int p, char *cache, int *cache_states, bool use_cache, static_var<char> *temp) {
     const int re_len = strlen(re);
 
     int ns = (p == -1) ? 0 : (unsigned int)ns_arr[p];
@@ -143,50 +159,46 @@ void progress(const char *re, static_var<char> *next, int *ns_arr, int *brackets
     if ((int)strlen(re) == ns) {
         next[ns] = true;
         temp[ns] = true;
-        next_start[ns] = set_t_union(next_start[ns], current_start);
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         next[ns] = true;
-        next_start[ns] = set_t_union(next_start[ns], current_start);
         if ('*' == re[ns+1] || '?' == re[ns+1] || ('+' == re[ns+1] && helper_states[ns+1] == 1)) {
             // we can also skip this char
-            progress(re, next, ns_arr, brackets, helper_states, ns+1, cache, cache_states, use_cache, temp, next_start, current_start);
+            progress(re, next, ns_arr, brackets, helper_states, ns+1, cache, cache_states, use_cache, temp);
         }
         temp[ns] = true;
     } else if ('*' == re[ns] || '+' == re[ns]) { // can match char p again
         helper_states[ns] = 1;
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? brackets[ns-1] : ns - 1;
-        progress(re, next, ns_arr, brackets, helper_states, prev_state-1, cache, cache_states, use_cache, temp, next_start, current_start);
+        progress(re, next, ns_arr, brackets, helper_states, prev_state-1, cache, cache_states, use_cache, temp);
     } else if ('[' == re[ns]) {
         static_var<int> curr_idx = ns + 1;
         if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1] || ('+' == re[brackets[ns]+1] && helper_states[brackets[ns]+1] == 1)))
             // allowed to skip []
-            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states, use_cache, temp, next_start, current_start);
+            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states, use_cache, temp);
         if (re[ns + 1] == '^') {
             // negative class - mark only '^' as true
             // the character matching is handled in `match_regex`
             next[ns + 1] = true;
-            next_start[ns+1] = set_t_union(next_start[ns+1], current_start);
             temp[ns + 1] = true;
         } else {
             while (re[curr_idx] != ']') {
                 // allowed to match any of the chars inside []
                 next[curr_idx] = true;
-                next_start[curr_idx] = set_t_union(next_start[curr_idx], current_start);
                 temp[curr_idx] = true;
                 curr_idx = curr_idx + 1;
             }
         }
     } else if ('(' == re[ns]) {
-        progress(re, next, ns_arr, brackets, helper_states, ns, cache, cache_states, use_cache, temp, next_start, current_start); // char right after (
+        progress(re, next, ns_arr, brackets, helper_states, ns, cache, cache_states, use_cache, temp); // char right after (
         // start by trying to match the first char after each |
         int or_index = helper_states[ns];
         while (or_index != brackets[ns]) {
-            progress(re, next, ns_arr, brackets, helper_states, or_index, cache, cache_states, use_cache, temp, next_start, current_start);
+            progress(re, next, ns_arr, brackets, helper_states, or_index, cache, cache_states, use_cache, temp);
             or_index = helper_states[or_index];
         } 
         // if () are followed by *, it's possible to skip the () group
         if (brackets[ns] < (int)strlen(re) - 1 && ('*' == re[brackets[ns]+1] || '?' == re[brackets[ns]+1] || ('+' == re[brackets[ns]+1] && helper_states[brackets[ns]+1] == 1)))
-            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states, use_cache, temp, next_start, current_start);
+            progress(re, next, ns_arr, brackets, helper_states, brackets[ns]+1, cache, cache_states, use_cache, temp);
     }
     if (use_cache && !cache[p+1]) {
         cache[p+1] = true;
@@ -224,10 +236,8 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         printf("Invalid regex");
         return all_matches;
     }
-
-    dyn_var<set_t<int>> next_pos;
-    next_pos.insert(0);
-    progress(re, current, next_state, brackets, helper_states, -1, cache, cache_states, use_cache, temp, current_start, next_pos);
+    progress(re, current, next_state, brackets, helper_states, -1, cache, cache_states, use_cache, temp);
+    update_start_positions(-1, temp, current_start, current_start, re_len);
     for (static_var<int> k = 0; k < re_len + 1; k++) {
         temp[k] = 0;
     }
@@ -259,7 +269,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m) {
-                            progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp, next_start, current_start[state]);
+                            progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -270,11 +280,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp, next_start, current_start[state]);
+                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp, next_start, current_start[state]);
+                    progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp);
                     state_match = 1;
                 } else if ('^' == m) {
                     // we are inside a [^] class
@@ -295,13 +305,13 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     }
                     if (matches == 1) {
                         state_match = 1;
-                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp, next_start, current_start[state]);
+                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp);
                     }
                 } else if ('-' == m) {
                     static_var<char> left = re[state - 1];
                     static_var<char> right = re[state + 1];
                     if (is_in_range(left, right, str[to_match])) {
-                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp, next_start, current_start[state]);
+                        progress(re, next, next_state, brackets, helper_states, state, cache, cache_states, use_cache, temp);
                         state_match = 1;
                     }
                 } else {
@@ -309,8 +319,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     return all_matches;
                 }
 
-                //update_start_positions(next_start, current_start, to_match, state, next_start_pos, re_len);
                 if (state_match == 1 && open_bracket == 1) bracket_match = 1;
+
+                if (state_match) {
+                    update_start_positions(state, temp, current_start, next_start, re_len);    
+                }
 
                 for (static_var<int> k = 0; k < re_len + 1; k++) {
                     temp[k] = 0;
@@ -320,9 +333,8 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         // All the states have been checked
 		if (enable_partial) {
             // if partial add the first state as well
-            dyn_var<set_t<int>> next_start_pos;
-            next_start_pos.insert(to_match+1);
-			progress(re, next, next_state, brackets, helper_states, -1, cache, cache_states, use_cache, temp, next_start, next_start_pos); // partial match match from start again
+			progress(re, next, next_state, brackets, helper_states, -1, cache, cache_states, use_cache, temp); // partial match match from start again
+            update_start_positions(-to_match-2, temp, current_start, next_start, re_len);
             if (use_cache) {
                 for (static_var<int> k = 0; k < re_len + 1; k++) {
                     temp[k] = 0;
@@ -343,9 +355,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 
         // update start positions
         for (dyn_var<int> i = 0; i < re_len + 1; i=i+1) {
-            current_start[i] = next_start[i];
-            dyn_var<set_t<int>> emp_set;
-            next_start[i] = emp_set;
+            set_t_update(current_start[i], next_start[i]);
         }
         to_match = to_match + 1;
 

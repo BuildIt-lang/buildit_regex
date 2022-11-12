@@ -22,8 +22,15 @@ namespace regex_runtime {
     Inserts the elements from `s2` into `s1`.
     */
     template <typename T>
-    void update_set(std::set<T> s1, std::set<T> s2) {
-        s1.insert(s2.begin(), s2.end());    
+    void update_set(std::set<T> &s1, std::set<T> &s2) {
+        s1.clear();
+        s1.insert(s2.begin(), s2.end());
+        s2.clear();
+    }
+    
+    template <typename T>
+    void set_insert(std::set<T> &s1, T elt) {
+        s1.insert(elt);    
     }
 
     /**
