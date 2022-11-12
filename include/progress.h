@@ -7,11 +7,18 @@ using namespace std;
 struct Cache {
     char* is_cached;
     int* next_states;
+    char* temp_states;
+};
+
+struct ReStates {
+    int* next;
+    int* brackets;
+    int* helper_states;
 };
 
 bool is_normal(char m);
 bool is_digit(char m);
 void reset_array(char* arr, int len);
-bool process_re(const char *re, int *next_states, int *brackets, int *helper_states);
-void progress(const char *re, int *ns_arr, int *brackets, int *helper_states, int p, char *cache, int *cache_states, char *temp);
-void cache_states(const char* re, Cache cache, int* ns, int* brackets, int* helper_states);
+bool process_re(const char *re, ReStates re_states);
+void progress(const char *re, ReStates re_states, int p, Cache cache);
+void cache_states(const char* re, int* next_states);

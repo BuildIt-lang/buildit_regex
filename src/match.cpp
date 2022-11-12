@@ -15,6 +15,9 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
     return left <= c && c <= right;
 }
 
+/**
+Update `next` with the reachable states from state `p`.
+*/
 void update_from_cache(static_var<char>* next, int* cache, int p, int re_len) {
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         next[i] = cache[(p+1) * (re_len + 1) + i] || next[i];
@@ -23,11 +26,9 @@ void update_from_cache(static_var<char>* next, int* cache, int p, int re_len) {
 
 
 /**
-Tries to match each character in `str` one by one.
-It relies on `progress` to get the possible states we can transition to
-from the current state.
+Matches each character in `str` one by one.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache_states, int* next_state, int* brackets, int* helper_states) {
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache) {
     const int re_len = strlen(re);
 
     // allocate two state vectors
@@ -38,7 +39,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         current[i] = next[i] = 0;
     }
 
-    update_from_cache(current, cache_states, -1, re_len);
+    update_from_cache(current, cache, -1, re_len);
     
     dyn_var<int> to_match = 0;
     while (to_match < str_len) {
@@ -65,7 +66,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m) {
-                            update_from_cache(next, cache_states, state, re_len);
+                            update_from_cache(next, cache, state, re_len);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -76,11 +77,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        update_from_cache(next, cache_states, state, re_len);
+                        update_from_cache(next, cache, state, re_len);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    update_from_cache(next, cache_states, state, re_len);
+                    update_from_cache(next, cache, state, re_len);
                     state_match = 1;
                 } else if ('^' == m) {
                     // we are inside a [^] class
@@ -101,13 +102,13 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     }
                     if (matches == 1) {
                         state_match = 1;
-                        update_from_cache(next, cache_states, state, re_len);
+                        update_from_cache(next, cache, state, re_len);
                     }
                 } else if ('-' == m) {
                     static_var<char> left = re[state - 1];
                     static_var<char> right = re[state + 1];
                     if (is_in_range(left, right, str[to_match])) {
-                        update_from_cache(next, cache_states, state, re_len);
+                        update_from_cache(next, cache, state, re_len);
                         state_match = 1;
                     }
                 } else {
@@ -122,7 +123,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         // All the states have been checked
 		if (enable_partial) {
             // if partial add the first state as well
-			update_from_cache(next, cache_states, -1, re_len);
+			update_from_cache(next, cache, -1, re_len);
 		}
         // Now swap the states and clear next
         static_var<int> count = 0;
@@ -147,12 +148,12 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     return is_match;
 }
 
-dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache_states, int* next_state, int* brackets, int* helper_states) {
-	return match_regex(re, str, str_len, false, cache_states, next_state, brackets, helper_states);
+dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache) {
+	return match_regex(re, str, str_len, false, cache);
 }
 
-dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache_states, int* next_state, int* brackets, int* helper_states) {
-	return match_regex(re, str, str_len, true, cache_states, next_state, brackets, helper_states);
+dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache) {
+	return match_regex(re, str, str_len, true, cache);
 }
 
 

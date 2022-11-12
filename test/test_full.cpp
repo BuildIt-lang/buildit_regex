@@ -16,30 +16,16 @@ void check_correctness(const char* pattern, const char* candidate) {
     string processed_re = expand_regex(pattern);
     const int re_len = processed_re.length();
     
-    // initialize the cache
-    Cache cache;
-    std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
+    // fill the cache
     const int cache_size = (re_len + 1) * (re_len + 1);
     std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
-    cache.is_cached = cache_ptr.get();
-    for (int i = 0; i < re_len + 1; i++) cache.is_cached[i] = 0;
-    cache.next_states = cache_states_ptr.get();
-
-    // init helper arrays for the regex
-    std::unique_ptr<int> next_state_ptr(new int[re_len]);
-    int *next_state = next_state_ptr.get();
-    std::unique_ptr<int> brackets_ptr(new int[re_len]);
-    int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
-    std::unique_ptr<int> helper_states_ptr(new int[re_len]);
-    int *helper_states = helper_states_ptr.get();
-
-    // fill the cache
-    cache_states(processed_re.c_str(), cache, next_state, brackets, helper_states);
+    int* next = cache_states_ptr.get();
+    cache_states(processed_re.c_str(), next);
 
 	builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), cache.next_states, next_state, brackets, helper_states);
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), next);
     int result = fptr((char*)candidate, len);
     cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
