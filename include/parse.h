@@ -1,8 +1,6 @@
 #include <iostream>
 #include <tuple>
-#include "builder/static_var.h"
 
-using builder::static_var;
 using namespace std;
 
 int get_counters(string re, int idx, int *counters);

@@ -1,7 +1,4 @@
-
-
-#include "util.h"
-
+#include "parse.h"
 
 int get_counters(string re, int idx, int *counters) {
     int result = 0;
@@ -72,3 +69,4 @@ string expand_regex(string re) {
     return s;
 
 }
+

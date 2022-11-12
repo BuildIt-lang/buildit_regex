@@ -1,6 +1,7 @@
 #include <iostream>
 #include "test.h"
-#include "../include/util.h"
+#include "../include/parse.h"
+#include "../include/progress.h"
 
 using namespace std::chrono;
 
@@ -10,28 +11,37 @@ General function to compare results.
 void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_search(candidate, std::regex(pattern));
     int len = strlen(candidate); 
-	string processed_re = expand_regex(pattern);
+	
+    // parse the regex
+    string processed_re = expand_regex(pattern);
     const int re_len = processed_re.length();
+    
+    // initialize the cache
     const int cache_size = (re_len + 1) * (re_len + 1); 
-    char* cache = new char[re_len+1];
-    for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
-    int* cache_states = new int[cache_size];
+    Cache cache;
+    cache.is_cached = new char[re_len+1];
+    for (int i = 0; i < re_len + 1; i++) cache.is_cached[i] = 0;
+    cache.next_states = new int[cache_size];
+
+    // initialize helper arrays for progress
     std::unique_ptr<int> next_state_ptr(new int[re_len]);
     int *next_state = next_state_ptr.get();
-
     std::unique_ptr<int> brackets_ptr(new int[re_len]);
     int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
-
     std::unique_ptr<int> helper_states_ptr(new int[re_len]);
     int *helper_states = helper_states_ptr.get();
+    
+    // fill the cache
+    cache_states(processed_re.c_str(), cache, next_state, brackets, helper_states);
+
     //cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), false, cache.is_cached, cache.next_states, next_state, brackets, helper_states);
     int result = fptr((char*)candidate, len);
-    delete[] cache;
-    delete[] cache_states;
+    delete[] cache.is_cached;
+    delete[] cache.next_states;
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {

@@ -4,113 +4,6 @@
 Parts of the code below are taken from https://intimeand.space/docs/CGO2022-BuilDSL.pdf
 */
 
-/**
-It returns whether `re` is a valid regular expression.
-
-`next_state` an array of length `strlen(re)`; for each char in `re`,
-given that that char has just been matched against the input string,
-it stores the index of the next char / state in `re` that should be processed
-
-`brackets` is an array of the same length as `re` that holds the index
-of a closing ( or [ for each opening one, and vice versa. 
-
-`helper_states` is an array of the same length as `re` which holds the indices
-of `|` chars inside each pair of (). The `(` location stores the index of the
-first `|`, the location of the first `|` stores the index of the second `|`, and
-so on, the last `|` has the index of `)`
-It also stores 0 for '+' initially, which is changed to 1 when '+' sends a state back for
-the first time.
-*/
-bool process_re(const char *re, int *next_states, int *brackets, int *helper_states) {
-    int re_len = (int)strlen(re);
-    vector<int> closed_parans; 
-    int last_bracket = -1;
-    vector<int> or_indices;
-    int idx = re_len - 1;
-    while (idx >= 0) {
-        char c = re[idx];
-
-        // keep track of () and [] pairs
-        if (c == ']') last_bracket = idx;
-        else if (c == ')') {
-            closed_parans.push_back(idx);
-            or_indices.push_back(idx);
-        } else if (c == '[') {
-            brackets[idx] = last_bracket;
-            brackets[last_bracket] = idx;
-            last_bracket = -1;
-        } else if (c == '(') {
-            int last_paran = closed_parans.back();
-            closed_parans.pop_back();
-            brackets[idx] = last_paran;
-            brackets[last_paran] = idx;
-            helper_states[idx] = or_indices.back();
-            or_indices.pop_back();
-        }
-
-        if (c == '+') helper_states[idx] = 0;
-
-        // if c has just been matched against the string
-        // find the next character/state from re that should be matched
-        if (idx == re_len - 1) {
-            next_states[idx] = idx + 1;
-        } else if (c == '|') {
-            next_states[idx] = idx + 1;
-            helper_states[idx] = or_indices.back();
-            or_indices.pop_back();
-            or_indices.push_back(idx);
-        } else if (re[idx+1] == '|') {
-            // we are right before |
-            // map to the state just after the enclosing () that contain the |'s
-            if (re[idx] == ')') {
-                int last = closed_parans.back();
-                closed_parans.pop_back();
-                next_states[idx] = next_states[closed_parans.back()];
-                closed_parans.push_back(last);
-            } else {
-                next_states[idx] = next_states[closed_parans.back()];
-            }
-        } else if (c != ']' && last_bracket != -1) {
-            // we are inside brackets
-            // all chars map to the same state as the closing bracket
-            next_states[idx] = next_states[last_bracket];
-        } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?' || c == '+') {
-            char next_c = re[idx + 1];
-            if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[' || next_c == '+') {
-                next_states[idx] = idx + 1;   
-            } else if (next_c == ')' || next_c == ']' || next_c == '?') {
-                // if it's a `?` it means we've already had a match, so just skip it
-                next_states[idx] = next_states[idx+1];    
-            } else {
-                printf("Invalid character: %c\n", next_c);
-                return false;
-            }
-        } else {
-            printf("Invalid character: %c\n", c);
-            return false;
-        }
-
-        idx = idx - 1;
-    }
-/*    printf("----\n");
-    for (static_var<int> i = 0; i < re_len; i++) {
-        printf("%d, ", (int)helper_states[i]);
-    }
-    printf("\n----\n");
-    */
-    return true;  
-}
-
-/**
-Returns if `m` is an alphanumeric character.
-*/
-bool is_normal(char m) {
-    return (m >= 'a' && m <= 'z') || (m >= 'A' && m <= 'Z') || (m >= '0' && m <= '9');
-}
-
-bool is_digit(char m) {
-    return m >= '0' && m <= '9';
-}
 
 
 /**
@@ -209,11 +102,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         current[i] = next[i] = temp[i] = 0;
     }
 
-    bool re_valid = process_re(re, next_state, brackets, helper_states);
+    /*bool re_valid = process_re(re, next_state, brackets, helper_states);
     if (!re_valid) {
         printf("Invalid regex");
         return false;
-    }
+    }*/
 
     progress(re, current, next_state, brackets, helper_states, -1, cache, cache_states, use_cache, temp);
     for (static_var<int> k = 0; k < re_len + 1; k++) {
