@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
     char* cache = cache_ptr.get();
     for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
     int* cache_states = cache_states_ptr.get();
-    auto ast = context.extract_function_ast(match_regex_full, "match_re", "[abc]+", false, cache, cache_states, next_state, brackets, helper_states);
+    auto ast = context.extract_function_ast(match_regex_full, "match_re", "[abc]+", cache_states, next_state, brackets, helper_states);
     code_file << "#include <string.h>" << std::endl;
     block::c_code_generator::generate_code(ast, code_file);
     code_file.close();

@@ -77,3 +77,4 @@ test: executables
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm $(BUILDIT_DIR)/scratch/*

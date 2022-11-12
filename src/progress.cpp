@@ -163,17 +163,24 @@ void progress(const char *re, int *ns_arr, int *brackets, int *helper_states, in
     }
 }
 
+void reset_array(char* arr, int len) {
+    for (int i = 0; i < len; i++) {
+        arr[i] = 0;    
+    }
+}
 
 void cache_states(const char* re, Cache cache, int* ns, int* brackets, int* helper_states) {
     int re_len = (int)strlen(re);
     char* temp_states = new char[re_len + 1];
+    reset_array(temp_states, re_len + 1);
     bool valid = process_re(re, ns, brackets, helper_states);
     if (!valid) {
         std::cout << "Invalid regex in process_re" << std::endl;    
         return;
     }
-    for (int state = 0; state < re_len; state++) {
+    for (int state = -1; state < re_len; state++) {
         progress(re, ns, brackets, helper_states, state, cache.is_cached, cache.next_states, temp_states);   
+        reset_array(temp_states, re_len + 1);
     }
 }
 

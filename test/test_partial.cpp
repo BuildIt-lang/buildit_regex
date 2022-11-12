@@ -38,7 +38,7 @@ void check_correctness(const char* pattern, const char* candidate) {
     builder::builder_context context;
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), false, cache.is_cached, cache.next_states, next_state, brackets, helper_states);
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), cache.next_states, next_state, brackets, helper_states);
     int result = fptr((char*)candidate, len);
     delete[] cache.is_cached;
     delete[] cache.next_states;
