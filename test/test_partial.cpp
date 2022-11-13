@@ -1,8 +1,9 @@
 #include <iostream>
 #include "test.h"
-#include "../include/util.h"
 #include <set>
 #include <iterator>
+#include "../include/parse.h"
+#include "../include/progress.h"
 
 using namespace std::chrono;
 
@@ -13,31 +14,26 @@ void check_correctness(const char* pattern, const char* candidate) {
     int expected = std::regex_search(candidate, std::regex(pattern));
     print_expected_all_matches(pattern, candidate);
     int len = strlen(candidate); 
-	string processed_re = expand_regex(pattern);
+	
+    // parse the regex
+    string processed_re = expand_regex(pattern);
     const int re_len = processed_re.length();
+    
+    // fill the cache
     const int cache_size = (re_len + 1) * (re_len + 1); 
-    char* cache = new char[re_len+1];
-    for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
-    int* cache_states = new int[cache_size];
-    std::unique_ptr<int> next_state_ptr(new int[re_len]);
-    int *next_state = next_state_ptr.get();
+    int* next = new int[cache_size];
+    cache_states(processed_re.c_str(), next);
 
-    std::unique_ptr<int> brackets_ptr(new int[re_len]);
-    int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
-
-    std::unique_ptr<int> helper_states_ptr(new int[re_len]);
-    int *helper_states = helper_states_ptr.get();
-    //cout << "processed re: " << processed_re << endl;
     builder::builder_context context;
 	context.dynamic_use_cxx = true;
     context.dynamic_header_includes = "#include <set>\n#include <map>\n#include \"../../include/runtime.h\"";
     context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (std::map<int, std::set<int>> (*)(const char*, int))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
-    cout << "before function call" << endl;
+    
+    auto fptr = (std::map<int, std::set<int>> (*)(const char*, int))builder::compile_function_with_context(context, find_all_matches, processed_re.c_str(), next);
     std::map<int, std::set<int>> result = fptr((char*)candidate, len);
-    delete[] cache;
-    delete[] cache_states;
+    delete[] next;
+    
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (!result.empty() == expected);
     if (match) {
@@ -226,14 +222,14 @@ void test_partial() {
 	check_correctness("a+", "aaaa");
 	check_correctness("[ab]", "ab");
     check_correctness("a?", "bb");
-    //check_correctness("aa", "aaa");
+    check_correctness("aa", "aaa");
 	check_correctness("c[ab]", "ca");
 	check_correctness("c[ab]+", "abc");
 	//check_correctness("c[ab]+", "aaba");
 	//check_correctness("c[ab]+", "caaaabcc");
 	//check_correctness("123", "a123a");
-	//check_correctness("(123)*1", "112312311");
-    //check_correctness("Twain", "MarkTwainTwainTomSawyer");
+	check_correctness("(123)*1", "112312311");
+    check_correctness("Twain", "MarkTwainTwainTomSawyer");
 }
 
 int main() {    
@@ -255,6 +251,7 @@ int main() {
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
 */
+//	check_correctness("ab", "aab");
     test_partial();
     //check_correctness("c[ab]", "ac");
 }

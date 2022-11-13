@@ -39,6 +39,7 @@ class dyn_var<set_t<T>>: public dyn_var_impl<set_t<T>> {
         dyn_var(): dyn_var_impl<set_t<T>>() {}
 
         dyn_var<void(T)> insert = as_member_of(this, "insert");
+        dyn_var<void(void)> clear = as_member_of(this, "clear");
 };
 
 // Create specialization for foo_t* so that we can overload the * operator

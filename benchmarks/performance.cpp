@@ -13,7 +13,8 @@
 #include "builder/dyn_var.h"
 #include "builder/static_var.h"
 #include "match.h"
-#include "util.h"
+#include "progress.h"
+#include "parse.h"
 
 using namespace std;
 using namespace re2;
@@ -117,25 +118,15 @@ void time_partial_match(vector<string> &patterns, string &text, int n_iters) {
         // buildit
 		string processed_re = expand_regex(patterns[i]);
         const int re_len = processed_re.length();
-        std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
         const int cache_size = (re_len + 1) * (re_len + 1); 
         std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
-        char* cache = cache_ptr.get();
-        for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
-        int* cache_states = cache_states_ptr.get();
-        std::unique_ptr<int> next_state_ptr(new int[re_len]);
-        int *next_state = next_state_ptr.get();
-
-        std::unique_ptr<int> brackets_ptr(new int[re_len]);
-        int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
-
-        std::unique_ptr<int> helper_states_ptr(new int[re_len]);
-        int *helper_states = helper_states_ptr.get();
+        int* cache = cache_states_ptr.get();
+        cache_states(processed_re.c_str(), cache);
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
         auto start = high_resolution_clock::now();
-        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), cache);
         auto end = high_resolution_clock::now();
         cout << "buildit compilation time: " << (duration_cast<milliseconds>(end - start)).count() << "ms" << endl;
         buildit_patterns.push_back(fptr);
@@ -189,26 +180,18 @@ void time_full_match(vector<string> &patterns, vector<string> &words, int n_iter
         // buildit
         string processed_re = expand_regex(patterns[i]);
         const int re_len = processed_re.length();
-        std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
         const int cache_size = (re_len + 1) * (re_len + 1); 
         std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
-        char* cache = cache_ptr.get();
-        for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
-        int* cache_states = cache_states_ptr.get();
-        std::unique_ptr<int> next_state_ptr(new int[re_len]);
-        int *next_state = next_state_ptr.get();
+        int* cache = cache_states_ptr.get();
+        cache_states(processed_re.c_str(), cache);
 
-        std::unique_ptr<int> brackets_ptr(new int[re_len]);
-        int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
-
-        std::unique_ptr<int> helper_states_ptr(new int[re_len]);
-        int *helper_states = helper_states_ptr.get();
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
         auto start = high_resolution_clock::now();
-        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
+        auto fptr = (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), cache);
         auto end = high_resolution_clock::now();
+        
         cout << "compilation time: " << (duration_cast<milliseconds>(end - start)).count() << "ms" << endl;
         buildit_patterns.push_back(fptr);
         
@@ -267,8 +250,8 @@ int main() {
         "(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
         //".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-        //"Tom.{10,15}",
-        //"(Tom.{10,15}river|river.{10,15}Tom)",
+        "Tom.{10,15}",
+       // "(Tom.{10,15}river|river.{10,15}Tom)",
         "[a-zA-Z]+ing",
     };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};

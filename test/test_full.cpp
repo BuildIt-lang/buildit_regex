@@ -1,6 +1,7 @@
 #include <iostream>
 #include "test.h"
-#include "../include/util.h"
+#include "../include/parse.h"
+#include "../include/progress.h"
 
 using namespace std::chrono;
 
@@ -10,31 +11,23 @@ General function to compare results.
 void check_correctness(const char* pattern, const char* candidate) {
     bool expected = regex_match(candidate, regex(pattern));
     int len = strlen(candidate);
-    
-    string processed_re = expand_regex(pattern);
-    
-    const int re_len = processed_re.length();
-    std::unique_ptr<char> cache_ptr(new char[re_len + 1]);
-    
-    const int cache_size = (re_len + 1) * (re_len + 1);
 
+    // parse the regex
+    string processed_re = expand_regex(pattern);
+    const int re_len = processed_re.length();
+    
+    // fill the cache
+    const int cache_size = (re_len + 1) * (re_len + 1);
     std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
-    char* cache = cache_ptr.get();
-    for (int i = 0; i < re_len + 1; i++) cache[i] = 0;
-    int* cache_states = cache_states_ptr.get();
-    std::unique_ptr<int> next_state_ptr(new int[re_len]);
-    int *next_state = next_state_ptr.get();
-    std::unique_ptr<int> brackets_ptr(new int[re_len]);
-    int *brackets = brackets_ptr.get(); // hold the opening and closing indices for each bracket pair
-    std::unique_ptr<int> helper_states_ptr(new int[re_len]);
-    int *helper_states = helper_states_ptr.get();
+    int* next = cache_states_ptr.get();
+    cache_states(processed_re.c_str(), next);
 
 	builder::builder_context context;
 	context.dynamic_use_cxx = true;
     context.dynamic_header_includes = "#include <set>\n#include <map>\n#include \"../../include/runtime.h\"";
 	context.feature_unstructured = true;
 	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), true, cache, cache_states, next_state, brackets, helper_states);
+    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), next);
     int result = fptr((char*)candidate, len);
     cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
@@ -245,6 +238,8 @@ int main() {
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
+    check_correctness(".{2,4}(Tom|Sawyer|Huckleberry|Finn)", "TomTom");
+    check_correctness("(Huck[a-zA-Z]+|Saw[a-zA-Z]+)", "Sawyer");
 }
 
 
