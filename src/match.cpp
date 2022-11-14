@@ -49,17 +49,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 
         // Don’t do anything for $.
         static_var<int> early_break = -1;
-        static_var<int> open_bracket = 0;
-        static_var<int> bracket_match = 0;
         for (static_var<int> state = 0; state < re_len; ++state) {
-            // flags for early skipping in case of a bracket match
-            if (re[state] == '[') open_bracket = 1;
-            else if (re[state] == ']') open_bracket = bracket_match = 0;
-            // we are still inside [], but we already found a match
-            // => skip iters up to the closing bracket
-            if (bracket_match == 1) {
-				continue;
-			}
             // check if there is a match for this state
             static_var<int> state_match = 0;
             if (current[state]) {
@@ -118,9 +108,6 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     printf("Invalid Character(%c)\n", (char)m);
                     return false;
                 }
-
-                if (state_match == 1 && open_bracket == 1) bracket_match = 1;
-
             }
         }
         // All the states have been checked
