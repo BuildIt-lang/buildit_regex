@@ -119,11 +119,12 @@ void progress(const char *re, ReStates re_states, int p, Cache cache) {
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? re_states.brackets[ns-1] : ns - 1;
         progress(re, re_states, prev_state-1, cache);
     } else if ('[' == re[ns]) {
-        int curr_idx = ns + 1;
+//        int curr_idx = ns + 1;
         if (re_states.brackets[ns] < (int)strlen(re) - 1 && ('*' == re[re_states.brackets[ns]+1] || '?' == re[re_states.brackets[ns]+1]))
             // allowed to skip []
             progress(re, re_states, re_states.brackets[ns]+1, cache);
-        if (re[ns + 1] == '^') {
+        cache.temp_states[ns + 1] = true;
+        /*if (re[ns + 1] == '^') {
             // negative class - mark only '^' as true
             // the character matching is handled in `match_regex`
             cache.temp_states[ns + 1] = true;
@@ -133,7 +134,7 @@ void progress(const char *re, ReStates re_states, int p, Cache cache) {
                 cache.temp_states[curr_idx] = true;
                 curr_idx = curr_idx + 1;
             }
-        }
+        }*/
     } else if ('(' == re[ns]) {
         progress(re, re_states, ns, cache); // char right after (
         // start by trying to match the first char after each |
