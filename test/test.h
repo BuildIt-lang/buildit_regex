@@ -5,9 +5,16 @@
 #include "builder/builder_dynamic.h"
 #include "match.h"
 #include <chrono>
+#include <set>
+#include <vector>
+
+using namespace std;
 
 void print_expected_all_matches(const char* pattern, const char* candidate);
-void check_correctness(const char* pattern, const char* candidate);                                                                                   
+void check_correctness(const char* pattern, const char* candidate);
+vector<string> get_re2_matches(string pattern, string text);
+vector<string> get_buildit_matches(string pattern, string text);
+
 void test_simple();
 void test_star();
 void test_brackets();

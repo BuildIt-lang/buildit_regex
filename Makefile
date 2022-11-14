@@ -6,6 +6,8 @@ INCLUDE_DIR=$(BASE_DIR)/include
 GENERATED_CODE=$(BASE_DIR)/generated_code
 TEST_DIR=$(BASE_DIR)/test
 SAMPLES_DIR=$(BASE_DIR)/samples
+RE2_DIR=$(BASE_DIR)/benchmarks/re2
+RE2_LIBRARY_NAME=re2
 
 SRCS=$(wildcard $(SRC_DIR)/*.cpp)
 SAMPLES_SRCS=$(wildcard $(SAMPLES_DIR)/*.cpp)
@@ -26,10 +28,10 @@ LIBRARY_NAME=buildit_regex
 DEBUG ?= 0
 ifeq ($(DEBUG),1)
 CFLAGS=-g -std=c++11 -O0
-LINKER_FLAGS=-rdynamic  -g -L$(BUILDIT_LIBRARY_PATH) -L$(BUILD_DIR) -l$(LIBRARY_NAME) -l$(BUILDIT_LIBRARY_NAME) -ldl
+LINKER_FLAGS=-rdynamic  -g -L$(BUILDIT_LIBRARY_PATH) -L$(BUILD_DIR) -l$(LIBRARY_NAME) -l$(BUILDIT_LIBRARY_NAME) -L$(RE2_DIR)/obj/so -l$(RE2_LIBRARY_NAME) -ldl
 else
 CFLAGS=-std=c++11 -O3
-LINKER_FLAGS=-rdynamic  -L$(BUILDIT_LIBRARY_PATH) -L$(BUILD_DIR) -l$(LIBRARY_NAME) -l$(BUILDIT_LIBRARY_NAME) -ldl
+LINKER_FLAGS=-rdynamic  -L$(BUILDIT_LIBRARY_PATH) -L$(BUILD_DIR) -l$(LIBRARY_NAME) -l$(BUILDIT_LIBRARY_NAME) -L$(RE2_DIR)/obj/so -l$(RE2_LIBRARY_NAME) -ldl
 endif
 
 LIBRARY=$(BUILD_DIR)/lib$(LIBRARY_NAME).a
@@ -45,8 +47,8 @@ subsystem:
 .PRECIOUS: $(BUILD_DIR)/samples/%.o
 .PRECIOUS: $(BUILD_DIR)/test/%.o
 
-INCLUDES=$(wildcard $(INCLUDE_DIR)/*.h) $(wildcard $(BUILDIT_DIR)/include/*.h) $(wildcard $(BUILDIT_DIR)/include/*/*.h) 
-INCLUDE_FLAG=-I$(INCLUDE_DIR) -I$(BUILDIT_DIR)/include -I$(BUILDIT_DIR)/build/gen_headers
+INCLUDES=$(wildcard $(INCLUDE_DIR)/*.h) $(wildcard $(BUILDIT_DIR)/include/*.h) $(wildcard $(BUILDIT_DIR)/include/*/*.h) $(wildcard $(RE2_DIR)/*/*.h) 
+INCLUDE_FLAG=-I$(INCLUDE_DIR) -I$(BUILDIT_DIR)/include -I$(BUILDIT_DIR)/build/gen_headers -I$(RE2_DIR)
 
 $(BUILD_DIR)/samples/%.o: $(SAMPLES_DIR)/%.cpp $(INCLUDES)
 	$(CXX) $(CFLAGS) $< -o $@ $(INCLUDE_FLAG) -c 
@@ -59,7 +61,7 @@ $(BUILD_DIR)/sample%: $(BUILD_DIR)/samples/sample%.o $(LIBRARY) $(BUILDIT_LIBRAR
 	$(CXX) -o $@ $< $(LINKER_FLAGS)
 
 .PHONY: $(BUILDIT_LIBRARY_PATH)/lib$(BUILDIT_LIBRARY_NAME).a
-$(BUILD_DIR)/test%: $(BUILD_DIR)/test/test%.o $(LIBRARY) $(BUILDIT_LIBRARY_PATH)/lib$(BUILDIT_LIBRARY_NAME).a subsystem
+$(BUILD_DIR)/test%: $(BUILD_DIR)/test/test%.o $(LIBRARY) $(BUILDIT_LIBRARY_PATH)/lib$(BUILDIT_LIBRARY_NAME).a $(RE2_DIR)/obj/so/libre2.so.10 subsystem
 	$(CXX) -o $@ $< $(LINKER_FLAGS)
 
 .PHONY: executables

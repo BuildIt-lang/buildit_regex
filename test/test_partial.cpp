@@ -225,9 +225,9 @@ void test_partial() {
     check_correctness("aa", "aaa");
 	check_correctness("c[ab]", "ca");
 	check_correctness("c[ab]+", "abc");
-	//check_correctness("c[ab]+", "aaba");
-	//check_correctness("c[ab]+", "caaaabcc");
-	//check_correctness("123", "a123a");
+	check_correctness("c[ab]+", "aaba");
+	check_correctness("c[ab]+", "caaaabcc");
+	check_correctness("123", "a123a");
 	check_correctness("(123)*1", "112312311");
     check_correctness("Twain", "MarkTwainTwainTomSawyer");
 }

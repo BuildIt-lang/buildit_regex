@@ -7,7 +7,6 @@ HYPERSCAN_DIR=$(BASE_DIR)/hyperscan
 
 SRCS=$(wildcard $(BASE_DIR)/*.cpp)
 OBJS=$(subst $(BASE_DIR),$(BUILD_DIR),$(SRCS:.cpp=.o))
-$(shell export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RE2_DIR/obj/so)
 $(shell mkdir -p $(BUILD_DIR))
 
 LIBRARY_NAME=perf
