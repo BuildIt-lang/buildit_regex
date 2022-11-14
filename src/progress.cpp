@@ -44,7 +44,6 @@ bool process_re(const char *re, ReStates re_states) {
         } else if (c == '[') {
             re_states.brackets[idx] = last_bracket;
             re_states.brackets[last_bracket] = idx;
-            //last_bracket = -1;
         } else if (c == '(') {
             int last_paran = closed_parans.back();
             closed_parans.pop_back();
@@ -78,6 +77,9 @@ bool process_re(const char *re, ReStates re_states) {
             // we are inside brackets
             // all chars map to the same state as the closing bracket
             re_states.next[idx] = re_states.next[last_bracket];
+			if (c == '[') {
+				last_bracket = -1;
+			}
         } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?') {
             char next_c = re[idx + 1];
             if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[') {
