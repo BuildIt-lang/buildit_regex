@@ -83,24 +83,30 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                 } else if ('.' == m) {
                     update_from_cache(next, cache, state, re_len);
                     state_match = 1;
-                } else if ('^' == m) {
-                    // we are inside a [^] class
+                } else if ('[' == m) {
+                    // we are inside a [...] class
                     static_var<int> idx = state + 1;
-                    dyn_var<int> matches = 1;
+		    static_var<bool> carat = false;
+		    if ('^' == re[idx]) {
+                        carat = true;
+			idx = idx + 1;
+		    }
+                    dyn_var<int> matches = 0;
                     // check if str[to_match] matches any of the chars in []
                     while (re[idx] != ']') {
                         if (re[idx] == str[to_match]) {
-                            matches = 0;
+                            matches = 1;
                             break;
                         } else if (re[idx] == '-') {
                             // this is used for ranges, e.g. [a-d]
-                            matches = !is_in_range(re[idx-1], re[idx+1], str[to_match]);
-                            if (!matches)
+                            matches = is_in_range(re[idx-1], re[idx+1], str[to_match]);
+                            if (matches)
                                 break;
                         }
                         idx = idx + 1;
                     }
-                    if (matches == 1) {
+		    matches = carat ? 1 - matches : matches;
+		    if (matches == 1) {
                         state_match = 1;
                         update_from_cache(next, cache, state, re_len);
                     }
