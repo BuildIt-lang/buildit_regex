@@ -44,7 +44,6 @@ bool process_re(const char *re, ReStates re_states) {
         } else if (c == '[') {
             re_states.brackets[idx] = last_bracket;
             re_states.brackets[last_bracket] = idx;
-            last_bracket = -1;
         } else if (c == '(') {
             int last_paran = closed_parans.back();
             closed_parans.pop_back();
@@ -78,6 +77,9 @@ bool process_re(const char *re, ReStates re_states) {
             // we are inside brackets
             // all chars map to the same state as the closing bracket
             re_states.next[idx] = re_states.next[last_bracket];
+			if (c == '[') {
+				last_bracket = -1;
+			}
         } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?') {
             char next_c = re[idx + 1];
             if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[') {
@@ -119,11 +121,12 @@ void progress(const char *re, ReStates re_states, int p, Cache cache) {
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? re_states.brackets[ns-1] : ns - 1;
         progress(re, re_states, prev_state-1, cache);
     } else if ('[' == re[ns]) {
-        int curr_idx = ns + 1;
+//        int curr_idx = ns + 1;
         if (re_states.brackets[ns] < (int)strlen(re) - 1 && ('*' == re[re_states.brackets[ns]+1] || '?' == re[re_states.brackets[ns]+1]))
             // allowed to skip []
             progress(re, re_states, re_states.brackets[ns]+1, cache);
-        if (re[ns + 1] == '^') {
+        cache.temp_states[ns] = true;
+        /*if (re[ns + 1] == '^') {
             // negative class - mark only '^' as true
             // the character matching is handled in `match_regex`
             cache.temp_states[ns + 1] = true;
@@ -133,7 +136,7 @@ void progress(const char *re, ReStates re_states, int p, Cache cache) {
                 cache.temp_states[curr_idx] = true;
                 curr_idx = curr_idx + 1;
             }
-        }
+        }*/
     } else if ('(' == re[ns]) {
         progress(re, re_states, ns, cache); // char right after (
         // start by trying to match the first char after each |
