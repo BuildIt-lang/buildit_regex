@@ -50,6 +50,10 @@ void test_star() {
 }
 
 void test_brackets() {
+	check_correctness("[bc]", "b");
+	check_correctness("[bc]", "c");
+	check_correctness("[bc]d", "bd");
+	check_correctness("[b-f]d", "dd");
     check_correctness("a[bc]d", "abd");
     check_correctness("a[bc]d", "acd");
     check_correctness("a[bc]d", "abcd");

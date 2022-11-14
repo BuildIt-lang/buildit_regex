@@ -44,7 +44,7 @@ bool process_re(const char *re, ReStates re_states) {
         } else if (c == '[') {
             re_states.brackets[idx] = last_bracket;
             re_states.brackets[last_bracket] = idx;
-            last_bracket = -1;
+            //last_bracket = -1;
         } else if (c == '(') {
             int last_paran = closed_parans.back();
             closed_parans.pop_back();
