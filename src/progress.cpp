@@ -123,7 +123,7 @@ void progress(const char *re, ReStates re_states, int p, Cache cache) {
         if (re_states.brackets[ns] < (int)strlen(re) - 1 && ('*' == re[re_states.brackets[ns]+1] || '?' == re[re_states.brackets[ns]+1]))
             // allowed to skip []
             progress(re, re_states, re_states.brackets[ns]+1, cache);
-        cache.temp_states[ns + 1] = true;
+        cache.temp_states[ns] = true;
         /*if (re[ns + 1] == '^') {
             // negative class - mark only '^' as true
             // the character matching is handled in `match_regex`
