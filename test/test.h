@@ -14,6 +14,8 @@ void print_expected_all_matches(const char* pattern, const char* candidate);
 void check_correctness(const char* pattern, const char* candidate);
 vector<string> get_re2_matches(string pattern, string text);
 vector<string> get_buildit_matches(string pattern, string text);
+void print_matches(vector<string> &matches);
+bool compare_matches(vector<string> &expected, vector<string> &result);
 
 void test_simple();
 void test_star();
