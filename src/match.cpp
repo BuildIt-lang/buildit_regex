@@ -19,7 +19,7 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
 Update `next` with the reachable states from state `p`.
 */
 void update_from_cache(static_var<char>* next, int* cache, int p, int re_len) {
-    for (static_var<int> i = 0; i < re_len + 1; i++) {
+    for (int i = 0; i < re_len + 1; i++) {
         next[i] = cache[(p+1) * (re_len + 1) + i] || next[i];
     }    
 }
