@@ -108,10 +108,12 @@ void time_hyperscan(vector<string> &patterns, string &text, int n_iters) {
     printf("Hyperscan compile + run time: %f ms\n", dur * 1.0 / n_iters);
 }
 
-void time_compare_re2(const vector<string> &patterns, const vector<string> &strings, int n_iters, bool partial) {
+void time_compare(const vector<string> &patterns, const vector<string> &strings, int n_iters, bool partial) {
     // pattern compilation
     vector<GeneratedFunction> buildit_patterns;
     vector<unique_ptr<RE2>> re2_patterns;
+	vector<hs_database_t*> hs_databases;
+	vector<char *> hs_pattern_arrs;
     for (int i = 0; i < patterns.size(); i++) {
         cout << patterns[i] << endl;
         // buildit
@@ -134,22 +136,36 @@ void time_compare_re2(const vector<string> &patterns, const vector<string> &stri
         cout << "compilation time: " << (duration_cast<milliseconds>(end - start)).count() << "ms" << endl;
         buildit_patterns.push_back(fptr);
         
+		// re2
         auto re_start = high_resolution_clock::now();
-        // re2
         re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
         auto re_end = high_resolution_clock::now();
         cout << "re compile time: " << (duration_cast<nanoseconds>(re_end - re_start)).count() << "ns" << endl;
+
+		// hyperscan
+        int pattern_len = patterns[i].length();
+        char pattern_arr[pattern_len];
+        strcpy(pattern_arr, patterns[i].c_str());
+		hs_database_t *database;
+		hs_compile_error_t *compile_error;
+		auto hs_start = high_resolution_clock::now();
+		hs_compile(pattern_arr, HS_FLAG_DOTALL, HS_MODE_BLOCK, NULL, &database, &compile_error);
+		auto hs_end = high_resolution_clock::now();
+		cout << "hs compile time: " << (duration_cast<nanoseconds>(hs_end - hs_start)).count() << "ns" << endl;
+
+		hs_pattern_arrs.push_back(pattern_arr);
+		hs_databases.push_back(database);
     }
 
     // re2 timing
     auto start = high_resolution_clock::now();
-    vector<bool> expected;
+    vector<bool> re2_expected;
     for (int i = 0; i < n_iters; i++) {
         for (int j = 0; j < patterns.size(); j++) {
 			if (partial) {
-	            expected.push_back(RE2::PartialMatch(strings[0], *re2_patterns[j].get()));
+	            re2_expected.push_back(RE2::PartialMatch(strings[0], *re2_patterns[j].get()));
 			} else {
-	            expected.push_back(RE2::FullMatch(strings[j], *re2_patterns[j].get()));
+	            re2_expected.push_back(RE2::FullMatch(strings[j], *re2_patterns[j].get()));
 			}
 
         }
@@ -157,6 +173,27 @@ void time_compare_re2(const vector<string> &patterns, const vector<string> &stri
     auto end = high_resolution_clock::now();
     float re2_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / n_iters;
     
+	// hyperscan timing
+	int text_len = strings[0].length();
+	char *text_arr = new char[text_len];
+	strcpy(text_arr, strings[0].c_str());
+
+	start = high_resolution_clock::now();
+	vector<bool> hs_expected;
+	for (int i = 0; i < n_iters; i++) {
+		for (int j = 0; j < patterns.size(); j++) {
+			if (partial) {
+				hs_scratch_t *scratch = NULL;
+				hs_alloc_scratch(hs_databases[j], &scratch);
+				hs_scan(hs_databases[j], text_arr, text_len, 0, scratch, eventHandler, hs_pattern_arrs[j]);
+			}
+		}
+	}
+	end = high_resolution_clock::now();
+    float hs_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / n_iters;
+	
+	delete[] text_arr;
+
     // buildit timing
     start = high_resolution_clock::now();
     vector<bool> result;
@@ -171,8 +208,8 @@ void time_compare_re2(const vector<string> &patterns, const vector<string> &stri
     
     // check if correct
     for (int i = 0; i < patterns.size(); i++) {
-		const string& cur_string = partial ? strings[0] : strings[i];
-        cout << patterns[i] << " " << cur_string << ": re2 = " << expected[i] << " buildit = " << result[i] << endl;    
+		const string& cur_string = partial ? "<Twain Text>" : strings[i];
+        cout << patterns[i] << " " << cur_string << ": re2 = " << re2_expected[i] << " buildit = " << result[i] << endl;    
     }
     cout << "TIME re2: " << re2_dur << " ns" << endl;
     cout << "TIME buildit: " << buildit_dur << " ns" << endl;
@@ -199,8 +236,8 @@ int main() {
     };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};
 	
-	time_compare_re2(twain_patterns, words, n_iters, false);
-	time_compare_re2(twain_patterns, vector<string>{text}, n_iters, true);
+//	time_compare(twain_patterns, words, n_iters, false);
+	time_compare(twain_patterns, vector<string>{text}, n_iters, true);
 
     //time_re2(patterns, text, n_iters);
     //time_hyperscan(patterns, text, n_iters);
