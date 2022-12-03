@@ -129,11 +129,11 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     vector<bool> re2_expected;
     for (int i = 0; i < n_iters; i++) {
         for (int j = 0; j < patterns.size(); j++) {
-            bool result = (MatchType::PARTIAL_SINGLE) ?
-                RE2::PartialMatch(strings[0], *re2_patterns[j].get()) :
-                RE2::FullMatch(strings[j], *re2_patterns[j].get());
-            if (i == 0)
-                re2_expected.push_back(result);
+            if (match_type == MatchType::PARTIAL_SINGLE) {
+                re2_expected.push_back(RE2::PartialMatch(strings[0], *re2_patterns[j].get()));    
+            } else {
+                re2_expected.push_back(RE2::FullMatch(strings[j], *re2_patterns[j].get()));    
+            }
         }
     }
     auto end = high_resolution_clock::now();
@@ -150,8 +150,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
 				hs_alloc_scratch(hs_databases[j], &scratch);
 			    const string& cur_string = (match_type == MatchType::PARTIAL_SINGLE) ? strings[0] : strings[j];
 				hs_scan(hs_databases[j], (char*)cur_string.c_str(), cur_string.length(), 0, scratch, single_match_handler, &matches);
-                if (i == 0)
-                    hs_expected.push_back(matches.size() == 2);
+                hs_expected.push_back(matches.size() == 2);
 			}
 		}
 	}
@@ -165,8 +164,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         for (int j = 0; j < patterns.size(); j++) {
 			const string& cur_string = (match_type == MatchType::PARTIAL_SINGLE) ? strings[0] : strings[j];
             bool is_match = buildit_patterns[j](cur_string.c_str(), cur_string.length());
-            if (i == 0)
-                result.push_back(is_match);
+            result.push_back(is_match);
         }
     }
     end = high_resolution_clock::now();
@@ -175,6 +173,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     // check if correct
     for (int i = 0; i < patterns.size(); i++) {
 		const string& cur_string = (match_type == MatchType::PARTIAL_SINGLE) ? "<Twain Text>" : strings[i];
+        
         if (re2_expected[i] == hs_expected[i] && re2_expected[i] == result[i]) {
             continue;    
         } else {
@@ -205,7 +204,7 @@ int main() {
         //"[a-q][^u-z]{5}x",
         "(Tom|Sawyer|Huckleberry|Finn)",
         ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-        //".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
+        ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
         //"Tom.{10,15}",
         //"(Tom.{10,15}river|river.{10,15}Tom)",
         //"[a-zA-Z]+ing",
