@@ -24,8 +24,8 @@ LIBRARY=$(BUILD_DIR)/lib$(LIBRARY_NAME).a
 
 #CFLAGS+=-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated -Wdelete-non-virtual-dtor -Werror
 
-INCLUDES=$(wildcard $(RE2_DIR)/*/*.h) $(wildcard $(BUILDIT_DIR)/include/*.h) $(wildcard $(BUILDIT_DIR)/include/*/*.h) $(BUILDIT_REGEX_DIR)/include/*.h 
-INCLUDE_FLAG=-I$(HYPERSCAN_DIR) -I$(RE2_DIR) -I$(BUILDIT_DIR)/include -I$(BUILDIT_DIR)/build/gen_headers -I$(BUILDIT_REGEX_DIR)/include
+INCLUDES=$(wildcard $(BASE_DIR)/*.h) $(wildcard $(RE2_DIR)/*/*.h) $(wildcard $(BUILDIT_DIR)/include/*.h) $(wildcard $(BUILDIT_DIR)/include/*/*.h) $(BUILDIT_REGEX_DIR)/include/*.h 
+INCLUDE_FLAG=-I$(BASE_DIR) -I$(HYPERSCAN_DIR) -I$(RE2_DIR) -I$(BUILDIT_DIR)/include -I$(BUILDIT_DIR)/build/gen_headers -I$(BUILDIT_REGEX_DIR)/include
 
 all: $(BUILD_DIR)/performance.o $(BUILD_DIR)/performance
 
@@ -41,7 +41,7 @@ $(LIBRARY): $(OBJS)
 
 run: $(BUILD_DIR)/performance
 	./build/performance
-	rm $(BUILDIT_DIR)/scratch/*
+#	rm $(BUILDIT_DIR)/scratch/*
 
 clean:
 	rm -rf $(BUILD_DIR)
