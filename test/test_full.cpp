@@ -241,8 +241,6 @@ int main() {
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
-    check_correctness(".{2,4}(Tom|Sawyer|Huckleberry|Finn)", "TomTom");
-    check_correctness("(Huck[a-zA-Z]+|Saw[a-zA-Z]+)", "Sawyer");
 }
 
 

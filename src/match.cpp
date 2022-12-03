@@ -1,4 +1,15 @@
 #include "match.h"
+#include <memory>
+
+namespace std {
+template<typename T, typename... Args>
+std::unique_ptr<T> make_unique(Args&&... args)
+{
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+}
+
+const int N_THREADS = 1;
 
 /*
 Parts of the code below are taken from https://intimeand.space/docs/CGO2022-BuilDSL.pdf
@@ -28,23 +39,24 @@ void update_from_cache(static_var<char>* next, int* cache, int p, int re_len) {
 /**
 Matches each character in `str` one by one.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache) {
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache, int match_index) {
     const int re_len = strlen(re);
 
     // allocate two state vectors
-    static_var<char> *current = new static_var<char>[re_len + 1];
-    static_var<char> *next = new static_var<char>[re_len + 1];
+    std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
+    std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
     
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         current[i] = next[i] = 0;
     }
 
-    update_from_cache(current, cache, -1, re_len);
+    update_from_cache(current.get(), cache, -1, re_len);
     
     dyn_var<int> to_match = 0;
+    static_var<int> mc = 0;
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
-			return true;
+			break;
 		}
 
         // Don’t do anything for $.
@@ -58,7 +70,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m) {
-                            update_from_cache(next, cache, state, re_len);
+                            update_from_cache(next.get(), cache, state, re_len);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -69,11 +81,11 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        update_from_cache(next, cache, state, re_len);
+                        update_from_cache(next.get(), cache, state, re_len);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    update_from_cache(next, cache, state, re_len);
+                    update_from_cache(next.get(), cache, state, re_len);
                     state_match = 1;
                 } else if ('[' == m) {
                     // we are inside a [...] class
@@ -102,7 +114,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     }
 		            if ((inverse == 1 && matches == 0) || (inverse == 0 && matches == 1)) {
                         state_match = 1;
-                        update_from_cache(next, cache, state, re_len);
+                        update_from_cache(next.get(), cache, state, re_len);
                     }
                 } else {
                     printf("Invalid Character(%c)\n", (char)m);
@@ -113,7 +125,9 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
         // All the states have been checked
 		if (enable_partial) {
             // if partial add the first state as well
-			update_from_cache(next, cache, -1, re_len);
+			if (mc == match_index)
+				update_from_cache(next.get(), cache, -1, re_len);
+			mc = (mc + 1) % N_THREADS;
 		}
         // Now swap the states and clear next
         static_var<int> count = 0;
@@ -123,8 +137,6 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
             if (current[i])
                 count++;
         }
-        if (count == 0)
-            return false;
         to_match = to_match + 1;
 
     }
@@ -139,11 +151,18 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 }
 
 dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache) {
-	return match_regex(re, str, str_len, false, cache);
+	return match_regex(re, str, str_len, false, cache, 0);
 }
 
 dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache) {
-	return match_regex(re, str, str_len, true, cache);
+	
+	return match_regex(re, str, str_len, true, cache, 0);
+    // NOTE: the code below fails some of the test_partial tests
+    for (static_var<int> mc = 0; mc < N_THREADS; mc ++) {
+        if (match_regex(re, str, str_len, true, cache, mc)) 
+			return true;
+	}
+	return false;
 }
 
 
