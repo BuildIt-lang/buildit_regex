@@ -16,8 +16,8 @@ ifeq ($(DEBUG),1)
 CFLAGS=-g -std=c++11 -O0
 LINKER_FLAGS=-rdynamic  -g -L$(BUILDIT_DIR)/build -L$(BUILDIT_REGEX_DIR)/build -L$(BUILD_DIR) -L$(RE2_DIR)/obj/so -L$(HYPERSCAN_DIR)/build/lib -l$(LIBRARY_NAME) -lbuildit -lbuildit_regex -lre2 -lhs -ldl
 else
-CFLAGS=-std=c++11 -O3
-LINKER_FLAGS=-rdynamic -L$(BUILDIT_DIR)/build -L$(BUILDIT_REGEX_DIR)/build -L$(BUILD_DIR) -L$(RE2_DIR)/obj/so -L$(HYPERSCAN_DIR)/build/lib -l$(LIBRARY_NAME) -lbuildit -lbuildit_regex -lre2 -lhs -ldl
+CFLAGS=-std=c++11 -O3 -fopenmp
+LINKER_FLAGS=-rdynamic -L$(BUILDIT_DIR)/build -L$(BUILDIT_REGEX_DIR)/build -L$(BUILD_DIR) -L$(RE2_DIR)/obj/so -L$(HYPERSCAN_DIR)/build/lib -l$(LIBRARY_NAME) -lbuildit -lbuildit_regex -lre2 -lhs -ldl -lomp
 endif
 
 LIBRARY=$(BUILD_DIR)/lib$(LIBRARY_NAME).a

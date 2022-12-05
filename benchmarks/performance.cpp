@@ -7,20 +7,18 @@
 #include <re2/stringpiece.h>
 #include <src/hs.h>
 #include <cstring>
-#include "blocks/c_code_generator.h"
-#include "builder/builder_context.h"
-#include "builder/builder_dynamic.h"
 #include "builder/dyn_var.h"
 #include "builder/static_var.h"
 #include "match.h"
 #include "progress.h"
 #include "parse.h"
+#include "frontend.h"
 
 using namespace std;
 using namespace re2;
 using namespace std::chrono;
 
-typedef int (*GeneratedFunction) (const char*, int);
+typedef int (*GeneratedFunction)(const char*, int);
 
 /**
 Loads the patterns from a file into a vector.
@@ -50,8 +48,6 @@ string load_corpus(string fname) {
     return text;
 }
 
-enum MatchType { FULL, PARTIAL_SINGLE, PARTIAL_ALL };
- 
 /** 
  This function will get called when a match is found.
  Returning a non-zero number should halt the scanning.
@@ -81,7 +77,7 @@ int all_matches_handler(unsigned int id, unsigned long long from,
 
 void time_compare(const vector<string> &patterns, const vector<string> &strings, int n_iters, MatchType match_type) {
     // pattern compilation
-    vector<GeneratedFunction> buildit_patterns;
+    vector<MatchFunction> buildit_patterns;
     vector<unique_ptr<RE2>> re2_patterns;
 	vector<hs_database_t*> hs_databases;
 	vector<char *> hs_pattern_arrs;
@@ -95,15 +91,18 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         const int re_len = processed_re.length();
         const int cache_size = (re_len + 1) * (re_len + 1); 
         std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
+        //auto fptr = compile_regex(processed_re.c_str(), cache_states_ptr.get(), match_type);
         int* cache = cache_states_ptr.get();
         cache_states(processed_re.c_str(), cache);
         // code generation
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto fptr = (match_type == MatchType::PARTIAL_SINGLE) ? 
+        auto fptr = (MatchFunction)builder::compile_function_with_context(context, match_regex, processed_re.c_str(), match_type == MatchType::PARTIAL_SINGLE, cache);
+        /*auto fptr = (match_type == MatchType::PARTIAL_SINGLE) ? 
 			(GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), cache) :
             (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), cache);
+        */
         auto end = high_resolution_clock::now();
         cout << "buildit compile time: " << (duration_cast<nanoseconds>(end - start)).count() / 1e6f << "ms" << endl;
         buildit_patterns.push_back(fptr);
@@ -163,7 +162,9 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     for (int i = 0; i < n_iters; i++) {
         for (int j = 0; j < patterns.size(); j++) {
 			const string& cur_string = (match_type == MatchType::PARTIAL_SINGLE) ? strings[0] : strings[j];
-            bool is_match = buildit_patterns[j](cur_string.c_str(), cur_string.length());
+            int n_threads = (cur_string.length() < 8) ? cur_string.length() : 8;
+            bool is_match = run_matcher(buildit_patterns[j], cur_string.c_str(), n_threads);
+            //bool is_match = buildit_patterns[j](cur_string.c_str(), cur_string.length());
             result.push_back(is_match);
         }
     }
@@ -174,7 +175,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     for (int i = 0; i < patterns.size(); i++) {
 		const string& cur_string = (match_type == MatchType::PARTIAL_SINGLE) ? "<Twain Text>" : strings[i];
         
-        if (re2_expected[i] == hs_expected[i] && re2_expected[i] == result[i]) {
+        if ((hs_expected[i] == result[i] || match_type == MatchType::FULL) && re2_expected[i] == result[i]) {
             continue;    
         } else {
             cout << "Correctness failed for regex " << patterns[i] << " and text " << cur_string << ":" <<endl;

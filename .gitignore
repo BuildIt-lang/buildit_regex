@@ -5,3 +5,4 @@ benchmarks/build
 benchmarks/hyperscan
 benchmarks/re2
 benchmarks/build
+benchmarks/run*

@@ -2,6 +2,7 @@
 #include "test.h"
 #include "../include/parse.h"
 #include "../include/progress.h"
+#include "../include/frontend.h"
 
 using namespace std::chrono;
 
@@ -10,7 +11,7 @@ General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_search(candidate, std::regex(pattern));
-    int len = strlen(candidate); 
+    /*int len = strlen(candidate); 
 	
     // parse the regex
     string processed_re = expand_regex(pattern);
@@ -28,7 +29,9 @@ void check_correctness(const char* pattern, const char* candidate) {
     int result = fptr((char*)candidate, len);
     
     delete[] next;
-    
+    */
+    int result = compile_and_run(candidate, pattern, MatchType::PARTIAL_SINGLE, 1);
+
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {

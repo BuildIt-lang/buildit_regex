@@ -1,3 +1,6 @@
+#ifndef PROGRESS_H
+#define PROGRESS_H
+
 #include <cstring>
 #include <vector>
 #include <iostream>
@@ -22,3 +25,5 @@ void reset_array(char* arr, int len);
 bool process_re(const char *re, ReStates re_states);
 void progress(const char *re, ReStates re_states, int p, Cache cache);
 void cache_states(const char* re, int* next_states);
+
+#endif
