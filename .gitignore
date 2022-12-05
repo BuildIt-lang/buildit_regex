@@ -6,3 +6,5 @@ benchmarks/hyperscan
 benchmarks/re2
 benchmarks/build
 benchmarks/run*
+benchmarks/data/snort3-community-rules*
+benchmarks/data/snort_patterns.txt
