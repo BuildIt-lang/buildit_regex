@@ -38,7 +38,7 @@ void update_from_cache(static_var<char>* next, int* cache, int p, int re_len) {
 /**
 Matches each character in `str` one by one.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache, dyn_var<int> match_index, int n_threads) {
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache, int match_index, int n_threads) {
     const int re_len = strlen(re);
 
     // allocate two state vectors

@@ -77,7 +77,7 @@ int all_matches_handler(unsigned int id, unsigned long long from,
 
 void time_compare(const vector<string> &patterns, const vector<string> &strings, int n_iters, MatchType match_type) {
     // pattern compilation
-    vector<MatchFunction> buildit_patterns;
+    vector<MatchFunction*> buildit_patterns;
     vector<unique_ptr<RE2>> re2_patterns;
 	vector<hs_database_t*> hs_databases;
 	vector<char *> hs_pattern_arrs;
@@ -95,18 +95,19 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         //auto fptr = compile_regex(processed_re.c_str(), cache_states_ptr.get(), match_type);
         int* cache = cache_states_ptr.get();
         cache_states(processed_re.c_str(), cache);
+        MatchFunction* funcs = new MatchFunction[n_threads];
         // code generation
-        builder::builder_context context;
-        context.feature_unstructured = true;
-        context.run_rce = true;
-        auto fptr = (MatchFunction)builder::compile_function_with_context(context, match_regex, processed_re.c_str(), match_type == MatchType::PARTIAL_SINGLE, cache, n_threads);
-        /*auto fptr = (match_type == MatchType::PARTIAL_SINGLE) ? 
-			(GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), cache) :
-            (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), cache);
-        */
+        for (int tid = 0; tid < n_threads; tid++) {    
+            builder::builder_context context;
+            context.feature_unstructured = true;
+            context.run_rce = true;
+            bool partial = (match_type == MatchType::PARTIAL_SINGLE);
+            MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, processed_re.c_str(), partial, cache, tid, n_threads);    
+            funcs[tid] = func;
+        }
         auto end = high_resolution_clock::now();
         cout << "buildit compile time: " << (duration_cast<nanoseconds>(end - start)).count() / 1e6f << "ms" << endl;
-        buildit_patterns.push_back(fptr);
+        buildit_patterns.push_back(funcs);
         
 		// re2
         auto re_start = high_resolution_clock::now();
@@ -205,9 +206,9 @@ int main() {
         //"[a-q][^u-z]{5}x",
         "(Tom|Sawyer|Huckleberry|Finn)",
         ".{0,2}(Tom|Sawyer|Huckleberry|Finn)",
-        //".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
+        ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
         //"Tom.{10,15}",
-        //"(Tom.{10,15}river|river.{10,15}Tom)",
+        "(Tom.{10,15}river|river.{10,15}Tom)",
         //"[a-zA-Z]+ing",
     };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "swimming"};

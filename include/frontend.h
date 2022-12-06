@@ -11,13 +11,13 @@
 
 using namespace std;
 
-typedef int (*MatchFunction) (const char*, int, int);
+typedef int (*MatchFunction) (const char*, int);
 
 enum MatchType { FULL, PARTIAL_SINGLE, PARTIAL_ALL };
 
-MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type, int n_threads);
+MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type, int tid, int n_threads);
 
-bool run_matcher(MatchFunction func, const char* str, int n_threads);
+bool run_matcher(MatchFunction* funcs, const char* str, int n_threads);
 
 int compile_and_run(string str, string regex, MatchType match_type, int n_threads);
 

@@ -11,25 +11,7 @@ General function to compare results.
 */
 void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_search(candidate, std::regex(pattern));
-    /*int len = strlen(candidate); 
-	
-    // parse the regex
-    string processed_re = expand_regex(pattern);
-    const int re_len = processed_re.length();
     
-    // fill the cache
-    const int cache_size = (re_len + 1) * (re_len + 1); 
-    int* next = new int[cache_size];
-    cache_states(processed_re.c_str(), next);
-
-    builder::builder_context context;
-	context.feature_unstructured = true;
-	context.run_rce = true;
-    auto fptr = (int (*)(const char*, int))builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), next);
-    int result = fptr((char*)candidate, len);
-    
-    delete[] next;
-    */
     int result = compile_and_run(candidate, pattern, MatchType::PARTIAL_SINGLE, 1);
 
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
@@ -206,7 +188,6 @@ void test_partial() {
 }
 
 int main() {    
-
     auto start = high_resolution_clock::now();
     test_simple();
     test_star();
