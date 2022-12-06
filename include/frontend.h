@@ -15,7 +15,7 @@ typedef int (*MatchFunction) (const char*, int, int);
 
 enum MatchType { FULL, PARTIAL_SINGLE, PARTIAL_ALL };
 
-MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type);
+MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type, int n_threads);
 
 bool run_matcher(MatchFunction func, const char* str, int n_threads);
 

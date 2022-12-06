@@ -9,7 +9,6 @@ std::unique_ptr<T> make_unique(Args&&... args)
 }
 }
 
-const int N_THREADS = 1;
 
 /*
 Parts of the code below are taken from https://intimeand.space/docs/CGO2022-BuilDSL.pdf
@@ -39,7 +38,7 @@ void update_from_cache(static_var<char>* next, int* cache, int p, int re_len) {
 /**
 Matches each character in `str` one by one.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache, dyn_var<int> match_index) {
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache, dyn_var<int> match_index, int n_threads) {
     const int re_len = strlen(re);
 
     // allocate two state vectors
@@ -127,7 +126,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
             // if partial add the first state as well
 			if (mc == match_index)
 				update_from_cache(next.get(), cache, -1, re_len);
-			mc = (mc + 1) % N_THREADS;
+			mc = (mc + 1) % n_threads;
 		}
         // Now swap the states and clear next
         static_var<int> count = 0;
@@ -151,18 +150,19 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 }
 
 dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache) {
-	return match_regex(re, str, str_len, false, cache, 0);
+	return match_regex(re, str, str_len, false, cache, 0, 1);
 }
 
 dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache) {
 	
-	return match_regex(re, str, str_len, true, cache, 0);
+	return match_regex(re, str, str_len, true, cache, 0, 1);
     // NOTE: the code below fails some of the test_partial tests
-    for (static_var<int> mc = 0; mc < N_THREADS; mc ++) {
+/*    for (static_var<int> mc = 0; mc < N_THREADS; mc ++) {
         if (match_regex(re, str, str_len, true, cache, mc)) 
 			return true;
 	}
 	return false;
+*/
 }
 
 

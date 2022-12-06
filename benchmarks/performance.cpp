@@ -81,6 +81,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     vector<unique_ptr<RE2>> re2_patterns;
 	vector<hs_database_t*> hs_databases;
 	vector<char *> hs_pattern_arrs;
+    const int n_threads = (match_type == MatchType::FULL) ? 1 : 4;
     for (int i = 0; i < patterns.size(); i++) {
         cout << "--- " << patterns[i] << " ---" << endl;
         
@@ -98,7 +99,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto fptr = (MatchFunction)builder::compile_function_with_context(context, match_regex, processed_re.c_str(), match_type == MatchType::PARTIAL_SINGLE, cache);
+        auto fptr = (MatchFunction)builder::compile_function_with_context(context, match_regex, processed_re.c_str(), match_type == MatchType::PARTIAL_SINGLE, cache, n_threads);
         /*auto fptr = (match_type == MatchType::PARTIAL_SINGLE) ? 
 			(GeneratedFunction)builder::compile_function_with_context(context, match_regex_partial, processed_re.c_str(), cache) :
             (GeneratedFunction)builder::compile_function_with_context(context, match_regex_full, processed_re.c_str(), cache);
@@ -162,7 +163,6 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     for (int i = 0; i < n_iters; i++) {
         for (int j = 0; j < patterns.size(); j++) {
 			const string& cur_string = (match_type == MatchType::PARTIAL_SINGLE) ? strings[0] : strings[j];
-            int n_threads = (cur_string.length() < 8) ? cur_string.length() : 8;
             bool is_match = run_matcher(buildit_patterns[j], cur_string.c_str(), n_threads);
             //bool is_match = buildit_patterns[j](cur_string.c_str(), cur_string.length());
             result.push_back(is_match);
@@ -204,8 +204,8 @@ int main() {
         "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
         //"[a-q][^u-z]{5}x",
         "(Tom|Sawyer|Huckleberry|Finn)",
-        ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-        ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
+        ".{0,2}(Tom|Sawyer|Huckleberry|Finn)",
+        //".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
         //"Tom.{10,15}",
         //"(Tom.{10,15}river|river.{10,15}Tom)",
         //"[a-zA-Z]+ing",
