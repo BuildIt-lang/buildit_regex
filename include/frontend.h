@@ -21,4 +21,5 @@ bool run_matcher(MatchFunction* funcs, const char* str, int n_threads);
 
 int compile_and_run(string str, string regex, MatchType match_type, int n_threads);
 
+int compile_and_run_decomposed(string str, string regex, MatchType match_type, int n_threads);
 #endif

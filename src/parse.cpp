@@ -37,7 +37,7 @@ to the () or [] group, and the index just before ( or [.
 
 re[start] = } => extracts the counters from {} and repeats the
 group before {} as controlled by the counters. 
-e.g. "a{3}" becomes "aaa"; "a{2,4}" becomes "aaa?a?"
+e.g. "a{3}" becomes "aaa"; "a{2,4}" becomes "aa(a(a)?)?"
 
 re[start] = + => "a+" becomes "aa*"
 
@@ -68,13 +68,17 @@ tuple<string, int> expand_sub_regex(string re, int start) {
         tuple<string, int> sub_s = expand_sub_regex(re, idx);
         // replicate the group
         string s = "";
+        // repetition from the first counter
         for (int i = 0; i < counters[0]; i++) {
             s += get<0>(sub_s);
             counters[1] -= 1;
         }
+        string rest = "";
+        // repetition from the second counter
         for (int i = 0; i < counters[1]; i++) {
-            s += get<0>(sub_s) + "?";        
+            rest = "(" + get<0>(sub_s) + rest + ")?"; 
         }
+        s += rest;
         return tuple<string, int>{s, get<1>(sub_s)};
     } else if (re[start] == '+') {
         tuple<string, int> sub_s = expand_sub_regex(re, start-1);
@@ -101,6 +105,83 @@ string expand_regex(string re) {
         start = get<1>(sub_s);
     }
     return s;
+
+}
+
+/**
+Fills `positions` with the indices of the | chars s.t.
+a |'s position holds the index of the next |, or ) if there
+are no more | chars in the group. The ('s position holds the
+index of the first | in the group, or ) if it's not an or group.
+`positions` size = `str` length
+*/
+void get_or_positions(string &str, int* positions) {
+    int idx = str.length() - 1;
+    vector<int> brackets;
+    vector<int> or_indices;
+    while (idx >= 0) {
+        if (str[idx] == ')') {
+            brackets.push_back(idx);
+            or_indices.push_back(idx);
+        } else if (str[idx] == '(') {
+            positions[idx] = or_indices.back();
+            or_indices.pop_back();
+            brackets.pop_back();
+        } else if (str[idx] == '|') {
+            positions[idx] = or_indices.back();
+            or_indices.pop_back();
+            or_indices.push_back(idx);
+        }
+        idx--;
+    }
+}
+
+/**
+Splits a regex into separate patterns based on |
+e.g. "ab(cd|ef)" is split into "abcd" and "abef".
+*/
+set<string> split_regex(string &str, int* or_positions, int start, int end) {
+    int idx = start;
+    set<string> result;
+    while (idx <= end) {
+        set<string> options;
+        if (str[idx] != '(') {
+            string s = "";
+            while (idx <= end && str[idx] != '(') {
+                s += str[idx];
+                idx++;
+            }
+            options.insert(s);
+        } else {
+            // parse the (..) groups with or without |
+            bool need_parens = (str[or_positions[idx]] == ')');
+            while (str[idx] != ')') {
+                set<string> sub_result = split_regex(str, or_positions, idx+1, or_positions[idx]-1);
+                idx = or_positions[idx];
+                for (string s: sub_result) {
+                    if (need_parens)
+                        s = '(' + s + ')';
+                    options.insert(s);
+                }
+            }
+            idx++;
+        }
+        // join the parts
+        if (result.size() == 0) {
+            result = options;
+        } else {
+            // e.g. {ab} is combined with {cd, ef}
+            // into {abcd, abef}
+            set<string> new_result;
+            for (string s2: options) {
+                for (string s1: result) {
+                    new_result.insert(s1 + s2);
+                }
+            }
+            result = new_result;
+        }
+    }
+    return result;
 
 }
 

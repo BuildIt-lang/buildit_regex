@@ -45,3 +45,4 @@ run: $(BUILD_DIR)/performance
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm $(BUILDIT_DIR)/scratch/*

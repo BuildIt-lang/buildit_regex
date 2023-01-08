@@ -41,3 +41,19 @@ int compile_and_run(string str, string regex, MatchType match_type, int n_thread
 }
 
 
+int compile_and_run_decomposed(string str, string regex, MatchType match_type, int n_threads) {
+    // simplify the regex and decompose it into parts based on | chars
+    string parsed_re = expand_regex(regex);
+    int* or_positions = new int[parsed_re.length()];
+    get_or_positions(parsed_re, or_positions);
+    set<string> regex_parts = split_regex(parsed_re, or_positions, 0, parsed_re.length() - 1);
+    delete[] or_positions;
+    if (regex_parts.size() == 0) // regex is an empty string
+        return true;
+    // if any of the parts matches, return true
+    for (string part: regex_parts) {
+        if (compile_and_run(str, part, match_type, 1))
+            return true;
+    }
+    return false;
+}

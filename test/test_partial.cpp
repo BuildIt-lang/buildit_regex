@@ -13,6 +13,7 @@ void check_correctness(const char* pattern, const char* candidate) {
     bool expected = std::regex_search(candidate, std::regex(pattern));
     
     int result = compile_and_run(candidate, pattern, MatchType::PARTIAL_SINGLE, 1);
+    //int result = compile_and_run_decomposed(candidate, pattern, MatchType::PARTIAL_SINGLE, 1);
 
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
