@@ -1,5 +1,6 @@
 #include "parse.h"
 
+
 /**
 Extracts the counters from bounded repetition
 into the `counters` array. e.g. "{2,5}" results in
@@ -24,6 +25,23 @@ int get_counters(string re, int idx, int *counters) {
     }
     counters[0] = result;
     return idx - 1;
+}
+
+/**
+Transform the escaped character into the corresponding char class.
+*/
+string escape_char(char c) {
+    if (c == 'd') return "[0-9]";
+    else if (c == 'D') return "[^0-9]";
+    else if (c == 'w') return "[0-9a-zA-Z_]";
+    else if (c == 'W') return "[^0-9a-zA-Z_]";
+    else if (c == 's') return " ";
+    else if (c == 'S') return "[^ ]";
+    else {
+        std::cout << "Error in exape_char. ";
+        std::cout << "Invalid character after \\: " << c << "."  << std::endl; 
+        return "";
+    }
 }
 
 /**
@@ -56,7 +74,13 @@ tuple<string, int> expand_sub_regex(string re, int start) {
         // reach the opening bracket
         while (re[idx] != end) {
             tuple<string, int> sub_s = expand_sub_regex(re, idx);
-            s = get<0>(sub_s) + s;
+            string ss = get<0>(sub_s);
+            // we can't have nested []
+            // e.g. [\d] should parse to [0-9] not [[0-9]]
+            if (ss[0] == '[' && re[start] == ']') {
+                ss = ss.substr(1, ss.length()-2);
+            }
+            s = ss + s;
             idx = get<1>(sub_s);
         }
         return tuple<string, int>{end + s + re[start], idx - 1};
@@ -84,6 +108,10 @@ tuple<string, int> expand_sub_regex(string re, int start) {
         tuple<string, int> sub_s = expand_sub_regex(re, start-1);
         string s = get<0>(sub_s);
         return tuple<string, int>{s + s + "*", get<1>(sub_s)};
+    } else if (start > 0 && re[start-1] == '\\') {
+        // character escaping
+        string s = escape_char(re[start]);
+        return tuple<string, int>{s, start - 2};
     } else {
         // normal chracter
         string s = ""; 

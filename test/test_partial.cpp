@@ -174,6 +174,27 @@ void test_combined() {
     check_correctness("([abc]3){2}", "ac");
 }
 
+void test_escaping() {
+    check_correctness("a\\d", "texta0text");
+    check_correctness("a\\d", "dsaad5f");
+    check_correctness("a\\db", "a9b");
+    check_correctness("a\\d{3}", "a912aaa");
+    check_correctness("bcd\\d*", "bcda");
+    check_correctness("bcd\\d*", "bcd567a");
+    check_correctness("bcd\\d*", "bcd23");
+    check_correctness("a[\\dbc]d", "3a5da");
+    check_correctness("a[\\dbc]d", "acd");
+
+    check_correctness("a\\w\\d", "aab5d");
+    check_correctness("a\\w\\W", "fa_09");
+    check_correctness("a\\w\\d", "aC9");
+
+    check_correctness("\\ss", "sss s");
+    check_correctness("\\Da\\Wbc\\S", "aa3bc_");
+    check_correctness("\\Dabc\\S", "aabc_00");
+    check_correctness("\\da\\wbc\\s", "a7a_bc cc");
+}
+
 void test_partial() {
 	check_correctness("ab", "aab");
 	check_correctness("ab", "aba");
@@ -202,6 +223,7 @@ int main() {
     test_question();
     test_repetition();
     test_combined();
+    test_escaping();
 	test_partial();
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();

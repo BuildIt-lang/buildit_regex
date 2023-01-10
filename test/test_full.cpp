@@ -192,6 +192,27 @@ void test_combined() {
     check_correctness("(ab|(cd|ef){2}|4)", "4");
 }
 
+void test_escaping() {
+    check_correctness("a\\d", "a0");
+    check_correctness("a\\d", "ad");
+    check_correctness("a\\d", "a0d");
+    check_correctness("a\\db", "a9b");
+    check_correctness("a\\d{3}", "a912");
+    check_correctness("bcd\\d*", "bcd");
+    check_correctness("bcd\\d*", "bcd23");
+    check_correctness("a[\\dbc]d", "a5d");
+    check_correctness("a[\\dbc]d", "acd");
+
+    check_correctness("a\\w\\d", "ab5");
+    check_correctness("a\\w\\W", "a_0");
+    check_correctness("a\\w\\d", "aC9");
+
+    check_correctness("\\ss", " s");
+    check_correctness("\\Da\\Wbc\\S", "aa3bc_");
+    check_correctness("\\Dabc\\S", "aabc_");
+    check_correctness("\\da\\wbc\\s", "7a_bc ");
+}
+
 void test_expand_regex() {
     string res = expand_regex(string("abc"));
     cout << res << " " << res.compare(string("abc")) << endl;
@@ -225,6 +246,7 @@ int main() {
     test_question();
     test_repetition();
     test_combined();
+    test_escaping();
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;

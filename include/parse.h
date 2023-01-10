@@ -9,6 +9,7 @@
 using namespace std;
 
 int get_counters(string re, int idx, int *counters);
+string escape_char(char c);
 string expand_regex(string re);
 tuple<string, int> expand_sub_regex(string re, int start);
 void get_or_positions(string &str, int* positions);
