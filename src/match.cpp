@@ -17,12 +17,17 @@ Parts of the code below are taken from https://intimeand.space/docs/CGO2022-Buil
 /**
 Returns if `c` is between the chars `left` and `right`.
 */
-dyn_var<int> is_in_range(char left, char right, dyn_var<char> c) {
+dyn_var<int> is_in_range(char left, char right, dyn_var<char> c, int ignore_case) {
     if (!(is_normal(left) && is_normal(right))) {
         printf("Invalid Characters %c %c\n", left, right);
         return 0; 
     }
-    return left <= c && c <= right;
+    if (!ignore_case || !is_alpha(left) || !is_alpha(right)) {
+        return left <= c && c <= right;    
+    }
+    // ignore case: lowercase and uppercase letters are the same in binary 
+    // except for the 6th least significant bit
+    return (left <= c && c <= right) || ((left ^ 32) <= c && c <= (right ^ 32));
 }
 
 /**
@@ -34,11 +39,17 @@ void update_from_cache(static_var<char>* next, int* cache, int p, int re_len) {
     }    
 }
 
+int is_alpha(char c) {
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');  
+}
+
 
 /**
 Matches each character in `str` one by one.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, bool enable_partial, int* cache, int match_index, int n_threads) {
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, 
+                            bool enable_partial, int* cache, int match_index, int n_threads, int ignore_case) {
+
     const int re_len = strlen(re);
 
     // allocate two state vectors
@@ -68,7 +79,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                 if (is_normal(m)) {
                     if (-1 == early_break) {
                         // Normal character
-                        if (str[to_match] == m) {
+                        if (str[to_match] == m || (ignore_case && is_alpha(m) && str[to_match] == (m ^ 32))) {
                             update_from_cache(next.get(), cache, state, re_len);
                             // If a match happens, it
                             // cannot match anything else
@@ -98,12 +109,12 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 					dyn_var<int> matches = 0;
                     // check if str[to_match] matches any of the chars in []
                     while (re[idx] != ']') {
-                        if (re[idx] == str[to_match]) {
+                        if (str[to_match] == re[idx] || (ignore_case && is_alpha(re[idx]) && str[to_match] == (re[idx] ^ 32))) {
                             matches = 1;
                             break;
                         } else if (re[idx] == '-') {
                             // this is used for ranges, e.g. [a-d]
-                            bool in_range = is_in_range(re[idx-1], re[idx+1], str[to_match]);
+                            bool in_range = is_in_range(re[idx-1], re[idx+1], str[to_match], ignore_case);
                             if (in_range) {
                                 matches = 1;
                                 break;
@@ -149,20 +160,12 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     return is_match;
 }
 
-dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache) {
-	return match_regex(re, str, str_len, false, cache, 0, 1);
+dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache, int ignore_case) {
+	return match_regex(re, str, str_len, false, cache, 0, 1, ignore_case);
 }
 
-dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache) {
-	
-	return match_regex(re, str, str_len, true, cache, 0, 1);
-    // NOTE: the code below fails some of the test_partial tests
-/*    for (static_var<int> mc = 0; mc < N_THREADS; mc ++) {
-        if (match_regex(re, str, str_len, true, cache, mc)) 
-			return true;
-	}
-	return false;
-*/
+dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache, int ignore_case) {
+	return match_regex(re, str, str_len, true, cache, 0, 1, ignore_case);
 }
 
 

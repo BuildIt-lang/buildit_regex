@@ -6,7 +6,7 @@
 #include "match.h"
 #include <chrono>
 
-void check_correctness(const char* pattern, const char* candidate);                                                                                   
+void check_correctness(const char* pattern, const char* candidate, const char* flags = "");                        
 void test_simple();
 void test_star();
 void test_brackets();
@@ -22,3 +22,4 @@ void test_combined();
 void test_partial();
 void test_escaping();
 void test_expand_regex();
+void test_ignore_case();

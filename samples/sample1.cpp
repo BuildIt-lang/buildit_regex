@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
     int* next_states = cache_states_ptr.get();
     cache_states("[abc]+", next_states);
-    auto ast = context.extract_function_ast(match_regex_full, "match_re", "[abc]+", next_states);
+    auto ast = context.extract_function_ast(match_regex_full, "match_re", "[abc]+", next_states, 0);
     code_file << "#include <string.h>" << std::endl;
     block::c_code_generator::generate_code(ast, code_file);
     code_file.close();

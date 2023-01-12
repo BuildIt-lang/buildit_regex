@@ -1,13 +1,14 @@
 #include "frontend.h"
 
-MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type, int tid, int n_threads) {
+MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type, int tid, int n_threads, string flags) {
     cache_states(regex, cache);
     // code generation
     builder::builder_context context;
     context.feature_unstructured = true;
     context.run_rce = true;
     bool partial = (match_type == MatchType::PARTIAL_SINGLE);
-    return (MatchFunction)builder::compile_function_with_context(context, match_regex, regex, partial, cache, tid, n_threads);    
+    int ignore_case = flags.compare("i") == 0;
+    return (MatchFunction)builder::compile_function_with_context(context, match_regex, regex, partial, cache, tid, n_threads, ignore_case);    
 }
 
 bool run_matcher(MatchFunction* funcs, const char* str, int n_threads) {
@@ -25,7 +26,7 @@ bool run_matcher(MatchFunction* funcs, const char* str, int n_threads) {
 
 }
 
-int compile_and_run(string str, string regex, MatchType match_type, int n_threads) {
+int compile_and_run(string str, string regex, MatchType match_type, int n_threads, string flags) {
     // simplify the regex
     string parsed_re = expand_regex(regex);
     int re_len = parsed_re.length();
@@ -34,14 +35,14 @@ int compile_and_run(string str, string regex, MatchType match_type, int n_thread
     
     MatchFunction* funcs = new MatchFunction[n_threads];
     for (int tid = 0; tid < n_threads; tid++) {    
-        MatchFunction func = compile_regex(parsed_re.c_str(), cache.get(), match_type, tid, n_threads);
+        MatchFunction func = compile_regex(parsed_re.c_str(), cache.get(), match_type, tid, n_threads, flags);
         funcs[tid] = func;
     }
     return run_matcher(funcs, str.c_str(), n_threads);
 }
 
 
-int compile_and_run_decomposed(string str, string regex, MatchType match_type, int n_threads) {
+int compile_and_run_decomposed(string str, string regex, MatchType match_type, int n_threads, string flags) {
     // simplify the regex and decompose it into parts based on | chars
     string parsed_re = expand_regex(regex);
     int* or_positions = new int[parsed_re.length()];
@@ -52,7 +53,7 @@ int compile_and_run_decomposed(string str, string regex, MatchType match_type, i
         return true;
     // if any of the parts matches, return true
     for (string part: regex_parts) {
-        if (compile_and_run(str, part, match_type, 1))
+        if (compile_and_run(str, part, match_type, 1, flags))
             return true;
     }
     return false;

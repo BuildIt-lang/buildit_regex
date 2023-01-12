@@ -9,11 +9,13 @@ using namespace std::chrono;
 /**
 General function to compare results.
 */
-void check_correctness(const char* pattern, const char* candidate) {
-    bool expected = std::regex_search(candidate, std::regex(pattern));
+void check_correctness(const char* pattern, const char* candidate, const char* flags) {
+    bool expected = (strcmp(flags, "i") == 0) ? 
+        regex_search(candidate, regex(pattern, regex_constants::icase)) :
+        regex_search(candidate, regex(pattern));
     
-    int result = compile_and_run(candidate, pattern, MatchType::PARTIAL_SINGLE, 1);
-    //int result = compile_and_run_decomposed(candidate, pattern, MatchType::PARTIAL_SINGLE, 1);
+    int result = compile_and_run(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
+    //int result = compile_and_run_decomposed(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
 
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
@@ -205,8 +207,21 @@ void test_partial() {
 	check_correctness("123", "a123a");
 	check_correctness("(123)*1", "112312311");
     check_correctness("Twain", "MarkTwainTomSawyer");
-//	check_correctness("[a-q][^u-z]{5}x", "qax");
-//	check_correctness("[a-q][^u-z]{5}x", "qabcdex");
+	//check_correctness("[a-q][^u-z]{5}x", "qax");
+	//check_correctness("[a-q][^u-z]{5}x", "qabcdex");
+}
+void test_ignore_case() {
+    check_correctness("abcd", "AbCd", "i");
+    check_correctness("a1a*", "a1aaAaA", "i");
+    check_correctness("b2[a-g]", "B2D", "i");
+    check_correctness("[^a-z]", "D", "i");
+    check_correctness("[^a-z][a-z]*", "4Df", "i");
+    check_correctness("(abc){3}", "aBcAbCabc", "i");
+    check_correctness("(1|2|k)*", "K2", "i");
+    check_correctness("z+a", "zZa", "i");
+    check_correctness("z?a", "Za", "i");
+    check_correctness("\\d\\w\\s", "5a ", "i");
+    check_correctness("\\D\\W\\S", "a k", "i");
 }
 
 int main() {    
@@ -225,6 +240,7 @@ int main() {
     test_combined();
     test_escaping();
 	test_partial();
+    test_ignore_case();
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;

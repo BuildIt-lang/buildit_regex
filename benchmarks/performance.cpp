@@ -82,6 +82,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     vector<unique_ptr<RE2>> re2_patterns;
 	vector<hs_database_t*> hs_databases;
 	vector<char *> hs_pattern_arrs;
+    int ignore_case = false;
     cout << endl << "COMPILATION TIMES" << endl << endl;
     for (int i = 0; i < patterns.size(); i++) {
         cout << "--- " << patterns[i] << " ---" << endl;
@@ -122,7 +123,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
                 context.feature_unstructured = true;
                 context.run_rce = true;
                 bool partial = (match_type == MatchType::PARTIAL_SINGLE);
-                MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), partial, cache, tid, n_threads);    
+                MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), partial, cache, tid, n_threads, ignore_case);    
                 funcs[tid] = func;
             }
             rid++;
