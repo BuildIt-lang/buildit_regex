@@ -13,13 +13,13 @@ MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type,
 
 bool run_matcher(MatchFunction* funcs, const char* str, int n_threads) {
     if (n_threads == 1) {
-        return funcs[0](str, strlen(str));
+        return funcs[0](str, strlen(str), 0);
     }
 
     bool result = false;
     #pragma omp parallel for
     for (int tid = 0; tid < n_threads; tid++) {
-        if (funcs[tid](str, strlen(str)))
+        if (funcs[tid](str, strlen(str), 0))
             result = true;
     }
     return result;
@@ -57,4 +57,39 @@ int compile_and_run_decomposed(string str, string regex, MatchType match_type, i
             return true;
     }
     return false;
+}
+
+int compile_and_run_partial(string str, string regex, string flags) {
+   if (str.length() == 0 && regex.length() == 0)
+       return 1;
+    // simplify the regex
+    regex = regex + ".*";
+    string parsed_re = expand_regex(regex);
+    const char* re = parsed_re.c_str();
+    int re_len = parsed_re.length();
+    const int cache_size = (re_len + 1) * (re_len + 1);
+    std::unique_ptr<int> cache(new int[cache_size]);
+    int* cache_ptr = cache.get();
+    // compile
+    cache_states(re, cache_ptr);
+    builder::builder_context context;
+    context.feature_unstructured = true;
+    context.run_rce = true;
+    int ignore_case = flags.compare("i") == 0;
+    MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re, 0, cache_ptr, 0, 1, ignore_case); 
+    return partial_match_loop(str.c_str(), str.length(), 1, func);
+}
+
+int partial_match_loop(const char* str, int str_len, int stride, MatchFunction func) {
+    int result = 0;
+    #pragma omp parallel for
+    for (int i = 0; i < stride; i++) {
+        for (int j = i; j < str_len; j += stride) {
+            if (func(str, str_len, j)) {
+                result = 1;
+                break;
+            }
+        }    
+    }
+    return result;
 }

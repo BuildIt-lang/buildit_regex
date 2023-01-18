@@ -13,12 +13,13 @@
 #include "progress.h"
 #include "parse.h"
 #include "frontend.h"
+#include <pcrecpp.h>
 
 using namespace std;
 using namespace re2;
 using namespace std::chrono;
 
-typedef int (*GeneratedFunction)(const char*, int);
+typedef int (*GeneratedFunction)(const char*, int, int, int);
 
 /**
 Loads the patterns from a file into a vector.
@@ -123,7 +124,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
                 context.feature_unstructured = true;
                 context.run_rce = true;
                 bool partial = (match_type == MatchType::PARTIAL_SINGLE);
-                MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), partial, cache, tid, n_threads, ignore_case);    
+                MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), partial, cache, tid, n_threads, ignore_case); 
                 funcs[tid] = func;
             }
             rid++;
@@ -158,7 +159,8 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     for (int j = 0; j < patterns.size(); j++) {
         const string& cur_string = (match_type == MatchType::PARTIAL_SINGLE) ? strings[0] : strings[j];
         int n_threads = (match_type == MatchType::FULL) ? 1 : n_funcs[j];
-        
+        const char* s = cur_string.c_str();
+        int s_len = cur_string.length();
         // re2 timing
         auto re_start = high_resolution_clock::now();
         for (int i = 0; i < n_iters; i++) {
@@ -178,7 +180,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
                 vector<int> matches;
 				hs_scratch_t *scratch = NULL;
 				hs_alloc_scratch(hs_databases[j], &scratch);
-				hs_scan(hs_databases[j], (char*)cur_string.c_str(), cur_string.length(), 0, scratch, single_match_handler, &matches);
+				hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, single_match_handler, &matches);
                 hs_result = (matches.size() == 2);
 			}
         }
@@ -191,12 +193,12 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
             auto buildit_start = high_resolution_clock::now();
             for (int i = 0; i < n_iters; i++) {
                 if (n_threads == 1) {
-                    buildit_result = buildit_patterns[j][0][0](cur_string.c_str(), cur_string.length());
+                    buildit_result = buildit_patterns[j][0][0](s, s_len, 0);
                 } else {
                     buildit_result = false;
                     #pragma omp parallel for
                     for (int tid = 0; tid < n_threads; tid++) {
-                        if (buildit_patterns[j][0][tid](cur_string.c_str(), cur_string.length()))
+                        if (buildit_patterns[j][0][tid](s, s_len, 0))
                             buildit_result = true;
                     }
                 }
@@ -210,7 +212,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
                     buildit_result = false;
                     #pragma omp parallel for
                     for (int rid = 0; rid < sub_parts[j]; rid++) {
-                        if (buildit_patterns[j][rid][0](cur_string.c_str(), cur_string.length()))
+                        if (buildit_patterns[j][rid][0](s, s_len, 0))
                             buildit_result = true;
                     }    
                 } else {
@@ -219,7 +221,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
                     for (int tid = 0; tid < n_threads; tid++) {
                         //#pragma omp parallel for
                         for (int rid = 0; rid < sub_parts[j]; rid++) {
-                            if (buildit_patterns[j][rid][tid](cur_string.c_str(), cur_string.length()))
+                            if (buildit_patterns[j][rid][tid](s, s_len, 0))
                                 buildit_result = true;
                         }
                     }
@@ -242,8 +244,46 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         cout << "re2 run time: " << re2_dur << " ms" << endl;
         cout << "hs run time: " << hs_dur << " ms" << endl;
         cout << "buildit run time: " << buildit_dur << " ms" << endl;
-
     }
+
+}
+
+void optimize_partial_match_loop(string str, string pattern) {
+    
+    string re = expand_regex(pattern);
+    const int re_len = re.length();
+    // precompute state transitions
+    const int cache_size = (re_len + 1) * (re_len + 1); 
+    std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
+    int* cache = cache_states_ptr.get();
+    cache_states(re.c_str(), cache);
+    builder::builder_context context;
+    context.feature_unstructured = true;
+    context.run_rce = true;
+    
+    // compilation
+    auto start = high_resolution_clock::now();
+    MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), 0, cache, 0, 1, 0); 
+    auto end = high_resolution_clock::now();
+    int compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / 1e6f;
+    cout << "compile time: " << compile_time << "ms" << endl;
+    
+    // running
+    const char* s = str.c_str();
+    int len = str.length();
+    int result = 0;
+    int stride = 16;
+    int n_iters = 10;
+    start = high_resolution_clock::now();
+    for (int k = 0; k < n_iters; k++) {
+        result = partial_match_loop(s, len, stride, func);
+    }
+    end = high_resolution_clock::now();
+    int expected = RE2::PartialMatch(s, pattern);
+    cout << "expected: " << expected << ", got: " << result << endl;
+
+    float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    cout << "run time: " << run_time << "ms" << endl;
 
 }
 
@@ -266,12 +306,18 @@ int main() {
         "(Tom.{10,15}river|river.{10,15}Tom)",
         "[a-zA-Z]+ing",
     };
-    vector<int> n_funcs = {1, 1, 2, 1, 1, 1, 1, 2, 1};
-    vector<int> decompose = {0, 0, 0, 0, 0, 0, 0, 1, 0};
+    vector<int> n_funcs = {1, 1, 2, 1, 1, 1, 1, 4, 1};
+    vector<int> decompose = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "Tom swam in the river", "swimming"};
-	
 	time_compare(twain_patterns, words, n_iters, MatchType::FULL, n_funcs, decompose);
 	cout << endl;
     time_compare(twain_patterns, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, n_funcs, decompose);
+    //cout << "pcre" << pcrecpp::RE("h.*o").FullMatch("hello") << endl;
+    // trying to optimize partial matches
+    for (string re: twain_patterns) {
+        cout << endl;
+        cout << re << endl;
+        optimize_partial_match_loop(text, re + ".*");
+    }
 }
 

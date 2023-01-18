@@ -11,7 +11,8 @@
 
 using namespace std;
 
-typedef int (*MatchFunction) (const char*, int);
+typedef int (*MatchFunction) (const char*, int, int);
+typedef int (*PartialMatchFunction) (const char*, int, int, int);
 
 enum MatchType { FULL, PARTIAL_SINGLE, PARTIAL_ALL };
 
@@ -22,4 +23,7 @@ bool run_matcher(MatchFunction* funcs, const char* str, int n_threads);
 int compile_and_run(string str, string regex, MatchType match_type, int n_threads, string flags);
 
 int compile_and_run_decomposed(string str, string regex, MatchType match_type, int n_threads, string flags);
+
+int compile_and_run_partial(string str, string regex, string flags);
+int partial_match_loop(const char* str, int str_len, int stride, MatchFunction func);
 #endif

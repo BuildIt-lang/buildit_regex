@@ -47,7 +47,7 @@ int is_alpha(char c) {
 /**
 Matches each character in `str` one by one.
 */
-dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, 
+dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, 
                             bool enable_partial, int* cache, int match_index, int n_threads, int ignore_case) {
 
     const int re_len = strlen(re);
@@ -62,7 +62,6 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
 
     update_from_cache(current.get(), cache, -1, re_len);
     
-    dyn_var<int> to_match = 0;
     static_var<int> mc = 0;
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
@@ -160,12 +159,12 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
     return is_match;
 }
 
-dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache, int ignore_case) {
-	return match_regex(re, str, str_len, false, cache, 0, 1, ignore_case);
+dyn_var<int> match_regex_full(const char* re, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> start_idx, int* cache, int ignore_case) {
+	return match_regex(re, str, str_len, start_idx, false, cache, 0, 1, ignore_case);
 }
 
-dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, int* cache, int ignore_case) {
-	return match_regex(re, str, str_len, true, cache, 0, 1, ignore_case);
+dyn_var<int> match_regex_partial(const char* re, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> start_idx, int* cache, int ignore_case) {
+	return match_regex(re, str, str_len, start_idx, true, cache, 0, 1, ignore_case);
 }
 
 
