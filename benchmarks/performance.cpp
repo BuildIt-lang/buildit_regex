@@ -81,7 +81,8 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     vector<MatchFunction**> buildit_patterns;
     vector<int> sub_parts; // sizes of the regex parts
     vector<unique_ptr<RE2>> re2_patterns;
-	vector<hs_database_t*> hs_databases;
+	vector<pcrecpp::RE> pcre_patterns;
+    vector<hs_database_t*> hs_databases;
 	vector<char *> hs_pattern_arrs;
     int ignore_case = false;
     cout << endl << "COMPILATION TIMES" << endl << endl;
@@ -136,8 +137,6 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         // re2
         auto re_start = high_resolution_clock::now();
         re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
-           
-        
         auto re_end = high_resolution_clock::now();
         cout << "re compile time: " << (duration_cast<nanoseconds>(re_end - re_start)).count() / 1e6f << "ms" << endl;
 
@@ -149,6 +148,13 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
 		auto hs_end = high_resolution_clock::now();
 		cout << "hs compile time: " << (duration_cast<nanoseconds>(hs_end - hs_start)).count() / 1e6f << "ms" << endl;
 		hs_databases.push_back(database);
+    
+        // pcre
+        auto pcre_start = high_resolution_clock::now();
+        pcrecpp::RE pcre_re(patterns[i]);
+        pcre_patterns.push_back(pcre_re);
+        auto pcre_end = high_resolution_clock::now();
+        cout << "pcre compile time: " << (duration_cast<nanoseconds>(pcre_end - pcre_start)).count() / 1e6f << "ms" << endl;
     }
 
     // matching
@@ -187,6 +193,19 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         auto hs_end = high_resolution_clock::now();
         float hs_dur = (duration_cast<nanoseconds>(hs_end - hs_start)).count() * 1.0 / (1e6f * n_iters);
 
+        // pcre timing
+        auto pcre_start = high_resolution_clock::now();
+        int pcre_result = 0;
+        for (int i = 0; i < n_iters; i++) { 
+            if (match_type == MatchType::PARTIAL_SINGLE) {
+                pcre_result = pcre_patterns[j].PartialMatch(s); 
+            } else {
+                pcre_result = pcre_patterns[j].FullMatch(s);    
+            }
+        }
+        auto pcre_end = high_resolution_clock::now();
+        float pcre_dur = (duration_cast<nanoseconds>(pcre_end - pcre_start)).count() * 1.0 / (1e6f * n_iters);
+        
         // buildit timing
         float buildit_dur;
         if (match_type == MatchType::FULL || !decompose[j]) {
@@ -237,12 +256,14 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
             cout << "Correctness failed for regex " << patterns[j] << " and text " << str << ":" <<endl;
             cout << "  re2 match = " << re_result << endl;
             cout << "  hs match = " << hs_result << endl;
-            cout << "  buildit match = " << buildit_result << endl; 
+            cout << "  pcre match = " << pcre_result << endl;
+            cout << "  buildit match = " << buildit_result << endl;
         }
 
         cout << "--- pattern: " << patterns[j] << " text: " << str << " ---" << endl;
         cout << "re2 run time: " << re2_dur << " ms" << endl;
         cout << "hs run time: " << hs_dur << " ms" << endl;
+        cout << "pcre run time: " << pcre_dur << " ms" << endl;
         cout << "buildit run time: " << buildit_dur << " ms" << endl;
     }
 
