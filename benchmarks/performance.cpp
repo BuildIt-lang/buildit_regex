@@ -385,7 +385,7 @@ void run_re2_benchmark() {
 int main() {
     string patterns_file = "./data/twain_patterns.txt";
     vector<string> patterns = load_patterns(patterns_file);
-    //run_twain_benchmark();
-    run_re2_benchmark();
+    run_twain_benchmark();
+    //run_re2_benchmark();
 }
 

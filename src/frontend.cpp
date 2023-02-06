@@ -1,5 +1,8 @@
 #include "frontend.h"
 
+/**
+ Generates a matching function for the given regex.
+*/
 MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type, int tid, int n_threads, string flags) {
     cache_states(regex, cache);
     // code generation
@@ -8,9 +11,17 @@ MatchFunction compile_regex(const char* regex, int* cache, MatchType match_type,
     context.run_rce = true;
     bool partial = (match_type == MatchType::PARTIAL_SINGLE);
     int ignore_case = flags.compare("i") == 0;
+    // all partial matches
+    if (match_type == MatchType::PARTIAL_ALL) {
+        return (MatchFunction)builder::compile_function_with_context(context, get_partial_match, regex, cache, ignore_case);    
+    }
+    // full or partial_single matching
     return (MatchFunction)builder::compile_function_with_context(context, match_regex, regex, partial, cache, tid, n_threads, ignore_case);    
 }
 
+/**
+ Runs the generated matching functions on the input string.
+*/
 bool run_matcher(MatchFunction* funcs, const char* str, int n_threads) {
     if (n_threads == 1) {
         return funcs[0](str, strlen(str), 0);
@@ -26,22 +37,30 @@ bool run_matcher(MatchFunction* funcs, const char* str, int n_threads) {
 
 }
 
+/**
+ Default matching function for FULL and PARTIAL_SINGLE match types.
+*/
 int compile_and_run(string str, string regex, MatchType match_type, int n_threads, string flags) {
     // simplify the regex
     string parsed_re = expand_regex(regex);
     int re_len = parsed_re.length();
     const int cache_size = (re_len + 1) * (re_len + 1);
     std::unique_ptr<int> cache(new int[cache_size]);
-    
+
     MatchFunction* funcs = new MatchFunction[n_threads];
     for (int tid = 0; tid < n_threads; tid++) {    
         MatchFunction func = compile_regex(parsed_re.c_str(), cache.get(), match_type, tid, n_threads, flags);
         funcs[tid] = func;
     }
+    
     return run_matcher(funcs, str.c_str(), n_threads);
 }
 
-
+/**
+ Partial matching of PARTIAL_SINGLE type where the regex is split
+ into multiple sub-regexes according to | chars. Usually results in
+ a better regex compilation time compared to the default matching method.
+*/
 int compile_and_run_decomposed(string str, string regex, MatchType match_type, int n_threads, string flags) {
     // simplify the regex and decompose it into parts based on | chars
     string parsed_re = expand_regex(regex);
@@ -59,6 +78,11 @@ int compile_and_run_decomposed(string str, string regex, MatchType match_type, i
     return false;
 }
 
+/**
+ A simple version of partial matching of PARTIAL_SINGLE type.
+ Starting from each position in `str` it tries a full match
+ of "regex.*" and returns true as soon as a match is found.
+*/
 int compile_and_run_partial(string str, string regex, string flags) {
    if (str.length() == 0 && regex.length() == 0)
        return 1;
@@ -93,3 +117,31 @@ int partial_match_loop(const char* str, int str_len, int stride, MatchFunction f
     }
     return result;
 }
+
+
+/**
+ Returns a list of the longest partial matches starting from each char in str.
+*/
+vector<string> get_all_partial_matches(string str, string regex, string flags) {
+    // parse regex and cache state transitions
+    string parsed_re = expand_regex(regex);
+    int re_len = parsed_re.length();
+    const int cache_size = (re_len + 1) * (re_len + 1);
+    std::unique_ptr<int> cache(new int[cache_size]);
+    // compile a function for anchored matching
+    MatchFunction func = compile_regex(parsed_re.c_str(), cache.get(), MatchType::PARTIAL_ALL, 0, 1, flags);
+    
+    // run anchored partial match starting from each position in the string
+    vector<string> matches;
+    const char* s = str.c_str();
+    int str_len = str.length();
+    for (int i = 0; i < str_len; i++) {
+        int end_idx = func(s, str_len, i);
+        if (end_idx != -1) {
+            matches.push_back(str.substr(i, end_idx - i));
+        }
+    }
+    return matches;
+    
+}
+
