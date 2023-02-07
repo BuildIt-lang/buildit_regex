@@ -69,16 +69,16 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
 					dyn_var<int> matches = 0;
                     // check if str[to_match] matches any of the chars in []
                     while (re[idx] != ']') {
-                        if (str[to_match] == re[idx] || (ignore_case && is_alpha(re[idx]) && str[to_match] == (re[idx] ^ 32))) {
-                            matches = 1;
-                            break;
-                        } else if (re[idx] == '-') {
+                        if (re[idx] == '-') {
                             // this is used for ranges, e.g. [a-d]
                             bool in_range = is_in_range(re[idx-1], re[idx+1], str[to_match], ignore_case);
                             if (in_range) {
                                 matches = 1;
                                 break;
                             }
+                        } else if (str[to_match] == re[idx] || (ignore_case && is_alpha(re[idx]) && str[to_match] == (re[idx] ^ 32))) {
+                            matches = 1;
+                            break;
                         }
                         idx = idx + 1;
                     }

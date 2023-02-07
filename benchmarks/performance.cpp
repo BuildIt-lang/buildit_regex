@@ -407,7 +407,7 @@ void run_twain_benchmark() {
     vector<int> n_funcs = {1, 1, 2, 1, 1, 1, 1, 4, 1};
     vector<int> decompose = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "Tom swam in the river", "swimming"};
-	time_compare(twain_patterns, words, n_iters, MatchType::FULL, n_funcs, decompose);
+    time_compare(twain_patterns, words, n_iters, MatchType::FULL, n_funcs, decompose);
 	cout << endl;
     time_compare(twain_patterns, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, n_funcs, decompose);
     

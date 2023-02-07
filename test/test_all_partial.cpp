@@ -24,13 +24,21 @@ vector<string> get_pcre_submatches(string text, string regex) {
     return matches;
 }
 
+string load_corpus(string fname) {
+    ifstream input_file;
+    input_file.open(fname);
+    string text =  string((istreambuf_iterator<char>(input_file)), istreambuf_iterator<char>());   
+    input_file.close();
+    return text;
+}
 /**
  Compare correctness against PCRE output.
 */
 void check_correctness(string regex, string text, bool verbose) {
     vector<string> expected = get_pcre_submatches(text, "(" + regex + ")");
     vector<string> result = get_all_partial_matches(text, regex, "");
-    cout << "Matching " << regex << " in " << text << ": ";
+    string display_text = (text.length() > 20) ? "<text>" : text;
+    cout << "Matching " << regex << " in " << display_text << ": ";
     
     if (verbose) {
         // print matches from buildit
@@ -69,6 +77,24 @@ void check_correctness(string regex, string text, bool verbose) {
     cout << "ok" << endl;
 }
 
+void check_twain() {
+    string twain = load_corpus("./benchmarks/data/twain.txt");
+    vector<string> twain_patterns = {
+        "(Twain)",
+        "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
+        "([a-q][^u-z]{5}x)", 
+        "(Tom|Sawyer|Huckleberry|Finn)",
+        "(.{0,2}(Tom|Sawyer|Huckleberry|Finn))",
+        "(.{2,4}(Tom|Sawyer|Huckleberry|Finn))",
+        "(Tom.{10,15})",
+        "(Tom.{10,15}river|river.{10,15}Tom)",
+        "([a-zA-Z]+ing)",
+    };
+    for (string pattern: twain_patterns) {
+        check_correctness(pattern, twain);    
+    }
+}
+
 int main() {
     string text = "abbbcc";
     check_correctness("b", text);
@@ -79,6 +105,6 @@ int main() {
     check_correctness("bc*", text);
     check_correctness("b+c+", text);
     check_correctness("ab*c*", text);
-    check_correctness("(Huck[a-zA-Z]+|Saw[a-zA-Z]+)", "HuckleberryFinnSawyer");    
-    check_correctness("(.{2,4})(Tom|Sawyer|Huckleberry|Finn)", "aaaaaTomSawyeraa");
+
+    check_twain();
 }
