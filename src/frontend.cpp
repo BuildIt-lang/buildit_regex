@@ -135,11 +135,18 @@ vector<string> get_all_partial_matches(string str, string regex, string flags) {
     vector<string> matches;
     const char* s = str.c_str();
     int str_len = str.length();
-    for (int i = 0; i < str_len; i++) {
+    //for (int i = 0; i < str_len; i++) {
+    int i = 0;
+    while (i < str_len) {
         int end_idx = func(s, str_len, i);
-        if (end_idx != -1) {
+        // don't include empty matches
+        if (end_idx != -1 && i != end_idx) {
             matches.push_back(str.substr(i, end_idx - i));
+            i = end_idx;
+        } else {
+            i++;    
         }
+       
     }
     return matches;
     

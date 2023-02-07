@@ -52,8 +52,11 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    update_from_cache(next.get(), cache, state, re_len);
-                    state_match = 1;
+                    // according to PCRE . doesn't match the newline char
+                    if (str[to_match] != '\n') {
+                        update_from_cache(next.get(), cache, state, re_len);
+                        state_match = 1;
+                    }
                 } else if ('[' == m) {
                     // we are inside a [...] class
                     static_var<int> idx = state + 1;

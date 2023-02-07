@@ -12,11 +12,12 @@ vector<string> get_pcre_submatches(string text, string regex) {
     pcrecpp::RE re(regex);
     pcrecpp::StringPiece input(text);
     string word;
-    int text_len = text.length();
-    for (int i = 0; i < text_len; i++) {
-        // advance the input
-        pcrecpp::StringPiece input(text.substr(i, text_len - i));
-        if (re.Consume(&input, &word)) {
+    while (re.FindAndConsume(&input, &word)) {
+        if (word.length() == 0) {
+            // advance the input pointer manually
+            // to avoid an infinite loop
+            input.remove_prefix(1);    
+        } else {
             matches.push_back(word);
         }
     }
@@ -35,6 +36,12 @@ void check_correctness(string regex, string text, bool verbose) {
         // print matches from buildit
         cout << endl << "---\nBuildit matches: " << endl;
         for (string m: result) {
+            cout << m << endl;
+        }
+        cout << "---" << endl;
+        // print expected matches
+        cout << endl << "---\nexpected matches: " << endl;
+        for (string m: expected) {
             cout << m << endl;
         }
         cout << "---" << endl;
@@ -72,5 +79,6 @@ int main() {
     check_correctness("bc*", text);
     check_correctness("b+c+", text);
     check_correctness("ab*c*", text);
-    
+    check_correctness("(Huck[a-zA-Z]+|Saw[a-zA-Z]+)", "HuckleberryFinnSawyer");    
+    check_correctness("(.{2,4})(Tom|Sawyer|Huckleberry|Finn)", "aaaaaTomSawyeraa");
 }

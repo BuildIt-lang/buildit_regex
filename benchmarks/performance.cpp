@@ -69,9 +69,11 @@ int all_matches_handler(unsigned int id, unsigned long long from,
                         unsigned long long to, unsigned int flags, void *context) {
     
     // update context with the new match
-    vector<int>* matches = (vector<int>*)context;
-    matches->push_back((int)from);
-    matches->push_back((int)to);
+    if (from != to) {
+        vector<int>* matches = (vector<int>*)context;
+        matches->push_back((int)from);
+        matches->push_back((int)to);
+    }
     // returning 0 continues matching
     return 0;    
 }
@@ -109,14 +111,14 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     cout << endl << "COMPILATION TIMES" << endl << endl;
     for (int i = 0; i < patterns.size(); i++) {
         cout << "--- " << patterns[i] << " ---" << endl;
-        int n_threads = (match_type == MatchType::FULL) ? 1 : n_funcs[i];
+        int n_threads = (match_type == MatchType::PARTIAL_SINGLE) ? n_funcs[i] : 1;
         
         // buildit
         // parse regex
         string processed_re = expand_regex(patterns[i]);
         set<string> regex_parts = {processed_re};
 
-        if (decompose[i] && match_type != MatchType::FULL) {
+        if (decompose[i] && match_type == MatchType::PARTIAL_SINGLE) {
             // decompose the regex into or groups
             int* or_positions = new int[processed_re.length()];
             get_or_positions(processed_re, or_positions);
@@ -146,7 +148,12 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
                 context.feature_unstructured = true;
                 context.run_rce = true;
                 bool partial = (match_type == MatchType::PARTIAL_SINGLE);
-                MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), partial, cache, tid, n_threads, ignore_case); 
+                MatchFunction func;
+                if (match_type == MatchType::PARTIAL_ALL) {
+                    func = (MatchFunction)builder::compile_function_with_context(context, get_partial_match, re.c_str(), cache, ignore_case);
+                } else {
+                    func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), partial, cache, tid, n_threads, ignore_case);
+                }
                 funcs[tid] = func;
             }
             rid++;
@@ -179,49 +186,80 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     }
 
     // matching
-    bool re_result;
-    bool hs_result;
-    bool buildit_result;
     cout << endl << "MATCHING TIMES" << endl << endl;
     for (int j = 0; j < patterns.size(); j++) {
-        const string& cur_string = (match_type == MatchType::PARTIAL_SINGLE) ? strings[0] : strings[j];
+        const string& cur_string = (match_type != MatchType::FULL) ? strings[0] : strings[j];
+        cout << "text length: " << cur_string.length() << endl;
         int n_threads = (match_type == MatchType::FULL) ? 1 : n_funcs[j];
+       
         const char* s = cur_string.c_str();
         int s_len = cur_string.length();
+        
         // re2 timing
+        int re_result = 0;
         auto re_start = high_resolution_clock::now();
         for (int i = 0; i < n_iters; i++) {
             if (match_type == MatchType::PARTIAL_SINGLE) {
                 re_result = RE2::PartialMatch(cur_string, *re2_patterns[j].get()); 
-            } else {
+            } else if (match_type == MatchType::FULL) {
                 re_result = RE2::FullMatch(cur_string, *re2_patterns[j].get());    
+            } else {
+                // find all partial matches
+                string word;
+                re_result = 0;
+                StringPiece input(s);
+                while (RE2::FindAndConsume(&input, *re2_patterns[j].get(), &word)) {
+                    if (word.length() == 0) {
+                        // advance the input pointer by 1
+                        // otherwise it will be stuck in an infinite loop
+                        input.remove_prefix(1);
+                    } else {
+                        re_result++;
+                    }    
+                }
             }
         }
         auto re_end = high_resolution_clock::now();
         float re2_dur = (duration_cast<nanoseconds>(re_end - re_start)).count() * 1.0 / (1e6f *  n_iters);
         
         // hs timing
+        int hs_result = 0;
         auto hs_start = high_resolution_clock::now();
         for (int i = 0; i < n_iters; i++) {
+            vector<int> matches;
+            hs_scratch_t *scratch = NULL;
+            hs_alloc_scratch(hs_databases[j], &scratch);
 			if (match_type == MatchType::PARTIAL_SINGLE || match_type == MatchType::FULL) {
-                vector<int> matches;
-				hs_scratch_t *scratch = NULL;
-				hs_alloc_scratch(hs_databases[j], &scratch);
 				hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, single_match_handler, &matches);
                 hs_result = (matches.size() == 2);
-			}
+  			} else {
+                hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, all_matches_handler, &matches);
+                hs_result = matches.size() / 2; // the number of partial matches
+                
+            }
         }
         auto hs_end = high_resolution_clock::now();
         float hs_dur = (duration_cast<nanoseconds>(hs_end - hs_start)).count() * 1.0 / (1e6f * n_iters);
-
         // pcre timing
         auto pcre_start = high_resolution_clock::now();
         int pcre_result = 0;
         for (int i = 0; i < n_iters; i++) { 
             if (match_type == MatchType::PARTIAL_SINGLE) {
                 pcre_result = pcre_patterns[j].PartialMatch(s); 
-            } else {
+            } else if (match_type == MatchType::FULL) { 
                 pcre_result = pcre_patterns[j].FullMatch(s);    
+            } else {
+                // find all partial matches
+                string word;
+                pcre_result = 0;
+                pcrecpp::StringPiece input(s);
+                while (pcre_patterns[j].FindAndConsume(&input, &word)) {
+                    if (word.length() == 0) {
+                        input.remove_prefix(1);    
+                    } else {
+                        pcre_result++;    
+                    }
+                }
             }
         }
         auto pcre_end = high_resolution_clock::now();
@@ -229,7 +267,27 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         
         // buildit timing
         float buildit_dur;
-        if (match_type == MatchType::FULL || !decompose[j]) {
+        int buildit_result = 0;
+        if (match_type == MatchType::PARTIAL_ALL) {
+            auto buildit_start = high_resolution_clock::now();
+            for (int i = 0; i < n_iters; i++) {
+                buildit_result = 0;
+                int start = 0;
+                while (start < s_len) {
+                    int end = buildit_patterns[j][0][0](s, s_len, start);
+                    if (end != -1 && start != end) {
+                        //mathces.push_back(str.substr(start, end_idx - i));
+                        buildit_result++;
+                        start = end;
+                    } else {
+                        start++; 
+                    }
+                }
+            
+            }
+            auto buildit_end = high_resolution_clock::now();
+            buildit_dur = (duration_cast<nanoseconds>(buildit_end - buildit_start)).count() * 1.0 / (1e6f * n_iters);
+        } else if (match_type == MatchType::FULL || !decompose[j]) {
             auto buildit_start = high_resolution_clock::now();
             for (int i = 0; i < n_iters; i++) {
                 if (n_threads == 1) {
@@ -271,10 +329,10 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
             buildit_dur = (duration_cast<nanoseconds>(buildit_end - buildit_start)).count() * 1.0 / (1e6f * n_iters);
         }
         // check correctness
-		const string& str = (match_type == MatchType::PARTIAL_SINGLE) ? "<text>" : strings[j].substr(0, 10) + "...";
+		const string& str = (match_type != MatchType::FULL) ? "<text>" : strings[j].substr(0, 10) + "...";
         
         if (!((hs_result == buildit_result || match_type == MatchType::FULL) && re_result == buildit_result)) {
-            cout << "Correctness failed for regex " << patterns[j] << " and text " << str << ":" <<endl;
+            cout << endl << "Correctness failed for regex " << patterns[j] << " and text " << str << ":" <<endl;
             cout << "  re2 match = " << re_result << endl;
             cout << "  hs match = " << hs_result << endl;
             cout << "  pcre match = " << pcre_result << endl;
@@ -336,15 +394,15 @@ void run_twain_benchmark() {
     string text = load_corpus(corpus_file);
     std::cout << "Twain Text Length: " << text.length() << std::endl;
     vector<string> twain_patterns = {
-        "Twain",
+        "(Twain)",
         "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
-        "[a-q][^u-z]{5}x", 
+        "([a-q][^u-z]{5}x)", 
         "(Tom|Sawyer|Huckleberry|Finn)",
-        ".{0,2}(Tom|Sawyer|Huckleberry|Finn)",
-        ".{2,4}(Tom|Sawyer|Huckleberry|Finn)",
-        "Tom.{10,15}",
+        "(.{0,2}(Tom|Sawyer|Huckleberry|Finn))",
+        "(.{2,4}(Tom|Sawyer|Huckleberry|Finn))",
+        "(Tom.{10,15})",
         "(Tom.{10,15}river|river.{10,15}Tom)",
-        "[a-zA-Z]+ing",
+        "([a-zA-Z]+ing)",
     };
     vector<int> n_funcs = {1, 1, 2, 1, 1, 1, 1, 4, 1};
     vector<int> decompose = {0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -360,6 +418,7 @@ void run_twain_benchmark() {
         optimize_partial_match_loop(text, re + ".*");
     }
     
+	//time_compare(twain_patterns, vector<string>{text}, 1, MatchType::PARTIAL_ALL, n_funcs, decompose);
 }
 
 void run_re2_benchmark() {
