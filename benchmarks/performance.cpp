@@ -189,7 +189,6 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     cout << endl << "MATCHING TIMES" << endl << endl;
     for (int j = 0; j < patterns.size(); j++) {
         const string& cur_string = (match_type != MatchType::FULL) ? strings[0] : strings[j];
-        cout << "text length: " << cur_string.length() << endl;
         int n_threads = (match_type == MatchType::FULL) ? 1 : n_funcs[j];
        
         const char* s = cur_string.c_str();
@@ -233,8 +232,13 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
 				hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, single_match_handler, &matches);
                 hs_result = (matches.size() == 2);
   			} else {
-                hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, all_matches_handler, &matches);
-                hs_result = matches.size() / 2; // the number of partial matches
+                // hs doesn't support greedy matching like PCRE, RE2 and our current implementation
+                // it reports all matches as explained here
+                // https://intel.github.io/hyperscan/dev-reference/compilation.html#semantics
+                // it generally results in more matches, so we won't be using it to compare runtimes
+
+                /*hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, all_matches_handler, &matches);
+                hs_result = matches.size() / 2; // the number of partial matches*/
                 
             }
         }
@@ -330,6 +334,11 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         }
         // check correctness
 		const string& str = (match_type != MatchType::FULL) ? "<text>" : strings[j].substr(0, 10) + "...";
+        if (match_type == MatchType::PARTIAL_ALL) {
+            // we are not comparing times with Hyperscan in this mode
+            // make its output correct by default
+            hs_result = buildit_result;
+        }
         
         if (!((hs_result == buildit_result || match_type == MatchType::FULL) && re_result == buildit_result)) {
             cout << endl << "Correctness failed for regex " << patterns[j] << " and text " << str << ":" <<endl;
@@ -342,7 +351,8 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         cout << "--- pattern: " << patterns[j] << " text: " << str << " ---" << endl;
         cout << "buildit run time: " << buildit_dur << " ms" << endl;
         cout << "re2 run time: " << re2_dur << " ms" << endl;
-        cout << "hs run time: " << hs_dur << " ms" << endl;
+        if (match_type != MatchType::PARTIAL_ALL)
+            cout << "hs run time: " << hs_dur << " ms" << endl;
         cout << "pcre run time: " << pcre_dur << " ms" << endl;
     }
 
@@ -407,18 +417,26 @@ void run_twain_benchmark() {
     vector<int> n_funcs = {1, 1, 2, 1, 1, 1, 1, 4, 1};
     vector<int> decompose = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "Tom swam in the river", "swimming"};
+    
+    cout << "\n------- FULL MATCH -------\n" << endl;
+    
     time_compare(twain_patterns, words, n_iters, MatchType::FULL, n_funcs, decompose);
-	cout << endl;
+    
+    cout << "\n------- PARTIAL SINGLE -------\n" << endl;
+    
     time_compare(twain_patterns, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, n_funcs, decompose);
     
+    /*
     // trying to optimize partial matches
     for (string re: twain_patterns) {
         cout << endl;
         cout << re << endl;
         optimize_partial_match_loop(text, re + ".*");
-    }
+    }*/
     
-	//time_compare(twain_patterns, vector<string>{text}, 1, MatchType::PARTIAL_ALL, n_funcs, decompose);
+    cout << "\n------- PARTIAL ALL -------\n" << endl;
+	
+    time_compare(twain_patterns, vector<string>{text}, 1, MatchType::PARTIAL_ALL, n_funcs, decompose);
 }
 
 void run_re2_benchmark() {
