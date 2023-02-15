@@ -8,6 +8,7 @@
 
 void check_correctness(const char* pattern, const char* candidate, const char* flags = "");                        
 void check_split(const char* pattern, const char* candidate, int start_state = 0, const char* flags = "");                        
+string remove_special_chars(string regex);
 void test_simple();
 void test_star();
 void test_brackets();

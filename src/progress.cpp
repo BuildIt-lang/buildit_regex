@@ -13,6 +13,14 @@ bool is_digit(char m) {
 
 
 /**
+ Check if re[idx] is followed by ?S for or splits.
+*/
+bool is_special_group(const char* re, int idx) {
+    return (re[idx] == '(') && (idx + 3 < (int)strlen(re)) && (re[idx+1] == '?') && (re[idx+2] == 'S');
+}
+
+
+/**
 It returns whether `re` is a valid regular expression.
 
 `next` ia an array of length `strlen(re)`; for each char in `re`,
@@ -57,6 +65,9 @@ bool process_re(const char *re, ReStates re_states) {
         // find the next character/state from re that should be matched
         if (idx == re_len - 1) {
             re_states.next[idx] = idx + 1;
+        } else if (idx > 1 && is_special_group(re, idx-2)) {
+            // jump over ?S - it shouldn't be treated as a state
+            idx = idx - 1;
         } else if (c == '|') {
             re_states.next[idx] = idx + 1;
             re_states.helper_states[idx] = or_indices.back();
@@ -81,15 +92,23 @@ bool process_re(const char *re, ReStates re_states) {
 				last_bracket = -1;
 			}
         } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?') {
-            char next_c = re[idx + 1];
+            // skip ?S after (
+            int next_i = (is_special_group(re, idx)) ? idx + 3 : idx + 1;
+            char next_c = re[next_i];
             if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[') {
-                re_states.next[idx] = idx + 1;   
+                re_states.next[idx] = next_i;   
             } else if (next_c == ')' || next_c == ']' || next_c == '?') {
                 // if it's a `?` it means we've already had a match, so just skip it
-                re_states.next[idx] = re_states.next[idx+1];    
+                re_states.next[idx] = re_states.next[next_i];    
             } else {
                 cout << "Invalid character: " << next_c << endl;
                 return false;
+            }
+            // copy the next state for ?S to be the same
+            // as the next state of the ( before ?S
+            if (is_special_group(re, idx)) {
+                re_states.next[idx+1] = re_states.next[idx];
+                re_states.next[idx+2] = re_states.next[idx];
             }
         } else {
             cout << "Invalid character: " << c << endl;
@@ -132,10 +151,11 @@ void progress(const char *re, ReStates re_states, int p, Cache cache, bool or_gr
         cache.temp_states[ns] = val;
     } else if ('(' == re[ns]) {
         int or_index = re_states.helper_states[ns];
-        progress(re, re_states, ns, cache, re[or_index] == '|'); // char right after (
+        bool split_group = is_special_group(re, ns);
+        progress(re, re_states, ns, cache, (re[or_index] == '|' && split_group)); // char right after (
         // start by trying to match the first char after each |
         while (or_index != re_states.brackets[ns]) {
-            progress(re, re_states, or_index, cache, true);
+            progress(re, re_states, or_index, cache, split_group);
             or_index = re_states.helper_states[or_index];
         } 
         // if () are followed by *, it's possible to skip the () group

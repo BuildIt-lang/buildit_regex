@@ -6,14 +6,29 @@
 
 using namespace std::chrono;
 
+string remove_special_chars(string regex) {
+    string chars = "(?S";
+    int chars_len = chars.length();
+    string to_replace = "(";
+    string result = regex;
+    while (true) {
+        int idx = result.find(chars);
+        if (idx == (int)string::npos)
+            return result;
+        result.replace(idx, chars_len, to_replace);
+    }
+    return result;
+}
 
 /**
 General function to compare results.
 */
 void check_split(const char* pattern, const char* candidate, int start_state, const char* flags) {
+    
+    string simple_pattern = remove_special_chars(pattern);
     bool expected = (strcmp(flags, "i") == 0) ? 
-        regex_search(candidate, regex(pattern, regex_constants::icase)) :
-        regex_search(candidate, regex(pattern));
+        regex_search(candidate, regex(simple_pattern, regex_constants::icase)) :
+        regex_search(candidate, regex(simple_pattern));
     
     int result = compile_and_run_split(candidate, pattern, start_state, MatchType::PARTIAL_SINGLE, flags);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
@@ -101,12 +116,13 @@ void test_or_groups() {
     check_split("ab(c|56|de)k", "abck");
     check_split("ab(c|56|de)k", "ab56k");
     check_split("ab(c|56|de)k", "abdek");
-    check_split("ab(c|56|de)k", "ab56dek");
+    check_split("ab(?Sc|56|de)k", "ab56dek");
+    check_split("ab(?S(?Sc|56|de)k|ab)", "ab56abab");
     check_split("a(cbd|45)*", "acbd45cbd");
     check_split("([abc]|dc|4)2", "b2");
     check_split("([abc]|dc|4)2", "b2");
     check_split("(dc|[abc]|4)2", "b2");
-    check_split("(dc|4|[abc])2", "b2");
+    check_split("(?Sdc|4|[abc])2", "b2");
     check_split("([^23]|2)abc", "1abc");
     check_split("([^23]|2)abc", "3abc");
     check_split("(a|[abc]|4)2", "ac42");
@@ -227,7 +243,8 @@ void test_ignore_case() {
 }
 
 int main() {    
-    check_split("(Tom.{10,15}river|river.{10,15}Tom)", "dsafdasfdTomswimminginrivercdsvadsfd");
+    check_split("(?STom.{10,15}river|river.{10,15}Tom)", "dsafdasfdTomswimminginrivercdsvadsfd");
+    check_split("(?STom.{10,15}river|river.{10,15}Tom)", "dsafdasfdTomswimmingrivercdsvadsfd");
 
     auto start = high_resolution_clock::now();
     test_simple();
@@ -248,7 +265,7 @@ int main() {
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
-
+    //check_split("(?Sabc|de)");
 }
 
 

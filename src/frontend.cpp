@@ -166,6 +166,7 @@ MatchFunction compile_split(string str, string regex, int start_state, MatchType
     std::unique_ptr<int> cache(new int[cache_size]);
     // compile
     cache_states(parsed_re.c_str(), cache.get());
+    
     int ignore_case = flags.compare("i") == 0;
     set<int> working_set, done_set;
     vector<block::block::Ptr> functions;

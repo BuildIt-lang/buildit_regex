@@ -398,11 +398,16 @@ void optimize_partial_match_loop(string str, string pattern) {
 
 }
 
-void time_partial_single_split_ors(vector<string> &twain_patterns, string &text, int n_iters) {
+void time_partial_single_split_ors(string &text, int n_iters) {
     
+    vector<string> twain_patterns = {
+        "(?SHuck[a-zA-Z]+|Saw[a-zA-Z]+)",
+        "(?STom|Sawyer|Huckleberry|Finn)",
+        "(.{0,2}(?STom|Sawyer|Huckleberry|Finn))",
+        "(.{2,4}(?STom|Sawyer|Huckleberry|Finn))",
+        "(?STom.{10,15}river|river.{10,15}Tom)",
+    };
     for (string re: twain_patterns) {
-        if (re.find("|") == string::npos)
-            continue;
         auto start = high_resolution_clock::now();
         MatchFunction func;
         for (int n = 0; n < n_iters; n++) {
@@ -458,7 +463,7 @@ void run_twain_benchmark() {
     
     cout << "\n------- PARTIAL SINGLE SPLIT ORS ----------\n" << endl;
     
-    time_partial_single_split_ors(twain_patterns, text, n_iters);
+    time_partial_single_split_ors(text, n_iters);
 
 /*
 // trying to optimize partial matches
