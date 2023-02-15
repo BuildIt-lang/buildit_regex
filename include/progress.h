@@ -23,7 +23,7 @@ bool is_normal(char m);
 bool is_digit(char m);
 void reset_array(char* arr, int len);
 bool process_re(const char *re, ReStates re_states);
-void progress(const char *re, ReStates re_states, int p, Cache cache);
+void progress(const char *re, ReStates re_states, int p, Cache cache, bool or_group);
 void cache_states(const char* re, int* next_states);
 
 #endif

@@ -7,6 +7,7 @@
 #include <chrono>
 
 void check_correctness(const char* pattern, const char* candidate, const char* flags = "");                        
+void check_split(const char* pattern, const char* candidate, int start_state = 0, const char* flags = "");                        
 void test_simple();
 void test_star();
 void test_brackets();

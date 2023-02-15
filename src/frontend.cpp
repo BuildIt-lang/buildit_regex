@@ -152,3 +152,47 @@ vector<string> get_all_partial_matches(string str, string regex, string flags) {
     
 }
 
+/**
+Experimental version of compile_and_run for or group splitting.
+*/
+MatchFunction compile_split(string str, string regex, int start_state, MatchType match_type, string flags) {
+
+    int n_threads = 1;
+    int tid = 0;
+    // simplify the regex
+    string parsed_re = expand_regex(regex);
+    int re_len = parsed_re.length();
+    const int cache_size = (re_len + 1) * (re_len + 1);
+    std::unique_ptr<int> cache(new int[cache_size]);
+    // compile
+    cache_states(parsed_re.c_str(), cache.get());
+    int ignore_case = flags.compare("i") == 0;
+    set<int> working_set, done_set;
+    vector<block::block::Ptr> functions;
+    working_set.insert(0);
+
+    while (!working_set.empty()) {
+        int first_state = *working_set.begin();
+        working_set.erase(first_state);
+        string fname = "match_" + to_string(first_state);
+        // define context
+        builder::builder_context context;
+        context.feature_unstructured = true;
+        context.run_rce = true;
+        // generate ast
+        auto ast = context.extract_function_ast(split_and_match, fname, parsed_re.c_str(), first_state, working_set, done_set, 1, cache.get(), tid, n_threads, ignore_case);
+        functions.push_back(ast);
+        done_set.insert(first_state);
+    }
+    // generate all functions
+    builder::builder_context ctx;
+    MatchFunction func = (MatchFunction)builder::compile_asts(ctx, functions, "match_0");
+    return func;
+}
+
+int compile_and_run_split(string str, string regex, int start_state, MatchType match_type, string flags) {
+
+    MatchFunction func = compile_split(str, regex, start_state, match_type, flags);
+    return func(str.c_str(), str.length(), 0);
+}
+

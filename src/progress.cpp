@@ -104,50 +104,43 @@ bool process_re(const char *re, ReStates re_states) {
 /**
 Updates the cache with all the reachable states from the state p.
 */
-void progress(const char *re, ReStates re_states, int p, Cache cache) {
+void progress(const char *re, ReStates re_states, int p, Cache cache, bool or_group) {
     const int re_len = strlen(re);
 
     unsigned int ns = (p == -1) ? 0 : (unsigned int)re_states.next[p];
-
+    
+    // if the state is a part of | group mark it with |
+    // this helps later when splitting the matching into mupltiple functions
+    char val = (or_group) ? '|' : 1;
+    
     if (strlen(re) == ns) {
-        cache.temp_states[ns] = true;
+        cache.temp_states[ns] = val;
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         if ('*' == re[ns+1] || '?' == re[ns+1]) {
             // we can also skip this char
-            progress(re, re_states, ns+1, cache);
+            progress(re, re_states, ns+1, cache, false);
         }
-        cache.temp_states[ns] = true;
+        cache.temp_states[ns] = val;
     } else if ('*' == re[ns]) { // can match char p again
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? re_states.brackets[ns-1] : ns - 1;
-        progress(re, re_states, prev_state-1, cache);
+        progress(re, re_states, prev_state-1, cache, false);
     } else if ('[' == re[ns]) {
 //        int curr_idx = ns + 1;
         if (re_states.brackets[ns] < (int)strlen(re) - 1 && ('*' == re[re_states.brackets[ns]+1] || '?' == re[re_states.brackets[ns]+1]))
             // allowed to skip []
-            progress(re, re_states, re_states.brackets[ns]+1, cache);
-        cache.temp_states[ns] = true;
-        /*if (re[ns + 1] == '^') {
-            // negative class - mark only '^' as true
-            // the character matching is handled in `match_regex`
-            cache.temp_states[ns + 1] = true;
-        } else {
-            while (re[curr_idx] != ']') {
-                // allowed to match any of the chars inside []
-                cache.temp_states[curr_idx] = true;
-                curr_idx = curr_idx + 1;
-            }
-        }*/
+            progress(re, re_states, re_states.brackets[ns]+1, cache, false);
+        cache.temp_states[ns] = val;
     } else if ('(' == re[ns]) {
-        progress(re, re_states, ns, cache); // char right after (
-        // start by trying to match the first char after each |
         int or_index = re_states.helper_states[ns];
+        progress(re, re_states, ns, cache, re[or_index] == '|'); // char right after (
+        // start by trying to match the first char after each |
         while (or_index != re_states.brackets[ns]) {
-            progress(re, re_states, or_index, cache);
+            progress(re, re_states, or_index, cache, true);
             or_index = re_states.helper_states[or_index];
         } 
         // if () are followed by *, it's possible to skip the () group
         if (re_states.brackets[ns] < (int)strlen(re) - 1 && ('*' == re[re_states.brackets[ns]+1] || '?' == re[re_states.brackets[ns]+1]))
-            progress(re, re_states, re_states.brackets[ns]+1, cache);
+            progress(re, re_states, re_states.brackets[ns]+1, cache, false);
     }
 
     // only update the cache at the bottom recursive call
@@ -201,7 +194,7 @@ void cache_states(const char* re, int* next) {
     // for each state, fill the cache with the states
     // that can be reached starting from that state
     for (int state = -1; state < re_len; state++) {
-        progress(re, re_states, state, cache);   
+        progress(re, re_states, state, cache, false);   
         reset_array(cache.temp_states, re_len + 1);
     }
     delete[] re_states.next;
