@@ -398,6 +398,41 @@ void optimize_partial_match_loop(string str, string pattern) {
 
 }
 
+void time_partial_single_split_ors(string &text, int n_iters) {
+    
+    vector<string> twain_patterns = {
+        "(?SHuck[a-zA-Z]+|Saw[a-zA-Z]+)",
+        "(?STom|Sawyer|Huckleberry|Finn)",
+        "(.{0,2}(?STom|Sawyer|Huckleberry|Finn))",
+        "(.{2,4}(?STom|Sawyer|Huckleberry|Finn))",
+        "(?STom.{10,15}river|river.{10,15}Tom)",
+    };
+    for (string re: twain_patterns) {
+        auto start = high_resolution_clock::now();
+        MatchFunction func;
+        for (int n = 0; n < n_iters; n++) {
+            func = compile_split(text, re, 0, MatchType::PARTIAL_SINGLE, "");
+        }
+        auto end = high_resolution_clock::now();
+        float compile_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+        const char* c_text = text.c_str();
+        start = high_resolution_clock::now();
+        int result = 0;
+        for (int n = 0; n < n_iters; n++) {
+            result = func(c_text, text.length(), 0);
+        }
+        end = high_resolution_clock::now();
+        float run_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+        cout << "regex: " << re << endl;
+        cout << "compile time: " << compile_dur << endl;
+        cout << "run time: " << run_dur << endl;
+        cout << "result: " << result << endl;
+        cout << endl;
+    }
+    
+}
+
+
 void run_twain_benchmark() {
     int n_iters = 10;
     string corpus_file = "./data/twain.txt";
@@ -426,8 +461,12 @@ void run_twain_benchmark() {
     
     time_compare(twain_patterns, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, n_funcs, decompose);
     
-    /*
-    // trying to optimize partial matches
+    cout << "\n------- PARTIAL SINGLE SPLIT ORS ----------\n" << endl;
+    
+    time_partial_single_split_ors(text, n_iters);
+
+/*
+// trying to optimize partial matches
     for (string re: twain_patterns) {
         cout << endl;
         cout << re << endl;

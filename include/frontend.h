@@ -9,6 +9,7 @@
 #include "progress.h"
 #include "parse.h"
 #include "all_partial.h"
+#include "or_split.h"
 
 using namespace std;
 
@@ -30,5 +31,9 @@ int compile_and_run_partial(string str, string regex, string flags);
 int partial_match_loop(const char* str, int str_len, int stride, MatchFunction func);
 
 vector<string> get_all_partial_matches(string str, string regex, string flags);
+
+MatchFunction compile_split(string str, string regex, int start_state, MatchType match_type, string flags);
+
+int compile_and_run_split(string str, string regex, int start_state, MatchType match_type, string flags);
 
 #endif
