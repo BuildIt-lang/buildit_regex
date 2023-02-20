@@ -10,6 +10,7 @@
 #include "parse.h"
 #include "all_partial.h"
 #include "or_split.h"
+#include "state_grouping.h"
 
 using namespace std;
 
@@ -36,4 +37,7 @@ MatchFunction compile_split(string str, string regex, int start_state, MatchType
 
 int compile_and_run_split(string str, string regex, int start_state, MatchType match_type, string flags);
 
+MatchFunction compile_groups(string str, string regex, MatchType match_type, string flags);
+
+int compile_and_run_groups(string str, string regex, MatchType match_type, string flags);
 #endif

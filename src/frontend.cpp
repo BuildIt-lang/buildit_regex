@@ -153,7 +153,7 @@ vector<string> get_all_partial_matches(string str, string regex, string flags) {
 }
 
 /**
-Experimental version of compile_and_run for or group splitting.
+Compile_and_run for or group splitting.
 */
 MatchFunction compile_split(string str, string regex, int start_state, MatchType match_type, string flags) {
 
@@ -197,3 +197,36 @@ int compile_and_run_split(string str, string regex, int start_state, MatchType m
     return func(str.c_str(), str.length(), 0);
 }
 
+
+/**
+ Grouping of multiple states into a single state.
+*/
+
+MatchFunction compile_groups(string str, string regex, MatchType match_type, string flags) {
+
+    int n_threads = 1;
+    int tid = 0;
+    // simplify the regex
+    string parsed_re = expand_regex(regex);
+    int re_len = parsed_re.length();
+    // mark the grouped states
+    std::unique_ptr<int> groups(new int[re_len]);
+    group_states(parsed_re, groups.get());
+    // cache state transitions
+    const int cache_size = (re_len + 1) * (re_len + 1);
+    std::unique_ptr<int> cache(new int[cache_size]);
+    cache_states(parsed_re.c_str(), cache.get());
+    // get flags
+    int ignore_case = flags.compare("i") == 0;
+    int partial = (match_type == MatchType::PARTIAL_SINGLE);
+        
+    builder::builder_context context;
+    context.feature_unstructured = true;
+    context.run_rce = true;
+    MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex_with_groups, parsed_re.c_str(), groups.get(), partial, cache.get(), tid, n_threads, ignore_case); 
+    return func;
+}
+int compile_and_run_groups(string str, string regex, MatchType match_type, string flags) {
+    MatchFunction func = compile_groups(str, regex, match_type, flags);
+    return func(str.c_str(), str.length(), 0);
+}
