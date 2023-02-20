@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iostream>
 #include "test.h"
 #include "../include/parse.h"
 #include "../include/progress.h"
@@ -30,7 +31,7 @@ void check_split(const char* pattern, const char* candidate, int start_state, co
         regex_search(candidate, regex(simple_pattern, regex_constants::icase)) :
         regex_search(candidate, regex(simple_pattern));
     
-    int result = compile_and_run_split(candidate, pattern, start_state, MatchType::PARTIAL_SINGLE, flags);
+    int result = compile_and_run_split(candidate, pattern, start_state, MatchType::FULL, flags);
     std::cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {
@@ -45,18 +46,20 @@ void test_simple() {
     check_split("", "");
     check_split("abc", "abc");
     check_split("aabc", "aabc");
-    check_split("abcd", "bcd", 1);
-    check_split("abcd", "abcd", 1);
 }
 
 void test_star() {
     check_split("a*bc", "abc");    
     check_split("a*bc", "aaaabc");
     check_split("a*b*c", "aaabbc");
-
 }
 
 void test_brackets() {
+	check_split("[bc]", "b");
+	check_split("[bc]", "c");
+	check_split("[bc]d", "bd");
+	check_split("[b-f]d", "dd");
+	check_split("a[bc]", "ab");
     check_split("a[bc]d", "abd");
     check_split("a[bc]d", "acd");
     check_split("a[bc]d", "abcd");
@@ -117,7 +120,6 @@ void test_or_groups() {
     check_split("ab(c|56|de)k", "ab56k");
     check_split("ab(c|56|de)k", "abdek");
     check_split("ab(c|56|de)k", "ab56dek");
-    check_split("ab((c|56|de)k|ab)", "ab56abab");
     check_split("a(cbd|45)*", "acbd45cbd");
     check_split("([abc]|dc|4)2", "b2");
     check_split("([abc]|dc|4)2", "b2");
@@ -126,7 +128,6 @@ void test_or_groups() {
     check_split("([^23]|2)abc", "1abc");
     check_split("([^23]|2)abc", "3abc");
     check_split("(a|[abc]|4)2", "ac42");
-    check_split("(b|a*|d)aa", "aaaa");
     check_split("(bc|de|[23]*)", "22323");
     check_split("(bc|de|[23]*)", "bc");
     check_split("(bc|de|[23]*)", "bcbc");
@@ -135,9 +136,8 @@ void test_or_groups() {
     check_split("a(bc|de|[23]+)", "a");
     check_split("a(bc|de|[23]+)", "a2332");
     check_split("a(bc|de|[23]?)", "a23");
-    check_split("(ab|(cd|ef)|dd)", "efff");
-    check_split("(ab|cd|ef)11(f|d|b)", "aaaa11fg");
 }
+
 void test_split_or_groups() {
     check_split("ab(?Sc|56|de)", "ab56");
     check_split("ab(?Sc|56|de)k", "abck");
@@ -163,9 +163,6 @@ void test_split_or_groups() {
     check_split("a(?Sbc|de|[23]+)", "a2332");
     check_split("a(?Sbc|de|[23]?)", "a23");
     check_split("(ab|(?Scd|ef)|dd)", "efff");
-    check_split("(?Sab|cd|ef)11(f|d|b)", "aaaa11fg");
-    check_split("(ab|cd|ef)11(?Sf|d|b)", "aaaa11fg");
-    check_split("(?Sab|cd|ef)11(?Sf|d|b)", "aaaa11fg");
 }
 
 
@@ -211,6 +208,15 @@ void test_repetition() {
     check_split("a{1,4}b{2}", "aabb");
     check_split("(a{1,4}b{2}){2}", "aabbaaab");
     check_split("(a{1,4}b{2}){2}", "aabbaaabb");
+    check_split("ba{0,2}", "b");
+    check_split("ba{0,2}", "ba");
+    check_split("ba{0,2}", "baa");
+    check_split("ba{0,2}", "baaaa");
+    check_split("ba{0}", "b");
+    check_split("c(a|b){0,2}", "cba");
+    check_split("c(a|b){0,2}", "c");
+    check_split("c[a-d]{0,2}", "cad");
+    check_split("c[a-d]{0,2}", "c");
 }
 
 void test_combined() {
@@ -225,42 +231,34 @@ void test_combined() {
     check_split("([abc]3){2}", "c3b3");
     check_split("([abc]3){2}", "a3c3c3");
     check_split("([abc]3){2}", "ac");
+    check_split("[a-q][^u-z]{3}x", "q444x");
+    check_split("(ab|(cd|ef){2}|4)", "cdcd");
+    check_split("(ab|(cd|ef){2}|4)", "cdef");
+    check_split("(ab|(cd|ef){2}|4)", "ab");
+    check_split("(ab|(cd|ef){2}|4)", "4");
 }
 
 void test_escaping() {
-    check_split("a\\d", "texta0text");
-    check_split("a\\d", "dsaad5f");
+    check_split("a\\d", "a0");
+    check_split("a\\d", "ad");
+    check_split("a\\d", "a0d");
     check_split("a\\db", "a9b");
-    check_split("a\\d{3}", "a912aaa");
-    check_split("bcd\\d*", "bcda");
-    check_split("bcd\\d*", "bcd567a");
+    check_split("a\\d{3}", "a912");
+    check_split("bcd\\d*", "bcd");
     check_split("bcd\\d*", "bcd23");
-    check_split("a[\\dbc]d", "3a5da");
+    check_split("a[\\dbc]d", "a5d");
     check_split("a[\\dbc]d", "acd");
 
-    check_split("a\\w\\d", "aab5d");
-    check_split("a\\w\\W", "fa_09");
+    check_split("a\\w\\d", "ab5");
+    check_split("a\\w\\W", "a_0");
     check_split("a\\w\\d", "aC9");
 
-    check_split("\\ss", "sss s");
+    check_split("\\ss", " s");
     check_split("\\Da\\Wbc\\S", "aa3bc_");
-    check_split("\\Dabc\\S", "aabc_00");
-    check_split("\\da\\wbc\\s", "a7a_bc cc");
+    check_split("\\Dabc\\S", "aabc_");
+    check_split("\\da\\wbc\\s", "7a_bc ");
 }
 
-void test_partial() {
-	check_split("ab", "aab");
-	check_split("ab", "aba");
-	check_split("a?", "aaaa");
-	check_split("c[ab]+", "abc");
-	check_split("c[ab]+", "aaba");
-	check_split("c[ab]+", "caaaabcc");
-	check_split("123", "a123a");
-	check_split("(123)*1", "112312311");
-    check_split("Twain", "MarkTwainTomSawyer");
-	//check_split("[a-q][^u-z]{5}x", "qax");
-	//check_split("[a-q][^u-z]{5}x", "qabcdex");
-}
 void test_ignore_case() {
     check_split("abcd", "AbCd", 0, "i");
     check_split("a1a*", "a1aaAaA", 0, "i");
@@ -275,10 +273,26 @@ void test_ignore_case() {
     check_split("\\D\\W\\S", "a k", 0, "i");
 }
 
-int main() {    
-    check_split("(?STom.{10,15}river|river.{10,15}Tom)", "dsafdasfdTomswimminginrivercdsvadsfd");
-    check_split("(?STom.{10,15}river|river.{10,15}Tom)", "dsafdasfdTomswimmingrivercdsvadsfd");
+void test_expand_regex() {
+    string res = expand_regex(string("abc"));
+    cout << res << " " << res.compare(string("abc")) << endl;
+    string res1 = expand_regex(string("a{5}"));
+    cout << res1 << " " << res1.compare(string("aaaaa")) << endl;
+    string res2 = expand_regex(string("(abc){5}"));
+    cout << res2 << " " << res2.compare(string("(abc)(abc)(abc)(abc)(abc)")) << endl;
+    string res3 = expand_regex(string("((abc){3}4){2}"));
+    cout << res3 << " " << res3.compare(string("((abc)(abc)(abc)4)((abc)(abc)(abc)4)")) << endl;
+    string res4 = expand_regex(string("((3|4){1}[bc]{5}){2}"));
+    cout << res4 << " " << res4.compare("((3|4)[bc][bc][bc][bc][bc])((3|4)[bc][bc][bc][bc][bc])") << endl;
+    string res5 = expand_regex(string("a(bc)*"));
+    cout << res5 << " " << res5.compare(string("a(bc)*")) << endl;
+    string res6 = expand_regex(string("a(bc){2,5}"));
+    cout << res6 << " " << res6.compare(string("a(bc)(bc)(bc)?(bc)?(bc)?")) << endl;
+    string res7 = expand_regex(string("(ab|(cd|ef){2}|4)"));
+    cout << res7 << " " << res7.compare("(ab|(cd|ef)(cd|ef)|4)") << endl;
+}
 
+int main() {
     auto start = high_resolution_clock::now();
     test_simple();
     test_star();
@@ -294,12 +308,10 @@ int main() {
     test_repetition();
     test_combined();
     test_escaping();
-	test_partial();
     test_ignore_case();
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
-    //check_split("(?Sabc|de)");
 }
 
 

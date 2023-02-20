@@ -25,3 +25,4 @@ void test_partial();
 void test_escaping();
 void test_expand_regex();
 void test_ignore_case();
+void test_split_or_groups();
