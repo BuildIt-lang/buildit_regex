@@ -5,10 +5,12 @@
 #include "builder/builder_dynamic.h"
 #include "match.h"
 #include <chrono>
+#include "../include/frontend.h"
 
+typedef int (*CompileFunction) (string, string, MatchType, int, string);
 void check_correctness(const char* pattern, const char* candidate, const char* flags = "");                        
 void check_split(const char* pattern, const char* candidate, int start_state = 0, const char* flags = "");                        
-string remove_special_chars(string regex);
+string remove_special_chars(string regex, char special);
 void test_simple();
 void test_star();
 void test_brackets();
@@ -26,3 +28,5 @@ void test_escaping();
 void test_expand_regex();
 void test_ignore_case();
 void test_split_or_groups();
+
+

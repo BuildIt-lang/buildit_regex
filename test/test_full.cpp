@@ -6,6 +6,7 @@
 
 using namespace std::chrono;
 
+
 /**
 General function to compare results.
 */
@@ -15,8 +16,8 @@ void check_correctness(const char* pattern, const char* candidate, const char* f
             regex_match(candidate, regex(pattern));
     
             
-    int result = compile_and_run(candidate, pattern, MatchType::FULL, 1, flags);
-    
+    //int result = compile_and_run(candidate, pattern, MatchType::FULL, 1, flags);
+    int result = compile_and_run_groups(candidate, pattern, MatchType::FULL, 1, "");
     cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {

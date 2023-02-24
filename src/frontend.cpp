@@ -202,7 +202,7 @@ int compile_and_run_split(string str, string regex, int start_state, MatchType m
  Grouping of multiple states into a single state.
 */
 
-MatchFunction compile_groups(string str, string regex, MatchType match_type, string flags) {
+GroupMatchFunction compile_groups(string str, string regex, MatchType match_type, string flags) {
 
     int n_threads = 1;
     int tid = 0;
@@ -212,6 +212,7 @@ MatchFunction compile_groups(string str, string regex, MatchType match_type, str
     // mark the grouped states
     std::unique_ptr<int> groups(new int[re_len]);
     group_states(parsed_re, groups.get());
+    
     // cache state transitions
     const int cache_size = (re_len + 1) * (re_len + 1);
     std::unique_ptr<int> cache(new int[cache_size]);
@@ -223,10 +224,16 @@ MatchFunction compile_groups(string str, string regex, MatchType match_type, str
     builder::builder_context context;
     context.feature_unstructured = true;
     context.run_rce = true;
-    MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex_with_groups, parsed_re.c_str(), groups.get(), partial, cache.get(), tid, n_threads, ignore_case); 
+    GroupMatchFunction func = (GroupMatchFunction)builder::compile_function_with_context(context, match_regex_with_groups, parsed_re.c_str(), groups.get(), partial, cache.get(), tid, n_threads, ignore_case); 
     return func;
 }
-int compile_and_run_groups(string str, string regex, MatchType match_type, string flags) {
-    MatchFunction func = compile_groups(str, regex, match_type, flags);
-    return func(str.c_str(), str.length(), 0);
+int compile_and_run_groups(string str, string regex, MatchType match_type, int n_threads, string flags) {
+    GroupMatchFunction func = compile_groups(str, regex, match_type, flags);
+    int re_len = regex.length();
+    std::unique_ptr<char> dyn_current(new char[re_len+1]);
+    std::unique_ptr<char> dyn_next(new char[re_len+1]);
+    for (int i = 0; i < re_len + 1; i++) {
+        dyn_current.get()[i] = dyn_next.get()[i] = false; 
+    }
+    return func(str.c_str(), str.length(), 0, dyn_current.get(), dyn_next.get());
 }

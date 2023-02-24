@@ -6,8 +6,8 @@
 
 using namespace std::chrono;
 
-string remove_special_chars(string regex) {
-    string chars = "(?S";
+string remove_special_chars(string regex, char special) {
+    string chars = "(?" + special;
     int chars_len = chars.length();
     string to_replace = "(";
     string result = regex;
@@ -19,13 +19,12 @@ string remove_special_chars(string regex) {
     }
     return result;
 }
-
 /**
 General function to compare results.
 */
 void check_split(const char* pattern, const char* candidate, int start_state, const char* flags) {
     
-    string simple_pattern = remove_special_chars(pattern);
+    string simple_pattern = remove_special_chars(pattern, 'S');
     bool expected = (strcmp(flags, "i") == 0) ? 
         regex_search(candidate, regex(simple_pattern, regex_constants::icase)) :
         regex_search(candidate, regex(simple_pattern));

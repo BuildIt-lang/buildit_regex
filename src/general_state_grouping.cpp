@@ -1,5 +1,5 @@
 #include "state_grouping.h"
-
+/*
 bool is_in_group(int index, int* groups, int re_len) {
     return index < re_len && (groups[index] != index || (index + 1 < re_len && groups[index+1] == index)); 
 }
@@ -13,19 +13,19 @@ void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* stati
             // we are inside of a group
             // update static states - activate group
             int group_i = groups[i];
-            // set only the first state of the group to true
             static_states[group_i] = cache_val || static_states[group_i];
             dyn_states[i] = cache_val || dyn_states[i];
         } else {
             static_states[i] = cache_val || static_states[i];    
         }
     }    
-}
+}*/
 
 /**
 Matches each character in `str` one by one.
 */
-dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next, bool enable_partial, int* cache, int match_index, int n_threads, int ignore_case) {
+/*dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next, bool enable_partial, int* cache, int match_index, int n_threads, int ignore_case) {
+
     const int re_len = strlen(re);
 
     // allocate two state vectors
@@ -39,7 +39,6 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
     update_groups_from_cache(dyn_current, current.get(), groups, cache, -1, re_len);
     
     static_var<int> mc = 0;
-
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
 			break;
@@ -99,8 +98,7 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
                         update_groups_from_cache(dyn_next, next.get(), groups, cache, state, re_len);
                     }
                 } else {
-                    // prints during generation as well...
-                    //printf("Invalid Character(%c)\n", (char)m);
+                    printf("Invalid Character(%c)\n", (char)m);
                     return false;
                 }
             }
@@ -120,7 +118,7 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
             if (current[i])
                 count++;
         }
-        for (static_var<int> i = 0; i < re_len + 1; i=i+1) {
+        for (dyn_var<int> i = 0; i < re_len + 1; i=i+1) {
             dyn_current[i] = dyn_next[i];
             dyn_next[i] = false;
         }
@@ -136,3 +134,4 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
     }
     return is_match;
 }
+*/
