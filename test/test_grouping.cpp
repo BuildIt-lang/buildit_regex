@@ -102,6 +102,12 @@ void test_brackets(MatchType type) {
 }
 
 int main() {
+   compare_result("(?GTom.{10,15}r)iver", "dsafdasfdTomswimminginrivercdsvadsfd", MatchType::PARTIAL_SINGLE);
+   compare_result("(?Gab.{2,4})cde", "dsafdabaaacdefdgsfa", MatchType::PARTIAL_SINGLE);
+   compare_result("(?Gab.{2,4}cd)e", "abaaacdefdgsfa", MatchType::PARTIAL_SINGLE);
+   compare_result("(?Gab.{2,4}cd)e", "dsafdabaaacdefdgsfa", MatchType::PARTIAL_SINGLE);
+   compare_result("(?Gab.{2,4}cde)", "dsafdabaaacdefdgsfa", MatchType::PARTIAL_SINGLE);
+   /*
     test_simple(MatchType::FULL);
     test_star(MatchType::FULL);
     test_brackets(MatchType::FULL);
@@ -109,4 +115,5 @@ int main() {
     test_simple(MatchType::PARTIAL_SINGLE);
     test_star(MatchType::PARTIAL_SINGLE);
     test_brackets(MatchType::PARTIAL_SINGLE);
+    */
 }

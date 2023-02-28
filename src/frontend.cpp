@@ -202,21 +202,24 @@ int compile_and_run_split(string str, string regex, int start_state, MatchType m
  Grouping of multiple states into a single state.
 */
 
-GroupMatchFunction compile_groups(string str, string regex, MatchType match_type, string flags) {
+GroupMatchFunction compile_groups(string str, string parsed_re, MatchType match_type, string flags) {
 
     int n_threads = 1;
     int tid = 0;
     // simplify the regex
-    string parsed_re = expand_regex(regex);
     int re_len = parsed_re.length();
     // mark the grouped states
-    std::unique_ptr<int> groups(new int[re_len]);
-    group_states(parsed_re, groups.get());
-    
+    int* groups = new int[re_len];
+    group_states(parsed_re, groups);
+    /*cout << parsed_re << endl;
+    for (int i = 0; i < re_len; i++) {
+        cout << groups[i] << " ";    
+    }
+    cout << endl;*/
     // cache state transitions
     const int cache_size = (re_len + 1) * (re_len + 1);
-    std::unique_ptr<int> cache(new int[cache_size]);
-    cache_states(parsed_re.c_str(), cache.get());
+    int* cache = new int[cache_size];
+    cache_states(parsed_re.c_str(), cache);
     // get flags
     int ignore_case = flags.compare("i") == 0;
     int partial = (match_type == MatchType::PARTIAL_SINGLE);
@@ -224,16 +227,23 @@ GroupMatchFunction compile_groups(string str, string regex, MatchType match_type
     builder::builder_context context;
     context.feature_unstructured = true;
     context.run_rce = true;
-    GroupMatchFunction func = (GroupMatchFunction)builder::compile_function_with_context(context, match_regex_with_groups, parsed_re.c_str(), groups.get(), partial, cache.get(), tid, n_threads, ignore_case); 
+    GroupMatchFunction func = (GroupMatchFunction)builder::compile_function_with_context(context, match_regex_with_groups, parsed_re.c_str(), groups, partial, cache, tid, n_threads, ignore_case); 
+    delete[] groups;
+    delete[] cache;
     return func;
 }
 int compile_and_run_groups(string str, string regex, MatchType match_type, int n_threads, string flags) {
-    GroupMatchFunction func = compile_groups(str, regex, match_type, flags);
-    int re_len = regex.length();
-    std::unique_ptr<char> dyn_current(new char[re_len+1]);
-    std::unique_ptr<char> dyn_next(new char[re_len+1]);
+    string parsed_re = expand_regex(regex);
+    int re_len = parsed_re.length();
+    GroupMatchFunction func = compile_groups(str, parsed_re, match_type, flags);
+    
+    char* dyn_current = new char[re_len+1];
+    char* dyn_next = new char[re_len+1];
     for (int i = 0; i < re_len + 1; i++) {
-        dyn_current.get()[i] = dyn_next.get()[i] = false; 
+        dyn_current[i] = dyn_next[i] = false; 
     }
-    return func(str.c_str(), str.length(), 0, dyn_current.get(), dyn_next.get());
+    int result = func(str.c_str(), str.length(), 0, dyn_current, dyn_next);
+    delete[] dyn_current;
+    delete[] dyn_next;
+    return result;
 }

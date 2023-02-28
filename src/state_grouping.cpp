@@ -1,7 +1,11 @@
 #include "state_grouping.h"
 
 bool is_in_group(int index, int* groups, int re_len) {
-    return index < re_len && (groups[index] != index || (index + 1 < re_len && groups[index+1] == index)); 
+    if (index >= re_len)
+        return false;
+    if (groups[index] != index)
+        return true;
+    return index + 1 < re_len && groups[index+1] == index; 
 }
 
 void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* static_states, int* groups, int* cache, int p, int re_len, bool update) {
@@ -9,13 +13,17 @@ void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* stati
         return;
     for (static_var<int> i = 0; i < re_len + 1; i = i + 1) {
         static_var<char> cache_val = cache[(p+1) * (re_len + 1) + i];
+        if (!cache_val)
+            continue;
         if (is_in_group(i, groups, re_len)) {
             // we are inside of a group
             // update static states - activate group
             int group_i = groups[i];
             // set only the first state of the group to true
-            static_states[group_i] = cache_val || static_states[group_i];
-            dyn_states[i] = cache_val || dyn_states[i];
+            static_states[group_i] = true;
+            dyn_states[i] = true;
+            //static_states[group_i] = cache_val || static_states[group_i];
+            //dyn_states[i] = cache_val || dyn_states[i];
         } else {
             static_states[i] = cache_val || static_states[i];    
         }
@@ -27,11 +35,9 @@ Matches each character in `str` one by one.
 */
 dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next, bool enable_partial, int* cache, int match_index, int n_threads, int ignore_case) {
     const int re_len = strlen(re);
-
     // allocate two state vectors
     std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
     std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
-    
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         current[i] = next[i] = 0;
     }
@@ -39,10 +45,11 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
     update_groups_from_cache(dyn_current, current.get(), groups, cache, -1, re_len);
     
     static_var<int> mc = 0;
-
+    static_var<int> any_group = 0; // are any states grouped?
+    
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
-			break;
+            break;
 		}
 
         // Don’t do anything for $.
@@ -50,7 +57,9 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
         for (static_var<int> state = 0; state < re_len; ++state) {
             // check if there is a match for this state
             bool grouped = is_in_group(state, groups, re_len);
-            if ((!grouped && current[state]) || (grouped && dyn_current[state])) {
+            any_group = any_group || grouped;
+            if ((!grouped && current[state]) || (grouped && (bool)dyn_current[state])) {
+            //if (cond(grouped, current[state], dyn_current[state])) {
                 static_var<char> m = re[state];
                 if (is_normal(m)) {
                     if (-1 == early_break) {
@@ -120,9 +129,11 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
             if (current[i])
                 count++;
         }
-        for (static_var<int> i = 0; i < re_len + 1; i=i+1) {
-            dyn_current[i] = dyn_next[i];
-            dyn_next[i] = false;
+        if (any_group) {
+            for (static_var<int> i = 0; i < re_len + 1; i=i+1) {
+                dyn_current[i] = dyn_next[i];
+                dyn_next[i] = false;
+            }
         }
         to_match = to_match + 1;
 
