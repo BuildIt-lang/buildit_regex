@@ -213,3 +213,35 @@ set<string> split_regex(string &str, int* or_positions, int start, int end) {
 
 }
 
+/**
+ Marks the state of each group (specified with ?G)
+ with the index of the first state in the group.
+*/
+void group_states(string &re, int* groups) {
+    int re_len = re.length();
+    int i = 0;
+    while (i < re_len) {
+        if (re[i] == '(' && i + 2 < re_len && re[i+1] == '?' && re[i+2] == 'G') {
+            for (int offset = 0; offset < 3; offset++)
+                groups[i+offset] = i+offset;
+            int j = i + 3;
+            int group_start = j;
+            int bracket_count = 1;
+            while (j < re_len) {
+                if (re[j] == '(')
+                    bracket_count += 1;
+                else if (re[j] == ')')
+                    bracket_count -= 1;
+                if (bracket_count == 0)
+                    break;
+                groups[j] = group_start;
+                j++;
+            }
+            groups[j] = j; // closing bracket
+            i = j;
+        } else {
+            groups[i] = i;
+        }
+        i++;
+    }
+}

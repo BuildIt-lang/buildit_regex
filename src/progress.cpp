@@ -16,7 +16,11 @@ bool is_digit(char m) {
  Check if re[idx] is followed by ?S for or splits.
 */
 bool is_special_group(const char* re, int idx) {
-    return (re[idx] == '(') && (idx + 3 < (int)strlen(re)) && (re[idx+1] == '?') && (re[idx+2] == 'S');
+    return is_group_type(re, idx, 'S') || is_group_type(re, idx, 'G');
+}
+
+bool is_group_type(const char* re, int idx, char type) {
+    return (re[idx] == '(') && (idx + 3 < (int)strlen(re)) && (re[idx+1] == '?') && (re[idx+2] == type);
 }
 
 
@@ -151,7 +155,7 @@ void progress(const char *re, ReStates re_states, int p, Cache cache, bool or_gr
         cache.temp_states[ns] = val;
     } else if ('(' == re[ns]) {
         int or_index = re_states.helper_states[ns];
-        bool split_group = is_special_group(re, ns);
+        bool split_group = is_group_type(re, ns, 'S');
         progress(re, re_states, ns, cache, (re[or_index] == '|' && split_group)); // char right after (
         // start by trying to match the first char after each |
         while (or_index != re_states.brackets[ns]) {

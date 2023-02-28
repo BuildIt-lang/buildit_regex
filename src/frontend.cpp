@@ -153,7 +153,7 @@ vector<string> get_all_partial_matches(string str, string regex, string flags) {
 }
 
 /**
-Experimental version of compile_and_run for or group splitting.
+Compile_and_run for or group splitting.
 */
 MatchFunction compile_split(string str, string regex, int start_state, MatchType match_type, string flags) {
 
@@ -197,3 +197,50 @@ int compile_and_run_split(string str, string regex, int start_state, MatchType m
     return func(str.c_str(), str.length(), 0);
 }
 
+
+/**
+ Grouping of multiple states into a single state.
+*/
+
+GroupMatchFunction compile_groups(string str, string parsed_re, MatchType match_type, string flags) {
+
+    int n_threads = 1;
+    int tid = 0;
+    // simplify the regex
+    int re_len = parsed_re.length();
+    // mark the grouped states
+    int* groups = new int[re_len];
+    group_states(parsed_re, groups);
+    
+    // cache state transitions
+    const int cache_size = (re_len + 1) * (re_len + 1);
+    int* cache = new int[cache_size];
+    cache_states(parsed_re.c_str(), cache);
+    
+    // get flags
+    int ignore_case = flags.compare("i") == 0;
+    int partial = (match_type == MatchType::PARTIAL_SINGLE);
+        
+    builder::builder_context context;
+    context.feature_unstructured = true;
+    context.run_rce = true;
+    GroupMatchFunction func = (GroupMatchFunction)builder::compile_function_with_context(context, match_regex_with_groups, parsed_re.c_str(), groups, partial, cache, tid, n_threads, ignore_case); 
+    delete[] groups;
+    delete[] cache;
+    return func;
+}
+int compile_and_run_groups(string str, string regex, MatchType match_type, int n_threads, string flags) {
+    string parsed_re = expand_regex(regex);
+    int re_len = parsed_re.length();
+    GroupMatchFunction func = compile_groups(str, parsed_re, match_type, flags);
+    
+    char* dyn_current = new char[re_len+1];
+    char* dyn_next = new char[re_len+1];
+    for (int i = 0; i < re_len + 1; i++) {
+        dyn_current[i] = dyn_next[i] = false; 
+    }
+    int result = func(str.c_str(), str.length(), 0, dyn_current, dyn_next);
+    delete[] dyn_current;
+    delete[] dyn_next;
+    return result;
+}

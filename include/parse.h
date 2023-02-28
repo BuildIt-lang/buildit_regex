@@ -14,4 +14,5 @@ string expand_regex(string re);
 tuple<string, int> expand_sub_regex(string re, int start);
 void get_or_positions(string &str, int* positions);
 set<string> split_regex(string &str, int* or_positions, int start, int end);
+void group_states(string &re, int* groups);
 #endif
