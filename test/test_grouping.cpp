@@ -110,7 +110,7 @@ void test_brackets(MatchType type) {
     compare_result("(?G[^a-d])ef", "421kef43", type);
 }
 
-void test_or_groups(MatchType type) {
+void test_repetition(MatchType type) {
     compare_result("(?Gabaaacd)e", "abaaacde", type);
     compare_result("(?Gaba{3}cd)e", "abaaacde", type);
     compare_result("(?Gaba{2,4}cd)e", "abaaacde", type);
@@ -128,7 +128,46 @@ void test_or_groups(MatchType type) {
     compare_result("ab(?Ga{2,4}cde)", "abaaacde", type);
 }
 
+void test_or_groups(MatchType type) {
+    compare_result("(?Gab|cd)ef", "abef", type);
+    compare_result("(?Gab|cd)ef", "cdef", type);
+    compare_result("(?Gab|cd)ef", "ef", type);
+    compare_result("111(?Gab|cd)ef", "111abef", type);
+    compare_result("11(?G1(ab|cd))ef", "111abef", type);
+    compare_result("11(?G1(ab|cd))ef", "aa111abef", type);
+    compare_result("(?Gab|cd)ef", "aaaabefaa", type);
+    compare_result("(?Gab|cd)ef", "aacdef55", type);
+    compare_result("(?Gab|cd)ef", "555efa", type);
+    compare_result("111(?Gab|cd)ef", "111abefaa", type);
+}
 
+void test_combined(MatchType type) {
+    // brackets and star
+    compare_result("(?G[bcd]*)", "bbcdd", type);    
+    compare_result("aa(?G5[bcd]*)", "aa5bbcdd", type);    
+    compare_result("(?G[bcd]5*)", "d555", type);    
+    compare_result("(?G[bcd]5*)", "bbcdd555", type);    
+    compare_result("(?G[bcd]*)", "aaaabbcdd", type);    
+    compare_result("aa(?G5[bcd]*)", "113aa5bbcdd11", type);    
+    compare_result("a(?G(abcd)*)", "aabcdabcd", type);
+    compare_result("(?G(abcd)*)", "abcdabcd", type);
+    compare_result("(?G12(abcd)*)", "12abcdabcd", type);
+    compare_result("(?G12(abcd)*)", "55512abcdabcd", type);
+    compare_result("(?Gbdc)*", "bdcbdc", type);
+    // ? and +
+    compare_result("ab(?Gcd)?", "abcd", type); 
+    compare_result("ab(?Gcd)?", "ab", type); 
+    compare_result("a(?Gb(cd)?)", "abcd", type); 
+    compare_result("a(?Gb(cd)?)", "ab", type); 
+    compare_result("ab(?Gcd)+", "abcdcd", type); 
+    compare_result("ab(?Gcd)+", "abcd", type); 
+    compare_result("ab(?Gcd)?", "iafdsabcd", type); 
+    compare_result("ab(?Gcd)?", "111abppp", type); 
+    compare_result("a(?Gb(cd)?)", "123abcd123", type); 
+    compare_result("a(?Gb(cd)?)", "a22ab22", type); 
+    compare_result("ab(?Gcd)+", "21abcdcd21", type); 
+    compare_result("ab(?Gcd)+", "333abcd", type); 
+}
 
 int main() {
     //compare_result("(?GTom.{10,15}r)iver", "dsafdasfdTomswimminginrivercdsvadsfd", MatchType::PARTIAL_SINGLE);
@@ -137,10 +176,14 @@ int main() {
     test_star(MatchType::FULL);
     test_brackets(MatchType::FULL);
     test_or_groups(MatchType::FULL);
+    test_repetition(MatchType::FULL);
+    test_combined(MatchType::FULL);
 
     cout << "--- PARTIAL MATCHES ---" << endl;
     test_simple(MatchType::PARTIAL_SINGLE);
     test_star(MatchType::PARTIAL_SINGLE);
     test_brackets(MatchType::PARTIAL_SINGLE);
     test_or_groups(MatchType::PARTIAL_SINGLE);    
+    test_repetition(MatchType::PARTIAL_SINGLE);
+    test_combined(MatchType::PARTIAL_SINGLE);
 }

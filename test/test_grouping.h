@@ -18,3 +18,5 @@ void test_simple(MatchType type);
 void test_star(MatchType type);
 void test_brackets(MatchType type);
 void test_or_groups(MatchType type);
+void test_combined(MatchType type);
+void test_repetition(MatchType type);

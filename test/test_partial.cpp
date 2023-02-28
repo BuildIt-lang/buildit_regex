@@ -14,8 +14,8 @@ void check_correctness(const char* pattern, const char* candidate, const char* f
         regex_search(candidate, regex(pattern, regex_constants::icase)) :
         regex_search(candidate, regex(pattern));
     
-    //int result = compile_and_run(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
-    int result = compile_and_run_groups(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
+    int result = compile_and_run(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
+    //int result = compile_and_run_groups(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
     //int result = compile_and_run_decomposed(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
     //int result = compile_and_run_partial(candidate, pattern, flags);
 

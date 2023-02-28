@@ -127,8 +127,10 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
         }
         if (any_group) {
             for (static_var<int> i = 0; i < re_len + 1; i=i+1) {
-                dyn_current[i] = dyn_next[i];
-                dyn_next[i] = false;
+                if (is_in_group(i, groups, re_len)) {
+                    dyn_current[i] = dyn_next[i];
+                    dyn_next[i] = false;
+                }
             }
         }
         to_match = to_match + 1;
@@ -140,8 +142,6 @@ dyn_var<int> match_regex_with_groups(const char* re, int* groups, dyn_var<char*>
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         next[i] = 0;
         current[i] = 0;
-        dyn_current[i] = 0;
-        dyn_next[i] = 0;
     }
     return is_match;
 }
