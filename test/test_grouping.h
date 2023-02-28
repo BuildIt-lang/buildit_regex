@@ -17,3 +17,4 @@ void group_states_tests();
 void test_simple(MatchType type);
 void test_star(MatchType type);
 void test_brackets(MatchType type);
+void test_or_groups(MatchType type);

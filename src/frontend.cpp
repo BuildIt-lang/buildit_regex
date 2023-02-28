@@ -211,15 +211,12 @@ GroupMatchFunction compile_groups(string str, string parsed_re, MatchType match_
     // mark the grouped states
     int* groups = new int[re_len];
     group_states(parsed_re, groups);
-    /*cout << parsed_re << endl;
-    for (int i = 0; i < re_len; i++) {
-        cout << groups[i] << " ";    
-    }
-    cout << endl;*/
+    
     // cache state transitions
     const int cache_size = (re_len + 1) * (re_len + 1);
     int* cache = new int[cache_size];
     cache_states(parsed_re.c_str(), cache);
+    
     // get flags
     int ignore_case = flags.compare("i") == 0;
     int partial = (match_type == MatchType::PARTIAL_SINGLE);

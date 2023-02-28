@@ -87,11 +87,16 @@ void test_simple(MatchType type) {
     compare_result("a(?Gbcd)ef", "abcdef", type);
     compare_result("(?Gab)cdef", "abcdef", type);
     compare_result("abc(?Gdef)", "abcdef", type);
+    compare_result("a(?Gbcd)ef", "11abcdef111", type);
+    compare_result("(?Gab)cdef", "xyzabcdefgh", type);
+    compare_result("abc(?Gdef)", "xyzabcdefghi", type);
 }
 
 void test_star(MatchType type) {
     compare_result("(?Ga*)bc", "aaaabc", type);
     compare_result("(?Ga*b)c", "aaaabc", type);
+    compare_result("(?Ga*)bc", "dddaaaabc", type);
+    compare_result("(?Ga*b)c", "ccccaaaabcd", type);
 }
 
 void test_brackets(MatchType type) {
@@ -99,21 +104,43 @@ void test_brackets(MatchType type) {
     compare_result("(?G[a-d])ef", "bef", type);
     compare_result("(?G[^a-d])ef", "bef", type);
     compare_result("(?G[^a-d])ef", "kef", type);
+    compare_result("a(?G[abc]d)", "555abd1", type);
+    compare_result("(?G[a-d])ef", "44bef3", type);
+    compare_result("(?G[^a-d])ef", "33bef65", type);
+    compare_result("(?G[^a-d])ef", "421kef43", type);
 }
 
+void test_or_groups(MatchType type) {
+    compare_result("(?Gabaaacd)e", "abaaacde", type);
+    compare_result("(?Gaba{3}cd)e", "abaaacde", type);
+    compare_result("(?Gaba{2,4}cd)e", "abaaacde", type);
+    compare_result("(?Gaba{2,4})cde", "abaaacde", type);
+    compare_result("ab(?Ga{2,4})cde", "abaaacde", type);
+    compare_result("ab(?Ga{2,4}c)de", "abaaacde", type);
+    compare_result("ab(?Ga{2,4}cde)", "abaaacde", type);
+    compare_result("(?Gaba{2,4}cd)e", "dsafdabaaacde", type);
+    compare_result("(?Gab.{2,4}cd)e", "abaaacde", type);
+    compare_result("(?Gab.{2,4}cd)e", "abaaacdefdsa", type);
+    compare_result("(?Gaba{2,4}cd)e", "fdasfabaaacdegf", type);
+    compare_result("(?Gaba{2,4})cde", "asfdsabaaacdegf", type);
+    compare_result("ab(?Ga{2,4})cde", "fasdabaaacdefds", type);
+    compare_result("ab(?Ga{2,4}c)de", "asdabaaacdefd", type);
+    compare_result("ab(?Ga{2,4}cde)", "abaaacde", type);
+}
+
+
+
 int main() {
-   compare_result("(?GTom.{10,15}r)iver", "dsafdasfdTomswimminginrivercdsvadsfd", MatchType::PARTIAL_SINGLE);
-   compare_result("(?Gab.{2,4})cde", "dsafdabaaacdefdgsfa", MatchType::PARTIAL_SINGLE);
-   compare_result("(?Gab.{2,4}cd)e", "abaaacdefdgsfa", MatchType::PARTIAL_SINGLE);
-   compare_result("(?Gab.{2,4}cd)e", "dsafdabaaacdefdgsfa", MatchType::PARTIAL_SINGLE);
-   compare_result("(?Gab.{2,4}cde)", "dsafdabaaacdefdgsfa", MatchType::PARTIAL_SINGLE);
-   /*
+    //compare_result("(?GTom.{10,15}r)iver", "dsafdasfdTomswimminginrivercdsvadsfd", MatchType::PARTIAL_SINGLE);
+    cout << "--- FULL MATCHES ---" << endl;
     test_simple(MatchType::FULL);
     test_star(MatchType::FULL);
     test_brackets(MatchType::FULL);
+    test_or_groups(MatchType::FULL);
 
+    cout << "--- PARTIAL MATCHES ---" << endl;
     test_simple(MatchType::PARTIAL_SINGLE);
     test_star(MatchType::PARTIAL_SINGLE);
     test_brackets(MatchType::PARTIAL_SINGLE);
-    */
+    test_or_groups(MatchType::PARTIAL_SINGLE);    
 }
