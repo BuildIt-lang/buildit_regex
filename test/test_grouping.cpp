@@ -3,7 +3,10 @@
 void test_group_states(string re, vector<int> expected) {
     int re_len = re.length();
     int* groups = new int[re_len];
-    group_states(re, groups);
+    for (int i = 0; i < re_len; i++) {
+        groups[i] = 0;    
+    }
+    group_states(re.c_str(), groups);
     // check if indices match
     for (int i = 0; i < re_len; i++) {
         assert(groups[i] == expected[i]);    
@@ -15,26 +18,26 @@ void test_group_states(string re, vector<int> expected) {
 void group_states_tests() {
     // group at start
     string re = "(?Gabc)de";
-    vector<int> expected = {0, 1, 2, 3, 3, 3, 6, 7, 8};
+    vector<int> expected = {0, 0, 0, 1, 1, 1, 0, 0, 0};
     test_group_states(re, expected);
     
     // nested parentheses
     re = "ab(?Gde(abc|de))fg";
-    expected = {0, 1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 15, 16, 17};
+    expected = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0};
     test_group_states(re, expected);
 
     re = "ab(de(?Gabc|de))fg";
-    expected = {0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 8, 8, 8, 8, 14, 15, 16, 17};
+    expected = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
     test_group_states(re, expected);
     
     // multiple groups / group at end
     re = "ab(?Gde)(?Gfg)";
-    expected = {0, 1, 2, 3, 4, 5, 5, 7, 8, 9, 10, 11, 11, 13};
+    expected = {0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0};
     test_group_states(re, expected);
 
     // group in middle
     re = "ab(?Ghi)cd";
-    expected = {0, 1, 2, 3, 4, 5, 5, 7, 8, 9};
+    expected = {0, 0, 0, 0, 0, 1, 1, 0, 0, 0};
     test_group_states(re, expected);
 
     // length 1 regex
@@ -44,7 +47,7 @@ void group_states_tests() {
 
     // the entire regex is a group
     re = "(?Gabcde)";
-    expected = {0, 1, 2, 3, 3, 3, 3, 3, 8};
+    expected = {0, 0, 0, 1, 1, 1, 1, 1, 0};
     test_group_states(re, expected);
 }
 string remove_special_chars(string regex, char special) {
@@ -72,7 +75,12 @@ void compare_result(const char* pattern, const char* candidate, MatchType match_
             regex_search(candidate, regex(simple_regex, regex_constants::icase)) :
             regex_search(candidate, regex(simple_regex));
     }
-    int result = compile_and_run_groups(candidate, pattern, match_type, 1, flags);
+    //int result = compile_and_run_groups(candidate, pattern, match_type, 1, flags);
+    RegexOptions options;
+    if (strcmp(flags, "i") == 0)
+        options.ignore_case = true;
+    int result = match(pattern, candidate, options, match_type);
+    
     cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {
@@ -171,6 +179,8 @@ void test_combined(MatchType type) {
 
 int main() {
     //compare_result("(?GTom.{10,15}r)iver", "dsafdasfdTomswimminginrivercdsvadsfd", MatchType::PARTIAL_SINGLE);
+    //group_states_tests();
+    auto start = high_resolution_clock::now();
     cout << "--- FULL MATCHES ---" << endl;
     test_simple(MatchType::FULL);
     test_star(MatchType::FULL);
@@ -186,4 +196,7 @@ int main() {
     test_or_groups(MatchType::PARTIAL_SINGLE);    
     test_repetition(MatchType::PARTIAL_SINGLE);
     test_combined(MatchType::PARTIAL_SINGLE);
+    auto end = high_resolution_clock::now();
+    auto dur = (duration_cast<seconds>(end - start)).count();
+    cout << "time: " << dur << "s" << endl;
 }

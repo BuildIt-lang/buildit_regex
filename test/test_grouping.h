@@ -6,8 +6,8 @@
 #include "match.h"
 #include <chrono>
 #include <vector>
-#include "../include/frontend.h"
-#include "../include/frontend.h"
+#include "../include/compile.h"
+using namespace std::chrono;
 
 void test_group_states(string re, vector<int> expected);
 string remove_special_chars(string regex, char special);

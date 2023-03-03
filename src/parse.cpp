@@ -214,18 +214,19 @@ set<string> split_regex(string &str, int* or_positions, int start, int end) {
 }
 
 /**
- Marks the state of each group (specified with ?G)
- with the index of the first state in the group.
+ Marks each state that is a part of a grouped set of states with 1.
+ 
+ groups[s] = 0 (none),
+            1 (s belongs to a grouped state),
+            2 (or split: s is the first state after ( or first after |)
+            3 (both 1 and 2)
 */
-void group_states(string &re, int* groups) {
-    int re_len = re.length();
+void group_states(const char* re, int* groups) {
+    int re_len = strlen(re);
     int i = 0;
     while (i < re_len) {
         if (re[i] == '(' && i + 2 < re_len && re[i+1] == '?' && re[i+2] == 'G') {
-            for (int offset = 0; offset < 3; offset++)
-                groups[i+offset] = i+offset;
             int j = i + 3;
-            int group_start = j;
             int bracket_count = 1;
             while (j < re_len) {
                 if (re[j] == '(')
@@ -234,14 +235,36 @@ void group_states(string &re, int* groups) {
                     bracket_count -= 1;
                 if (bracket_count == 0)
                     break;
-                groups[j] = group_start;
+                groups[j] |= 1;
                 j++;
             }
-            groups[j] = j; // closing bracket
             i = j;
-        } else {
-            groups[i] = i;
         }
         i++;
     }
+}
+
+/**
+ Marks the first state of each option in an or_group with 2.
+ This function can operate on the same `groups` array as the
+ `group_states` function above.
+
+ groups[s] = 0 (none),
+            1 (s belongs to a grouped state),
+            2 (or split: s is the first state after ( or first after |)
+            3 (both 1 and 2)
+*/
+void mark_or_groups(const char* re, int* groups, int* or_positions, int* next_state) {
+    int re_len = strlen(re);
+    for (int state = 0; state < re_len; state++) {
+        if (re[state] == '(' && state + 2 < re_len && re[state+1] == '?' && re[state+2] == 'S') {
+            int idx = state;
+            while (re[idx] != ')') {
+                groups[next_state[idx]] |= 2;
+                idx = or_positions[idx];
+            }
+        }
+        
+    }
+    
 }

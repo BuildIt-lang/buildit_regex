@@ -167,23 +167,24 @@ MatchFunction compile_split(string str, string regex, int start_state, MatchType
     // compile
     cache_states(parsed_re.c_str(), cache.get());
     
+    bool partial = (match_type != MatchType::FULL);
     int ignore_case = flags.compare("i") == 0;
     set<int> working_set, done_set;
     vector<block::block::Ptr> functions;
     working_set.insert(0);
-
+    
     while (!working_set.empty()) {
         int first_state = *working_set.begin();
         working_set.erase(first_state);
+        done_set.insert(first_state);
         string fname = "match_" + to_string(first_state);
         // define context
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
         // generate ast
-        auto ast = context.extract_function_ast(split_and_match, fname, parsed_re.c_str(), first_state, working_set, done_set, 1, cache.get(), tid, n_threads, ignore_case);
+        auto ast = context.extract_function_ast(split_and_match, fname, parsed_re.c_str(), first_state, working_set, done_set, partial, cache.get(), tid, n_threads, ignore_case);
         functions.push_back(ast);
-        done_set.insert(first_state);
     }
     // generate all functions
     builder::builder_context ctx;
@@ -210,12 +211,11 @@ GroupMatchFunction compile_groups(string str, string parsed_re, MatchType match_
     int re_len = parsed_re.length();
     // mark the grouped states
     int* groups = new int[re_len];
-    group_states(parsed_re, groups);
     
     // cache state transitions
     const int cache_size = (re_len + 1) * (re_len + 1);
     int* cache = new int[cache_size];
-    cache_states(parsed_re.c_str(), cache);
+    cache_states(parsed_re.c_str(), cache, groups);
     
     // get flags
     int ignore_case = flags.compare("i") == 0;

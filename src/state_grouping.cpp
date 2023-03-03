@@ -1,11 +1,7 @@
 #include "state_grouping.h"
 
 bool is_in_group(int index, int* groups, int re_len) {
-    if (index >= re_len)
-        return false;
-    if (groups[index] != index)
-        return true;
-    return index + 1 < re_len && groups[index+1] == index; 
+    return index < re_len && (groups[index] & 1);
 }
 
 void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* static_states, int* groups, int* cache, int p, int re_len, bool update) {
@@ -17,9 +13,9 @@ void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* stati
             continue;
         bool grouped = is_in_group(i, groups, re_len);
         if (grouped) {
-            dyn_states[i] = true;
+            dyn_states[i] = cache_val;
         } else {
-            static_states[i] = true;    
+            static_states[i] = cache_val;    
         }
     }    
 }

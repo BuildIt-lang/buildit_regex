@@ -6,6 +6,7 @@
 #include "match.h"
 #include <chrono>
 #include "../include/frontend.h"
+#include "../include/compile.h"
 
 typedef int (*CompileFunction) (string, string, MatchType, int, string);
 void check_correctness(const char* pattern, const char* candidate, const char* flags = "");                        

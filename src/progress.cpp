@@ -182,6 +182,8 @@ void reset_array(char* arr, int len) {
     }
 }
 
+
+
 /**
 `next` is a (re_len+1)*(re_len+1) sized array that holds
 a (re_len+1) vector of all reachable states from each one of
@@ -190,7 +192,7 @@ the re_len+1 states corresponding to the characters in `re`
 First, extracts useful information about the regex like bracket or |
 locations, and then fills `next` by calling progress for each state.
 */
-void cache_states(const char* re, int* next) {
+void cache_states(const char* re, int* next, int* flags) {
     int re_len = (int)strlen(re);
     
     // initialize arrays for caching
@@ -221,6 +223,21 @@ void cache_states(const char* re, int* next) {
         progress(re, re_states, state, cache, false);   
         reset_array(cache.temp_states, re_len + 1);
     }
+
+    // depending on the schedule we might need to
+    // flag each state whether it belongs to an or group
+    // or to a grouped set of states
+    if (flags != nullptr) {
+        // initialize all the flags to 0
+        for (int s = 0; s < re_len; s++) {
+            flags[s] = 0; 
+        }
+        group_states(re, flags);
+        mark_or_groups(re, flags, re_states.helper_states, re_states.next);
+    }
+
+
+
     delete[] re_states.next;
     delete[] re_states.brackets;
     delete[] re_states.helper_states;
