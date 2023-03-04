@@ -1,5 +1,25 @@
 #include "match_with_schedule.h"
 
+bool is_in_group(int index, int* groups, int re_len) {
+    return index < re_len && (groups[index] & 1);
+}
+
+void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* static_states, int* groups, int* cache, int p, int re_len, bool update) {
+    if (!update)
+        return;
+    for (static_var<int> i = 0; i < re_len + 1; i = i + 1) {
+        static_var<char> cache_val = cache[(p+1) * (re_len + 1) + i];
+        if (!cache_val)
+            continue;
+        bool grouped = is_in_group(i, groups, re_len);
+        if (grouped) {
+            dyn_states[i] = cache_val;
+        } else {
+            static_states[i] = cache_val;    
+        }
+    }    
+}
+
 void update_states(Schedule options, dyn_var<char*> dyn_states, static_var<char>* static_states, int* groups, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
@@ -31,16 +51,14 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
     std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
     
+    // initialize the state vector
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         current[i] = next[i] = 0;
         if (options.state_group)
             dyn_current[i] = dyn_next[i] = 0;
     }
 
-    // matching starting from later in the regex
-    // looks for a partial match starting from the
-    // beginning of the string
-    // initialize the state vector
+    // activate the initial states
     update_states(options, dyn_current, current.get(), groups, cache, first_state-1, re_len, true);
     
     static_var<int> mc = 0;

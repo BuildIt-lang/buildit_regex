@@ -32,7 +32,6 @@ void check_split(const char* pattern, const char* candidate, int start_state, co
         regex_match(candidate, regex(simple_pattern, regex_constants::icase)) :
         regex_match(candidate, regex(simple_pattern));
     
-    //int result = compile_and_run_split(candidate, pattern, start_state, MatchType::FULL, flags);
     RegexOptions options;
     options.ignore_case = (strcmp(flags, "i") == 0);
     int result = match(pattern, candidate, options, MatchType::FULL);

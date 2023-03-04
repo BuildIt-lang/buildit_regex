@@ -17,7 +17,6 @@ void check_correctness(const char* pattern, const char* candidate, const char* f
     
             
     //int result = compile_and_run(candidate, pattern, MatchType::FULL, 1, flags);
-    //int result = compile_and_run_groups(candidate, pattern, MatchType::FULL, 1, flags);
     RegexOptions options;
     options.ignore_case = (strcmp(flags, "i") == 0);
     int result = match(pattern, candidate, options, MatchType::FULL);

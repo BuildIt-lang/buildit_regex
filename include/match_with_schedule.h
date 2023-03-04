@@ -2,8 +2,7 @@
 #define MATCH_WITH_SCHEDULE_H
 
 #include "match.h"
-#include "or_split.h"
-#include "state_grouping.h"
+#include <set>
 
 struct Schedule {
     bool or_split = false;
@@ -11,6 +10,10 @@ struct Schedule {
     int interleaving_parts = 1;
     bool ignore_case = false;
 };
+
+bool is_in_group(int index, int* groups, int re_len);
+
+void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* static_states, int* groups, int* cache, int p, int re_len, bool update = true);
 
 void update_states(Schedule options, dyn_var<char*> dyn_states, static_var<char>* static_states, int* groups, int* cache, int p, int re_len, bool update);
 

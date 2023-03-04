@@ -75,7 +75,6 @@ void compare_result(const char* pattern, const char* candidate, MatchType match_
             regex_search(candidate, regex(simple_regex, regex_constants::icase)) :
             regex_search(candidate, regex(simple_regex));
     }
-    //int result = compile_and_run_groups(candidate, pattern, match_type, 1, flags);
     RegexOptions options;
     if (strcmp(flags, "i") == 0)
         options.ignore_case = true;
