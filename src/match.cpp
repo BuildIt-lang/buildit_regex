@@ -30,6 +30,18 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c, int ignore_case
     return (left <= c && c <= right) || ((left ^ 32) <= c && c <= (right ^ 32));
 }
 
+dyn_var<int> match_char(dyn_var<char> dyn_c, char static_c, bool ignore_case) {
+    // upper and lower case letters differ only by the 5th bit
+    bool is_upper = ('A' <= static_c && static_c <= 'Z');
+    bool is_lower = ('a' <= static_c && static_c <= 'z');
+    if (ignore_case && is_lower)
+        return (dyn_c | 32) == static_c;
+    else if (ignore_case && is_upper)
+        return (dyn_c & ~32) == static_c;
+    else
+        return dyn_c == static_c;
+}
+
 /**
 Update `next` with the reachable states from state `p`.
 */
@@ -81,7 +93,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                 if (is_normal(m)) {
                     if (-1 == early_break) {
                         // Normal character
-                        if (str[to_match] == m || (ignore_case && is_alpha(m) && str[to_match] == (m ^ 32))) {
+                        if (match_char(str[to_match], m, ignore_case)) {
                             update_from_cache(next.get(), cache, state, re_len);
                             // If a match happens, it
                             // cannot match anything else
@@ -118,7 +130,7 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                                 matches = 1;
                                 break;
                             }
-                        } else if (str[to_match] == re[idx] || (ignore_case && is_alpha(re[idx]) && str[to_match] == (re[idx] ^ 32))) {
+                        } else if (match_char(str[to_match], re[idx], ignore_case)) {
                             matches = 1;
                             break;
                         }

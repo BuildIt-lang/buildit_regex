@@ -84,7 +84,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                 if (is_normal(m)) {
                     if (-1 == early_break) {
                         // Normal character
-                        if (str[to_match] == m || (ignore_case && is_alpha(m) && str[to_match] == (m ^ 32))) {
+                        if (match_char(str[to_match], m, ignore_case)) {
                             update_states(options, dyn_next, next.get(), groups, cache, state, re_len, update);
                             // If a match happens, it
                             // cannot match anything else
@@ -121,7 +121,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                                 matches = 1;
                                 break;
                             }
-                        } else if (str[to_match] == re[idx] || (ignore_case && is_alpha(re[idx]) && str[to_match] == (re[idx] ^ 32))) {
+                        } else if (match_char(str[to_match], re[idx], ignore_case)) {
                             matches = 1;
                             break;
                         }
