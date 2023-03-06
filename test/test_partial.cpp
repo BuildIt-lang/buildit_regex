@@ -4,248 +4,222 @@
 #include "../include/progress.h"
 #include "../include/frontend.h"
 
-using namespace std::chrono;
-
-/**
-General function to compare results.
-*/
-void check_correctness(const char* pattern, const char* candidate, const char* flags) {
-    bool expected = (strcmp(flags, "i") == 0) ? 
-        regex_search(candidate, regex(pattern, regex_constants::icase)) :
-        regex_search(candidate, regex(pattern));
-    
-    //int result = compile_and_run(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
-    //int result = compile_and_run_decomposed(candidate, pattern, MatchType::PARTIAL_SINGLE, 1, flags);
-    //int result = compile_and_run_partial(candidate, pattern, flags);
-    RegexOptions options;
-    options.ignore_case = (strcmp(flags, "i") == 0);
-    int result = match(pattern, candidate, options, MatchType::PARTIAL_SINGLE);
-    
-
-    std::cout << "Matching " << pattern << " with " << candidate << " -> ";
-    bool match = (result == expected);
-    if (match) {
-        std::cout << "ok. Result is: " << result << std::endl;
-    } else {
-        std::cout << "failed\nExpected: " << expected << ", got: " << result << std::endl;
-    }
+void test_simple(MatchType type) {
+    compare_result("aaaa", "aaaa", "", type);
+    compare_result("", "", "", type);
+    compare_result("abc", "abc", "", type);
+    compare_result("aabc", "aabc", "", type);
 }
 
-void test_simple() {
-    check_correctness("aaaa", "aaaa");
-    check_correctness("", "");
-    check_correctness("abc", "abc");
-    check_correctness("aabc", "aabc");
+void test_star(MatchType type) {
+    compare_result("a*bc", "abc", "", type);    
+    compare_result("a*bc", "aaaabc", "", type);
+    compare_result("a*b*c", "aaabbc", "", type);
 }
 
-void test_star() {
-    check_correctness("a*bc", "abc");    
-    check_correctness("a*bc", "aaaabc");
-    check_correctness("a*b*c", "aaabbc");
+void test_brackets(MatchType type) {
+    compare_result("a[bc]d", "abd", "", type);
+    compare_result("a[bc]d", "acd", "", type);
+    compare_result("a[bc]d", "abcd", "", type);
+    compare_result("a[]d", "ad", "", type);
+    compare_result("[amn]", "m", "", type);
+    compare_result("[amn]", "mn", "", type);
+    compare_result("a[bc]d", "abcd", "", type);
+    compare_result("a[vd][45]", "ad4", "", type);
+    compare_result("2[a-g]", "2d", "", type);
+    compare_result("2[a-g]*", "2dcag", "", type);
 }
 
-void test_brackets() {
-    check_correctness("a[bc]d", "abd");
-    check_correctness("a[bc]d", "acd");
-    check_correctness("a[bc]d", "abcd");
-    check_correctness("a[]d", "ad");
-    check_correctness("[amn]", "m");
-    check_correctness("[amn]", "mn");
-    check_correctness("a[bc]d", "abcd");
-    check_correctness("a[vd][45]", "ad4");
-    check_correctness("2[a-g]", "2d");
-    check_correctness("2[a-g]*", "2dcag");
+void test_negative_brackets(MatchType type) {
+    compare_result("3[^db]4", "3c4", "", type);    
+    compare_result("3[^db]4", "3d4", "", type);    
+    compare_result("3[^db]4", "3b4", "", type); 
+    compare_result("[abd][^35]*", "a4555dsd", "", type);
+    compare_result("[abd]*[^35fds]", "abdd4", "", type);
+    compare_result("2[^a-g]", "25", "", type);
+    compare_result("2[^a-g]", "2h", "", type);
+    compare_result("2[^a-g]", "2a", "", type);
 }
 
-void test_negative_brackets() {
-    check_correctness("3[^db]4", "3c4");    
-    check_correctness("3[^db]4", "3d4");    
-    check_correctness("3[^db]4", "3b4"); 
-    check_correctness("[abd][^35]*", "a4555dsd");
-    check_correctness("[abd]*[^35fds]", "abdd4");
-    check_correctness("2[^a-g]", "25");
-    check_correctness("2[^a-g]", "2h");
-    check_correctness("2[^a-g]", "2a");
+void test_brackets_and_star(MatchType type) {
+    compare_result("a[bc]*d", "abcd", "", type);
+    compare_result("a[bc]*d", "abbd", "", type);
+    compare_result("a[bc]*d", "ad", "", type);
+    compare_result("a[bc]*d", "abd", "", type);
+    compare_result("a[bc]*d", "abcdd", "", type);
+    compare_result("a[bc]*c", "ac", "", type);
+    compare_result("3[^db]*4", "3ca8a4", "", type);    
+    compare_result("3[^db]*", "3", "", type);    
 }
 
-void test_brackets_and_star() {
-    check_correctness("a[bc]*d", "abcd");
-    check_correctness("a[bc]*d", "abbd");
-    check_correctness("a[bc]*d", "ad");
-    check_correctness("a[bc]*d", "abd");
-    check_correctness("a[bc]*d", "abcdd");
-    check_correctness("a[bc]*c", "ac");
-    check_correctness("3[^db]*4", "3ca8a4");    
-    check_correctness("3[^db]*", "3");    
+void test_grouping(MatchType type) {
+    compare_result("a(bcd)*", "abcdbcd", "", type);
+    compare_result("a(bcd)", "abcdbcd", "", type);
+    compare_result("a(bcd)", "abcd", "", type);
+    compare_result("a(bcd)*", "a", "", type);
+    compare_result("a(bcd)*tr", "abcdtr", "", type);
+    compare_result("a(bcd)*(tr432)*", "abcdtr432tr432", "", type);
+    compare_result("a(bcd)*(tr432)*", "abctr432tr432", "", type);
+    compare_result("a[bcd]*(tr432)*", "abtr432tr432", "", type);
+    compare_result("(4324)*(abc)", "432443244324abc", "", type);
 }
 
-void test_grouping() {
-    check_correctness("a(bcd)*", "abcdbcd");
-    check_correctness("a(bcd)", "abcdbcd");
-    check_correctness("a(bcd)", "abcd");
-    check_correctness("a(bcd)*", "a");
-    check_correctness("a(bcd)*tr", "abcdtr");
-    check_correctness("a(bcd)*(tr432)*", "abcdtr432tr432");
-    check_correctness("a(bcd)*(tr432)*", "abctr432tr432");
-    check_correctness("a[bcd]*(tr432)*", "abtr432tr432");
-    check_correctness("(4324)*(abc)", "432443244324abc");
+void test_nested_grouping(MatchType type) {
+    compare_result("a((bcd)*34)*", "abcdbcd34bcd34", "", type);
+    compare_result("a(a(bc|45))*", "aacaca4a5", "", type);
+    compare_result("a(a(bc|45))*", "aabcabca45", "", type);
+    compare_result("(a(bc|45)c)?d", "a45cd", "", type);
+    compare_result("(a(bc|45)c)?d", "d", "", type);
 }
 
-void test_nested_grouping() {
-    check_correctness("a((bcd)*34)*", "abcdbcd34bcd34");
-    check_correctness("a(a(bc|45))*", "aacaca4a5");
-    check_correctness("a(a(bc|45))*", "aabcabca45");
-    check_correctness("(a(bc|45)c)?d", "a45cd");
-    check_correctness("(a(bc|45)c)?d", "d");
+void test_or_groups(MatchType type) {
+    compare_result("ab(c|56|de)", "ab56", "", type);
+    compare_result("ab(c|56|de)k", "abck", "", type);
+    compare_result("ab(c|56|de)k", "ab56k", "", type);
+    compare_result("ab(c|56|de)k", "abdek", "", type);
+    compare_result("ab(c|56|de)k", "ab56dek", "", type);
+    compare_result("a(cbd|45)*", "acbd45cbd", "", type);
+    compare_result("([abc]|dc|4)2", "b2", "", type);
+    compare_result("([abc]|dc|4)2", "b2", "", type);
+    compare_result("(dc|[abc]|4)2", "b2", "", type);
+    compare_result("(dc|4|[abc])2", "b2", "", type);
+    compare_result("([^23]|2)abc", "1abc", "", type);
+    compare_result("([^23]|2)abc", "3abc", "", type);
+    compare_result("(a|[abc]|4)2", "ac42", "", type);
+    compare_result("(bc|de|[23]*)", "22323", "", type);
+    compare_result("(bc|de|[23]*)", "bc", "", type);
+    compare_result("(bc|de|[23]*)", "bcbc", "", type);
+    compare_result("(bc|de|[23]*)", "bc23", "", type);
+    compare_result("a(bc|de|[23]*)", "a", "", type);
+    compare_result("a(bc|de|[23]+)", "a", "", type);
+    compare_result("a(bc|de|[23]+)", "a2332", "", type);
+    compare_result("a(bc|de|[23]?)", "a23", "", type);
 }
 
-void test_or_groups() {
-    check_correctness("ab(c|56|de)", "ab56");
-    check_correctness("ab(c|56|de)k", "abck");
-    check_correctness("ab(c|56|de)k", "ab56k");
-    check_correctness("ab(c|56|de)k", "abdek");
-    check_correctness("ab(c|56|de)k", "ab56dek");
-    check_correctness("a(cbd|45)*", "acbd45cbd");
-    check_correctness("([abc]|dc|4)2", "b2");
-    check_correctness("([abc]|dc|4)2", "b2");
-    check_correctness("(dc|[abc]|4)2", "b2");
-    check_correctness("(dc|4|[abc])2", "b2");
-    check_correctness("([^23]|2)abc", "1abc");
-    check_correctness("([^23]|2)abc", "3abc");
-    check_correctness("(a|[abc]|4)2", "ac42");
-    check_correctness("(bc|de|[23]*)", "22323");
-    check_correctness("(bc|de|[23]*)", "bc");
-    check_correctness("(bc|de|[23]*)", "bcbc");
-    check_correctness("(bc|de|[23]*)", "bc23");
-    check_correctness("a(bc|de|[23]*)", "a");
-    check_correctness("a(bc|de|[23]+)", "a");
-    check_correctness("a(bc|de|[23]+)", "a2332");
-    check_correctness("a(bc|de|[23]?)", "a23");
+void test_plus(MatchType type) {
+    compare_result("a+bc", "aaaabc", "", type);	
+    compare_result("a+bc", "bc", "", type);
+    compare_result("a+b+c", "aabbbc", "", type);
+    compare_result("[abc]+d", "abcd", "", type);
+    compare_result("[abc]+d", "bbbd", "", type);
+    compare_result("[abc]+d", "d", "", type);
+    compare_result("[abc]+c", "c", "", type);
+    compare_result("[abc]+c", "cc", "", type);
 }
 
-void test_plus() {
-    check_correctness("a+bc", "aaaabc");	
-    check_correctness("a+bc", "bc");
-    check_correctness("a+b+c", "aabbbc");
-    check_correctness("[abc]+d", "abcd");
-    check_correctness("[abc]+d", "bbbd");
-    check_correctness("[abc]+d", "d");
-    check_correctness("[abc]+c", "c");
-    check_correctness("[abc]+c", "cc");
+void test_question(MatchType type) {
+    compare_result("a?bc", "abc", "", type);    
+    compare_result("a?bc", "bc", "", type);
+    compare_result("a?bc", "aaaabc", "", type);
+    compare_result("a?b?c?", "ac", "", type);
+    compare_result("[abc]?de", "abcde", "", type);
+    compare_result("[abc]?de", "cde", "", type);
+    compare_result("[abc]?de", "de", "", type);
+    compare_result("[abc]?de", "abcabcde", "", type);
+    compare_result("(abc)*(ab)?", "abcabc", "", type);
+    compare_result("(abc)*(ab)?", "ab", "", type);
 }
 
-void test_question() {
-    check_correctness("a?bc", "abc");    
-    check_correctness("a?bc", "bc");
-    check_correctness("a?bc", "aaaabc");
-    check_correctness("a?b?c?", "ac");
-    check_correctness("[abc]?de", "abcde");
-    check_correctness("[abc]?de", "cde");
-    check_correctness("[abc]?de", "de");
-    check_correctness("[abc]?de", "abcabcde");
-    check_correctness("(abc)*(ab)?", "abcabc");
-    check_correctness("(abc)*(ab)?", "ab");
+void test_repetition(MatchType type) {
+    compare_result("a{5}", "aaaaa", "", type);    
+    compare_result("a{5}", "aaaaaa", "", type);    
+    compare_result("a{5}", "aaaa", "", type);  
+    compare_result("ab{3}", "abbb", "", type);  
+    compare_result("ab{3}", "ababab", "", type);  
+    compare_result("ab{3}c", "abbbc", "", type);  
+    compare_result("ab{3}c", "abbc", "", type);  
+    compare_result("ab{3}c", "abbbbc", "", type);  
+    compare_result("ab{10}c", "abbbbbbbbbbc", "", type);
+    compare_result("4{2,4}", "44", "", type);
+    compare_result("4{2,4}", "444", "", type);
+    compare_result("4{2,4}", "4444", "", type);
+    compare_result("4{2,4}", "44444", "", type);
+    compare_result("4{2,4}", "4", "", type);
+    compare_result("a{1,4}b{2}", "aabb", "", type);
+    compare_result("(a{1,4}b{2}){2}", "aabbaaab", "", type);
+    compare_result("(a{1,4}b{2}){2}", "aabbaaabb", "", type);
 }
 
-void test_repetition() {
-    check_correctness("a{5}", "aaaaa");    
-    check_correctness("a{5}", "aaaaaa");    
-    check_correctness("a{5}", "aaaa");  
-    check_correctness("ab{3}", "abbb");  
-    check_correctness("ab{3}", "ababab");  
-    check_correctness("ab{3}c", "abbbc");  
-    check_correctness("ab{3}c", "abbc");  
-    check_correctness("ab{3}c", "abbbbc");  
-    check_correctness("ab{10}c", "abbbbbbbbbbc");
-    check_correctness("4{2,4}", "44");
-    check_correctness("4{2,4}", "444");
-    check_correctness("4{2,4}", "4444");
-    check_correctness("4{2,4}", "44444");
-    check_correctness("4{2,4}", "4");
-    check_correctness("a{1,4}b{2}", "aabb");
-    check_correctness("(a{1,4}b{2}){2}", "aabbaaab");
-    check_correctness("(a{1,4}b{2}){2}", "aabbaaabb");
+void test_combined(MatchType type) {
+    compare_result("(45|ab?)", "ab", "", type);    
+    compare_result("(ab?|45)", "ab", "", type);    
+    compare_result("(ab?|45)", "ab45", "", type);    
+    compare_result("(ab?|45)", "a", "", type);
+    compare_result("(ab){4}", "abababab", "", type);
+    compare_result("[bde]{2}", "bd", "", type);
+    compare_result("((abcd){1}45{3}){2}", "abcd4555abcd4555", "", type);
+    compare_result("([abc]3){2}", "a3a3", "", type);
+    compare_result("([abc]3){2}", "c3b3", "", type);
+    compare_result("([abc]3){2}", "a3c3c3", "", type);
+    compare_result("([abc]3){2}", "ac", "", type);
 }
 
-void test_combined() {
-    check_correctness("(45|ab?)", "ab");    
-    check_correctness("(ab?|45)", "ab");    
-    check_correctness("(ab?|45)", "ab45");    
-    check_correctness("(ab?|45)", "a");
-    check_correctness("(ab){4}", "abababab");
-    check_correctness("[bde]{2}", "bd");
-    check_correctness("((abcd){1}45{3}){2}", "abcd4555abcd4555");
-    check_correctness("([abc]3){2}", "a3a3");
-    check_correctness("([abc]3){2}", "c3b3");
-    check_correctness("([abc]3){2}", "a3c3c3");
-    check_correctness("([abc]3){2}", "ac");
+void test_escaping(MatchType type) {
+    compare_result("a\\d", "texta0text", "", type);
+    compare_result("a\\d", "dsaad5f", "", type);
+    compare_result("a\\db", "a9b", "", type);
+    compare_result("a\\d{3}", "a912aaa", "", type);
+    compare_result("bcd\\d*", "bcda", "", type);
+    compare_result("bcd\\d*", "bcd567a", "", type);
+    compare_result("bcd\\d*", "bcd23", "", type);
+    compare_result("a[\\dbc]d", "3a5da", "", type);
+    compare_result("a[\\dbc]d", "acd", "", type);
+
+    compare_result("a\\w\\d", "aab5d", "", type);
+    compare_result("a\\w\\W", "fa_09", "", type);
+    compare_result("a\\w\\d", "aC9", "", type);
+
+    compare_result("\\ss", "sss s", "", type);
+    compare_result("\\Da\\Wbc\\S", "aa3bc_", "", type);
+    compare_result("\\Dabc\\S", "aabc_00", "", type);
+    compare_result("\\da\\wbc\\s", "a7a_bc cc", "", type);
 }
 
-void test_escaping() {
-    check_correctness("a\\d", "texta0text");
-    check_correctness("a\\d", "dsaad5f");
-    check_correctness("a\\db", "a9b");
-    check_correctness("a\\d{3}", "a912aaa");
-    check_correctness("bcd\\d*", "bcda");
-    check_correctness("bcd\\d*", "bcd567a");
-    check_correctness("bcd\\d*", "bcd23");
-    check_correctness("a[\\dbc]d", "3a5da");
-    check_correctness("a[\\dbc]d", "acd");
-
-    check_correctness("a\\w\\d", "aab5d");
-    check_correctness("a\\w\\W", "fa_09");
-    check_correctness("a\\w\\d", "aC9");
-
-    check_correctness("\\ss", "sss s");
-    check_correctness("\\Da\\Wbc\\S", "aa3bc_");
-    check_correctness("\\Dabc\\S", "aabc_00");
-    check_correctness("\\da\\wbc\\s", "a7a_bc cc");
+void test_partial(MatchType type) {
+	compare_result("ab", "aab", "", type);
+	compare_result("ab", "aba", "", type);
+	compare_result("a?", "aaaa", "", type);
+	compare_result("c[ab]+", "abc", "", type);
+	compare_result("c[ab]+", "aaba", "", type);
+	compare_result("c[ab]+", "caaaabcc", "", type);
+	compare_result("123", "a123a", "", type);
+	compare_result("(123)*1", "112312311", "", type);
+    compare_result("Twain", "MarkTwainTomSawyer", "", type);
+	//compare_result("[a-q][^u-z]{5}x", "qax", "", type);
+	//compare_result("[a-q][^u-z]{5}x", "qabcdex", "", type);
 }
-
-void test_partial() {
-	check_correctness("ab", "aab");
-	check_correctness("ab", "aba");
-	check_correctness("a?", "aaaa");
-	check_correctness("c[ab]+", "abc");
-	check_correctness("c[ab]+", "aaba");
-	check_correctness("c[ab]+", "caaaabcc");
-	check_correctness("123", "a123a");
-	check_correctness("(123)*1", "112312311");
-    check_correctness("Twain", "MarkTwainTomSawyer");
-	//check_correctness("[a-q][^u-z]{5}x", "qax");
-	//check_correctness("[a-q][^u-z]{5}x", "qabcdex");
-}
-void test_ignore_case() {
-    check_correctness("abcd", "AbCd", "i");
-    check_correctness("a1a*", "a1aaAaA", "i");
-    check_correctness("b2[a-g]", "B2D", "i");
-    check_correctness("[^a-z]", "D", "i");
-    check_correctness("[^a-z][a-z]*", "4Df", "i");
-    check_correctness("(abc){3}", "aBcAbCabc", "i");
-    check_correctness("(1|2|k)*", "K2", "i");
-    check_correctness("z+a", "zZa", "i");
-    check_correctness("z?a", "Za", "i");
-    check_correctness("\\d\\w\\s", "5a ", "i");
-    check_correctness("\\D\\W\\S", "a k", "i");
+void test_ignore_case(MatchType type) {
+    compare_result("abcd", "AbCd", "", type, "i");
+    compare_result("a1a*", "a1aaAaA", "", type, "i");
+    compare_result("b2[a-g]", "B2D", "", type, "i");
+    compare_result("[^a-z]", "D", "", type, "i");
+    compare_result("[^a-z][a-z]*", "4Df", "", type, "i");
+    compare_result("(abc){3}", "aBcAbCabc", "", type, "i");
+    compare_result("(1|2|k)*", "K2", "", type, "i");
+    compare_result("z+a", "zZa", "", type, "i");
+    compare_result("z?a", "Za", "", type, "i");
+    compare_result("\\d\\w\\s", "5a ", "", type, "i");
+    compare_result("\\D\\W\\S", "a k", "", type, "i");
 }
 
 int main() {    
     auto start = high_resolution_clock::now();
-    test_simple();
-    test_star();
-    test_brackets();
-    test_negative_brackets();
-    test_brackets_and_star();
-    test_grouping();
-    test_nested_grouping();
-    test_or_groups();
-    test_plus();
-    test_question();
-    test_repetition();
-    test_combined();
-    test_escaping();
-	test_partial();
-    test_ignore_case();
+    MatchType type = MatchType::PARTIAL_SINGLE;
+    test_simple(type);
+    test_star(type);
+    test_brackets(type);
+    test_negative_brackets(type);
+    test_brackets_and_star(type);
+    test_grouping(type);
+    test_nested_grouping(type);
+    test_or_groups(type);
+    test_plus(type);
+    test_question(type);
+    test_repetition(type);
+    test_combined(type);
+    test_escaping(type);
+	test_partial(type);
+    test_ignore_case(type);
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;

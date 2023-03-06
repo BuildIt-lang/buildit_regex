@@ -1,93 +1,72 @@
-#include "test_grouping.h"
+#include "test.h"
 
-void test_group_states(string re, vector<int> expected) {
+void test_flag_expand(string regex, string inp_flags, string expected) {
+    tuple<string, string> result = expand_regex(regex, inp_flags);
+    string re = get<0>(result);
     int re_len = re.length();
-    int* groups = new int[re_len];
+    string flags = get<1>(result);
+    assert((int)flags.length() == re_len);
+    assert(flags.length() == expected.length());
     for (int i = 0; i < re_len; i++) {
-        groups[i] = 0;    
+        assert(flags[i] == expected[i]);
     }
-   // group_states(re.c_str(), groups);
-    // check if indices match
-    for (int i = 0; i < re_len; i++) {
-        assert(groups[i] == expected[i]);    
-    }
-    delete[] groups;
     cout << re << ": passed" << endl;
 }
 
-void group_states_tests() {
-    // group at start
-    string re = "(?Gabc)de";
-    vector<int> expected = {0, 0, 0, 1, 1, 1, 0, 0, 0};
-    test_group_states(re, expected);
+void expand_flags_tests() {
+    // + expand
+    string re = "abc+de";
+    string flags = "..gg..";
+    // abcc*de
+    string expected = "..ggg..";
+    test_flag_expand(re, flags, expected);
     
-    // nested parentheses
-    re = "ab(?Gde(abc|de))fg";
-    expected = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0};
-    test_group_states(re, expected);
+    // {} expand
+    re = "ab{2}c";
+    flags = ".gggg.";
+    // abbc
+    expected = ".gg.";
+    test_flag_expand(re, flags, expected);
 
-    re = "ab(de(?Gabc|de))fg";
-    expected = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
-    test_group_states(re, expected);
+    re = "ab{2,4}c";
+    flags = ".gggggg.";
+    // abb(b(b)?)?c
+    expected = ".gggggggggg.";
+    test_flag_expand(re, flags, expected);
+
+    re = "ab{2,4}c";
+    flags = ".g......";
+    // abb(b(b)?)?c
+    expected = ".gg.g.g.....";
+    test_flag_expand(re, flags, expected);
+
+    // ignore case
+    re = "ab\\dcd";
+    flags = "..gg..";
+    // ab[0-9]cd
+    expected = "..ggggg..";
+    test_flag_expand(re, flags, expected);
+
+    // ignore case inside []
+    re = "ab[\\dcd]";
+    flags = "...gg...";
+    // ab[0-9cd]
+    expected = "...ggg...";
+    test_flag_expand(re, flags, expected);
+
+    re = "ab[\\dcd]";
+    flags = "..gggggg";
+    // ab[0-9cd]
+    expected = "..ggggggg";
+    test_flag_expand(re, flags, expected);
+
+    // or split
+    re = "(ab|cd|ef)+";
+    flags = ".s..s..s...";
+    // (ab|cd|ef)(ab|cd|ef)*
+    expected = ".s..s..s...s..s..s...";
+    test_flag_expand(re, flags, expected);
     
-    // multiple groups / group at end
-    re = "ab(?Gde)(?Gfg)";
-    expected = {0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0};
-    test_group_states(re, expected);
-
-    // group in middle
-    re = "ab(?Ghi)cd";
-    expected = {0, 0, 0, 0, 0, 1, 1, 0, 0, 0};
-    test_group_states(re, expected);
-
-    // length 1 regex
-    re = "b";
-    expected = {0};
-    test_group_states(re, expected);
-
-    // the entire regex is a group
-    re = "(?Gabcde)";
-    expected = {0, 0, 0, 1, 1, 1, 1, 1, 0};
-    test_group_states(re, expected);
-}
-string remove_special_chars(string regex, char special) {
-    string chars = "(?G";
-    int chars_len = chars.length();
-    string to_replace = "(";
-    string result = regex;
-    while (true) {
-        int idx = result.find(chars);
-        if (idx == (int)string::npos)
-            return result;
-        result.replace(idx, chars_len, to_replace);
-    }
-    return result;
-}
-void compare_result(const char* pattern, const char* candidate, string groups, MatchType match_type, const char* flags) {
-    string simple_regex = remove_special_chars(pattern, 'G');
-    bool expected = 0;
-    if (match_type == MatchType::FULL) {
-    	expected = (strcmp(flags, "i") == 0) ? 
-            regex_match(candidate, regex(simple_regex, regex_constants::icase)) :
-            regex_match(candidate, regex(simple_regex));
-    } else if (match_type == MatchType::PARTIAL_SINGLE) {
-        expected = (strcmp(flags, "i") == 0) ? 
-            regex_search(candidate, regex(simple_regex, regex_constants::icase)) :
-            regex_search(candidate, regex(simple_regex));
-    }
-    RegexOptions options;
-    if (strcmp(flags, "i") == 0)
-        options.ignore_case = true;
-    options.flags = groups;
-    int result = match(pattern, candidate, options, match_type);
-    
-    cout << "Matching " << pattern << " with " << candidate << " -> ";
-    bool match = (result == expected);
-    if (match) {
-        cout << "ok. Result is: " << result << endl;
-    } else {
-        cout << "failed\nExpected: " << expected << ", got: " << result << endl;
-    }
 }
 
 void test_simple(MatchType type) {
@@ -180,6 +159,7 @@ void test_combined(MatchType type) {
 void test_or_split(MatchType type) {
     // full
     compare_result("ab(c|56|de)", "ab56", "...s.s..s..", type);
+    compare_result("ab(c|56|de)+", "ab56ab56", "...s.s..s...", type);
     compare_result("ab(c|56|de)k", "abck", "...s.s..s...", type);
     compare_result("ab(c|56|de)k", "ab56k", "...s.s..s...", type);
     compare_result("ab(c|56|de)k", "abdek", "...s.s..s...", type);
@@ -208,6 +188,7 @@ void test_or_split(MatchType type) {
     compare_result("(ab|cd|ef)11(f|d|b)", "ef11b", ".s..s..s.....s.s.s.", type);
     // partial
     compare_result("ab(c|56|de)", "11ab5611", "...s.s..s..", type);
+    compare_result("ab(c|56|de)+", "11ab56ab5611", "...s.s..s...", type);
     compare_result("ab(c|56|de)k", "aaabckdd", "...s.s..s...", type);
     compare_result("ab(c|56|de)k", "ssab56kdd", "...s.s..s...", type);
     compare_result("ab(c|56|de)k", "aaasabdekaa", "...s.s..s...", type);
@@ -239,7 +220,7 @@ void test_or_split(MatchType type) {
 
 int main() {
     //compare_result("(?GTom.{10,15}r)iver", "dsafdasfdTomswimminginrivercdsvadsfd", MatchType::PARTIAL_SINGLE);
-    //group_states_tests();
+    expand_flags_tests();
     auto start = high_resolution_clock::now();
     cout << "--- FULL MATCHES ---" << endl;
     test_simple(MatchType::FULL);

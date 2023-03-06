@@ -42,7 +42,6 @@ dyn_var<int> spawn_matcher(dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int
 }
 
 dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> &working_set, std::set<int> &done_set, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, bool enable_partial, int* cache, int match_index, Schedule options, const char* flags, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next) {
-
     const int re_len = strlen(re);
     bool ignore_case = options.ignore_case;
     int n_threads = options.interleaving_parts;
