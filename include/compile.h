@@ -3,10 +3,12 @@
 
 #include "frontend.h"
 #include "match_with_schedule.h"
+#include <tuple>
 
 struct RegexOptions {
     bool ignore_case = false;
     int interleaving_parts = 1;
+    string flags = "";
 };
 typedef int (*Matcher) (const char*, int, int, char*, char*);
 

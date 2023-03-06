@@ -61,61 +61,77 @@ re[start] = + => "a+" becomes "aa*"
 
 re[start] = any other char => returns that char and start - 1
 */
-tuple<string, int> expand_sub_regex(string re, int start) {
+tuple<string, int, string> expand_sub_regex(string re, int start, string flags) {
     if (start < 0) {
         // base case: we've processed the entire regex
-        return tuple<string, int>{"", -1};
+        return tuple<string, int, string>{"", -1, ""};
     }
     if (re[start] == ')' || re[start] == ']') {
         char end = (re[start] == ')') ? '(' : '[';
         string s = "";
+	    string curr_flags = "";
         int idx = start - 1;
         // repeatedly parse the expression until we
         // reach the opening bracket
         while (re[idx] != end) {
-            tuple<string, int> sub_s = expand_sub_regex(re, idx);
+            tuple<string, int, string> sub_s = expand_sub_regex(re, idx, flags);
             string ss = get<0>(sub_s);
+	        string sub_flags = get<2>(sub_s);
             // we can't have nested []
             // e.g. [\d] should parse to [0-9] not [[0-9]]
             if (ss[0] == '[' && re[start] == ']') {
                 ss = ss.substr(1, ss.length()-2);
+		        sub_flags = sub_flags.substr(1, sub_flags.length()-2);
             }
             s = ss + s;
+	        curr_flags = sub_flags + curr_flags;
             idx = get<1>(sub_s);
         }
-        return tuple<string, int>{end + s + re[start], idx - 1};
+	    curr_flags = flags[idx] + curr_flags + flags[start];
+        return tuple<string, int, string>{end + s + re[start], idx - 1, curr_flags};
     } else if (re[start] == '}') {
         int counters[2] = {0, 0};
         // extract the counters
         int idx = get_counters(re, start - 1, counters);
         // parse the group that needs to be repeated
-        tuple<string, int> sub_s = expand_sub_regex(re, idx);
+        tuple<string, int, string> sub_s = expand_sub_regex(re, idx, flags);
         // replicate the group
         string s = "";
+	    string curr_flags = "";
+        string repeat_flag = curr_flags + flags[start];
         // repetition from the first counter
         for (int i = 0; i < counters[0]; i++) {
             s += get<0>(sub_s);
+	        curr_flags += get<2>(sub_s);
             counters[1] -= 1;
         }
         string rest = "";
+	    string rest_flags = "";
         // repetition from the second counter
         for (int i = 0; i < counters[1]; i++) {
-            rest = "(" + get<0>(sub_s) + rest + ")?"; 
+            rest = "(" + get<0>(sub_s) + rest + ")?";
+	        rest_flags = repeat_flag + get<2>(sub_s) + rest_flags + repeat_flag + repeat_flag;
         }
         s += rest;
-        return tuple<string, int>{s, get<1>(sub_s)};
+        curr_flags += rest_flags;
+        return tuple<string, int, string>{s, get<1>(sub_s), curr_flags};
     } else if (re[start] == '+') {
-        tuple<string, int> sub_s = expand_sub_regex(re, start-1);
+        tuple<string, int, string> sub_s = expand_sub_regex(re, start-1, flags);
         string s = get<0>(sub_s);
-        return tuple<string, int>{s + s + "*", get<1>(sub_s)};
+        string curr_flags = get<2>(sub_s);
+        return tuple<string, int, string>{s + s + "*", get<1>(sub_s), curr_flags + curr_flags + flags[start]};
     } else if (start > 0 && re[start-1] == '\\') {
         // character escaping
         string s = escape_char(re[start]);
-        return tuple<string, int>{s, start - 2};
+        string curr_flags = "";
+        for (int si = 0; si < (int)s.length(); si++) {
+            curr_flags += flags[start];   
+        }
+        return tuple<string, int, string>{s, start - 2, curr_flags};
     } else {
         // normal chracter
         string s = ""; 
-        return tuple<string, int>{s + re[start], start - 1};    
+        return tuple<string, int, string>{s + re[start], start - 1, s + flags[start]};
     }
 
 }
@@ -124,15 +140,26 @@ tuple<string, int> expand_sub_regex(string re, int start) {
 Combines the results from each group found by
 `expand_sub_regex` into a single pattern.
 */
-string expand_regex(string re) {
+tuple<string, string> expand_regex(string re, string flags) {
     int start = re.length() - 1;
+    // if there are no flags passed initialize them
+    // to be the same length as the string
+    if (flags.length() == 0) {
+        flags = "";
+        for (int si = 0; si < (int)re.length(); si++)
+            flags = "." + flags;
+    }
+    assert(re.length() == flags.length());
     string s = "";
+    string f = "";
     while (start >= 0) {
-        tuple<string, int> sub_s = expand_sub_regex(re, start);
+        tuple<string, int, string> sub_s = expand_sub_regex(re, start, flags);
         s = get<0>(sub_s) + s;
+        f = get<2>(sub_s) + f;
         start = get<1>(sub_s);
     }
-    return s;
+    assert(s.length() == f.length());
+    return tuple<string, string>{s, f};
 
 }
 
@@ -213,58 +240,3 @@ set<string> split_regex(string &str, int* or_positions, int start, int end) {
 
 }
 
-/**
- Marks each state that is a part of a grouped set of states with 1.
- 
- groups[s] = 0 (none),
-            1 (s belongs to a grouped state),
-            2 (or split: s is the first state after ( or first after |)
-            3 (both 1 and 2)
-*/
-void group_states(const char* re, int* groups) {
-    int re_len = strlen(re);
-    int i = 0;
-    while (i < re_len) {
-        if (re[i] == '(' && i + 2 < re_len && re[i+1] == '?' && re[i+2] == 'G') {
-            int j = i + 3;
-            int bracket_count = 1;
-            while (j < re_len) {
-                if (re[j] == '(')
-                    bracket_count += 1;
-                else if (re[j] == ')')
-                    bracket_count -= 1;
-                if (bracket_count == 0)
-                    break;
-                groups[j] |= 1;
-                j++;
-            }
-            i = j;
-        }
-        i++;
-    }
-}
-
-/**
- Marks the first state of each option in an or_group with 2.
- This function can operate on the same `groups` array as the
- `group_states` function above.
-
- groups[s] = 0 (none),
-            1 (s belongs to a grouped state),
-            2 (or split: s is the first state after ( or first after |)
-            3 (both 1 and 2)
-*/
-void mark_or_groups(const char* re, int* groups, int* or_positions, int* next_state) {
-    int re_len = strlen(re);
-    for (int state = 0; state < re_len; state++) {
-        if (re[state] == '(' && state + 2 < re_len && re[state+1] == '?' && re[state+2] == 'S') {
-            int idx = state;
-            while (re[idx] != ')') {
-                groups[next_state[idx]] |= 2;
-                idx = or_positions[idx];
-            }
-        }
-        
-    }
-    
-}

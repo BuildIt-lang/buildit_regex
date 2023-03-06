@@ -42,7 +42,8 @@ bool run_matcher(MatchFunction* funcs, const char* str, int n_threads) {
 */
 int compile_and_run(string str, string regex, MatchType match_type, int n_threads, string flags) {
     // simplify the regex
-    string parsed_re = expand_regex(regex);
+    tuple<string, string> parsed = expand_regex(regex);
+    string parsed_re = get<0>(parsed);
     int re_len = parsed_re.length();
     const int cache_size = (re_len + 1) * (re_len + 1);
     std::unique_ptr<int> cache(new int[cache_size]);
@@ -63,7 +64,8 @@ int compile_and_run(string str, string regex, MatchType match_type, int n_thread
 */
 int compile_and_run_decomposed(string str, string regex, MatchType match_type, int n_threads, string flags) {
     // simplify the regex and decompose it into parts based on | chars
-    string parsed_re = expand_regex(regex);
+    tuple<string, string> parsed = expand_regex(regex);
+    string parsed_re = get<0>(parsed);
     int* or_positions = new int[parsed_re.length()];
     get_or_positions(parsed_re, or_positions);
     set<string> regex_parts = split_regex(parsed_re, or_positions, 0, parsed_re.length() - 1);
@@ -88,7 +90,8 @@ int compile_and_run_partial(string str, string regex, string flags) {
        return 1;
     // simplify the regex
     regex = regex + ".*";
-    string parsed_re = expand_regex(regex);
+    tuple<string, string> parsed = expand_regex(regex);
+    string parsed_re = get<0>(parsed);
     const char* re = parsed_re.c_str();
     int re_len = parsed_re.length();
     const int cache_size = (re_len + 1) * (re_len + 1);
@@ -124,7 +127,8 @@ int partial_match_loop(const char* str, int str_len, int stride, MatchFunction f
 */
 vector<string> get_all_partial_matches(string str, string regex, string flags) {
     // parse regex and cache state transitions
-    string parsed_re = expand_regex(regex);
+    tuple<string, string> parsed = expand_regex(regex);
+    string parsed_re = get<0>(parsed);
     int re_len = parsed_re.length();
     const int cache_size = (re_len + 1) * (re_len + 1);
     std::unique_ptr<int> cache(new int[cache_size]);

@@ -12,17 +12,6 @@ bool is_digit(char m) {
 }
 
 
-/**
- Check if re[idx] is followed by ?S for or splits.
-*/
-bool is_special_group(const char* re, int idx) {
-    return is_group_type(re, idx, 'S') || is_group_type(re, idx, 'G');
-}
-
-bool is_group_type(const char* re, int idx, char type) {
-    return (re[idx] == '(') && (idx + 3 < (int)strlen(re)) && (re[idx+1] == '?') && (re[idx+2] == type);
-}
-
 
 /**
 It returns whether `re` is a valid regular expression.
@@ -69,9 +58,6 @@ bool process_re(const char *re, ReStates re_states) {
         // find the next character/state from re that should be matched
         if (idx == re_len - 1) {
             re_states.next[idx] = idx + 1;
-        } else if (idx > 1 && is_special_group(re, idx-2)) {
-            // jump over ?S - it shouldn't be treated as a state
-            idx = idx - 1;
         } else if (c == '|') {
             re_states.next[idx] = idx + 1;
             re_states.helper_states[idx] = or_indices.back();
@@ -96,8 +82,7 @@ bool process_re(const char *re, ReStates re_states) {
 				last_bracket = -1;
 			}
         } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?') {
-            // skip ?S after (
-            int next_i = (is_special_group(re, idx)) ? idx + 3 : idx + 1;
+            int next_i = idx + 1;
             char next_c = re[next_i];
             if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[') {
                 re_states.next[idx] = next_i;   
@@ -107,12 +92,6 @@ bool process_re(const char *re, ReStates re_states) {
             } else {
                 cout << "Invalid character: " << next_c << endl;
                 return false;
-            }
-            // copy the next state for ?S to be the same
-            // as the next state of the ( before ?S
-            if (is_special_group(re, idx)) {
-                re_states.next[idx+1] = re_states.next[idx];
-                re_states.next[idx+2] = re_states.next[idx];
             }
         } else {
             cout << "Invalid character: " << c << endl;
@@ -127,44 +106,42 @@ bool process_re(const char *re, ReStates re_states) {
 /**
 Updates the cache with all the reachable states from the state p.
 */
-void progress(const char *re, ReStates re_states, int p, Cache cache, bool or_group) {
+void progress(const char *re, ReStates re_states, int p, Cache cache) {
     const int re_len = strlen(re);
 
     unsigned int ns = (p == -1) ? 0 : (unsigned int)re_states.next[p];
     
     // if the state is a part of | group mark it with |
     // this helps later when splitting the matching into mupltiple functions
-    char val = (or_group) ? '|' : 1;
     
     if (strlen(re) == ns) {
-        cache.temp_states[ns] = val;
+        cache.temp_states[ns] = true;
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         if ('*' == re[ns+1] || '?' == re[ns+1]) {
             // we can also skip this char
-            progress(re, re_states, ns+1, cache, false);
+            progress(re, re_states, ns+1, cache);
         }
-        cache.temp_states[ns] = val;
+        cache.temp_states[ns] = true;
     } else if ('*' == re[ns]) { // can match char p again
         int prev_state = (re[ns-1] == ')' || re[ns-1] == ']') ? re_states.brackets[ns-1] : ns - 1;
-        progress(re, re_states, prev_state-1, cache, false);
+        progress(re, re_states, prev_state-1, cache);
     } else if ('[' == re[ns]) {
 //        int curr_idx = ns + 1;
         if (re_states.brackets[ns] < (int)strlen(re) - 1 && ('*' == re[re_states.brackets[ns]+1] || '?' == re[re_states.brackets[ns]+1]))
             // allowed to skip []
-            progress(re, re_states, re_states.brackets[ns]+1, cache, false);
-        cache.temp_states[ns] = val;
+            progress(re, re_states, re_states.brackets[ns]+1, cache);
+        cache.temp_states[ns] = true;
     } else if ('(' == re[ns]) {
         int or_index = re_states.helper_states[ns];
-        bool split_group = is_group_type(re, ns, 'S');
-        progress(re, re_states, ns, cache, (re[or_index] == '|' && split_group)); // char right after (
+        progress(re, re_states, ns, cache); // char right after (
         // start by trying to match the first char after each |
         while (or_index != re_states.brackets[ns]) {
-            progress(re, re_states, or_index, cache, split_group);
+            progress(re, re_states, or_index, cache);
             or_index = re_states.helper_states[or_index];
         } 
         // if () are followed by *, it's possible to skip the () group
         if (re_states.brackets[ns] < (int)strlen(re) - 1 && ('*' == re[re_states.brackets[ns]+1] || '?' == re[re_states.brackets[ns]+1]))
-            progress(re, re_states, re_states.brackets[ns]+1, cache, false);
+            progress(re, re_states, re_states.brackets[ns]+1, cache);
     }
 
     // only update the cache at the bottom recursive call
@@ -192,7 +169,7 @@ the re_len+1 states corresponding to the characters in `re`
 First, extracts useful information about the regex like bracket or |
 locations, and then fills `next` by calling progress for each state.
 */
-void cache_states(const char* re, int* next, int* flags) {
+void cache_states(const char* re, int* next) {
     int re_len = (int)strlen(re);
     
     // initialize arrays for caching
@@ -220,23 +197,9 @@ void cache_states(const char* re, int* next, int* flags) {
     // for each state, fill the cache with the states
     // that can be reached starting from that state
     for (int state = -1; state < re_len; state++) {
-        progress(re, re_states, state, cache, false);   
+        progress(re, re_states, state, cache);   
         reset_array(cache.temp_states, re_len + 1);
     }
-
-    // depending on the schedule we might need to
-    // flag each state whether it belongs to an or group
-    // or to a grouped set of states
-    if (flags != nullptr) {
-        // initialize all the flags to 0
-        for (int s = 0; s < re_len; s++) {
-            flags[s] = 0; 
-        }
-        group_states(re, flags);
-        mark_or_groups(re, flags, re_states.helper_states, re_states.next);
-    }
-
-
 
     delete[] re_states.next;
     delete[] re_states.brackets;

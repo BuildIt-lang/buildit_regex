@@ -2,29 +2,30 @@
 
 Schedule get_schedule_options(string regex, RegexOptions regex_options) {
     Schedule options;
-    options.or_split = regex.find("(?S") != string::npos;
-    options.state_group = regex.find("(?G") != string::npos;
+    options.or_split = regex_options.flags.find("s") != string::npos;
+    options.state_group = regex_options.flags.find("g") != string::npos;
     options.interleaving_parts = regex_options.interleaving_parts;
     options.ignore_case = regex_options.ignore_case;
     return options;
 }
 
-pair<Matcher, int> compile(string regex, RegexOptions flags, MatchType match_type) {
+pair<Matcher, int> compile(string regex, RegexOptions options, MatchType match_type) {
     // regex preprocessing
-    string parsed_regex = expand_regex(regex);
+    tuple<string, string> parsed = expand_regex(regex, options.flags);
+    string parsed_regex = get<0>(parsed);
+    string parsed_flags = get<1>(parsed);
     const char* regex_cstr = parsed_regex.c_str();
     int re_len = parsed_regex.length();
     
     // get schedule
-    Schedule schedule = get_schedule_options(regex, flags);
+    Schedule schedule = get_schedule_options(regex, options);
     bool partial = (match_type == MatchType::PARTIAL_SINGLE);
     
     // precompute state transitions
     // mark grouped states and or groups
     int cache_size = (re_len + 1) * (re_len + 1);
     int* cache = new int[cache_size];
-    int* groups = new int[re_len];
-    cache_states(regex_cstr, cache, groups);
+    cache_states(regex_cstr, cache);
 
     // data for or_split
     set<int> working_set, done_set;
@@ -40,7 +41,7 @@ pair<Matcher, int> compile(string regex, RegexOptions flags, MatchType match_typ
         builder::builder_context context;
         context.feature_unstructured = true;
         context.run_rce = true;
-        auto ast = context.extract_function_ast(match_with_schedule, fname, regex_cstr, first_state, working_set, done_set, partial, cache, 0, schedule, groups);
+        auto ast = context.extract_function_ast(match_with_schedule, fname, regex_cstr, first_state, working_set, done_set, partial, cache, 0, schedule, parsed_flags.c_str());
         functions.push_back(ast);
     }
     
@@ -48,13 +49,12 @@ pair<Matcher, int> compile(string regex, RegexOptions flags, MatchType match_typ
     builder::builder_context ctx;
     Matcher func = (Matcher)builder::compile_asts(ctx, functions, "match_0");
     delete[] cache;
-    delete[] groups;
 
     return make_pair(func, re_len);    
 }
 
-int match(string regex, string str, RegexOptions flags, MatchType match_type) {
-    pair<Matcher, int> matcher = compile(regex, flags, match_type);
+int match(string regex, string str, RegexOptions options, MatchType match_type) {
+    pair<Matcher, int> matcher = compile(regex, options, match_type);
     int re_len = matcher.second;
     Matcher func = matcher.first;
     

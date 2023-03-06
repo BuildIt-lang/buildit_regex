@@ -235,21 +235,21 @@ void test_ignore_case() {
 }
 
 void test_expand_regex() {
-    string res = expand_regex(string("abc"));
+    string res = get<0>(expand_regex(string("abc")));
     cout << res << " " << res.compare(string("abc")) << endl;
-    string res1 = expand_regex(string("a{5}"));
+    string res1 = get<0>(expand_regex(string("a{5}")));
     cout << res1 << " " << res1.compare(string("aaaaa")) << endl;
-    string res2 = expand_regex(string("(abc){5}"));
+    string res2 = get<0>(expand_regex(string("(abc){5}")));
     cout << res2 << " " << res2.compare(string("(abc)(abc)(abc)(abc)(abc)")) << endl;
-    string res3 = expand_regex(string("((abc){3}4){2}"));
+    string res3 = get<0>(expand_regex(string("((abc){3}4){2}")));
     cout << res3 << " " << res3.compare(string("((abc)(abc)(abc)4)((abc)(abc)(abc)4)")) << endl;
-    string res4 = expand_regex(string("((3|4){1}[bc]{5}){2}"));
+    string res4 = get<0>(expand_regex(string("((3|4){1}[bc]{5}){2}")));
     cout << res4 << " " << res4.compare("((3|4)[bc][bc][bc][bc][bc])((3|4)[bc][bc][bc][bc][bc])") << endl;
-    string res5 = expand_regex(string("a(bc)*"));
+    string res5 = get<0>(expand_regex(string("a(bc)*")));
     cout << res5 << " " << res5.compare(string("a(bc)*")) << endl;
-    string res6 = expand_regex(string("a(bc){2,5}"));
+    string res6 = get<0>(expand_regex(string("a(bc){2,5}")));
     cout << res6 << " " << res6.compare(string("a(bc)(bc)(bc)?(bc)?(bc)?")) << endl;
-    string res7 = expand_regex(string("(ab|(cd|ef){2}|4)"));
+    string res7 = get<0>(expand_regex(string("(ab|(cd|ef){2}|4)")));
     cout << res7 << " " << res7.compare("(ab|(cd|ef)(cd|ef)|4)") << endl;
 }
 

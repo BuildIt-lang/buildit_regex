@@ -6,15 +6,14 @@
 #include <vector>
 #include <set>
 #include <cstring>
+#include <assert.h>
 
 using namespace std;
 
 int get_counters(string re, int idx, int *counters);
 string escape_char(char c);
-string expand_regex(string re);
-tuple<string, int> expand_sub_regex(string re, int start);
+tuple<string, string> expand_regex(string re, string flags = "");
+tuple<string, int, string> expand_sub_regex(string re, int start, string flags);
 void get_or_positions(string &str, int* positions);
 set<string> split_regex(string &str, int* or_positions, int start, int end);
-void group_states(const char* re, int* groups);
-void mark_or_groups(const char* re, int* groups, int* or_positions, int* next_state);
 #endif

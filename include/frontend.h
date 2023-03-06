@@ -10,6 +10,7 @@
 #include "parse.h"
 #include "all_partial.h"
 #include "match_with_schedule.h"
+#include <tuple>
 
 using namespace std;
 

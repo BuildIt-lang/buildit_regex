@@ -1,17 +1,17 @@
 #include "match_with_schedule.h"
 
-bool is_in_group(int index, int* groups, int re_len) {
-    return index < re_len && (groups[index] & 1);
+bool is_in_group(int index, const char* flags, int re_len) {
+    return index < re_len && (flags[index] == 'g');
 }
 
-void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* static_states, int* groups, int* cache, int p, int re_len, bool update) {
+void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
     for (static_var<int> i = 0; i < re_len + 1; i = i + 1) {
         static_var<char> cache_val = cache[(p+1) * (re_len + 1) + i];
         if (!cache_val)
             continue;
-        bool grouped = is_in_group(i, groups, re_len);
+        bool grouped = is_in_group(i, flags, re_len);
         if (grouped) {
             dyn_states[i] = cache_val;
         } else {
@@ -20,11 +20,11 @@ void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* stati
     }    
 }
 
-void update_states(Schedule options, dyn_var<char*> dyn_states, static_var<char>* static_states, int* groups, int* cache, int p, int re_len, bool update) {
+void update_states(Schedule options, dyn_var<char*> dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
     if (options.state_group) {
-        update_groups_from_cache(dyn_states, static_states, groups, cache, p, re_len, update);    
+        update_groups_from_cache(dyn_states, static_states, flags, cache, p, re_len, update);    
     } else {
         update_from_cache(static_states, cache, p, re_len, update);    
     }
@@ -41,7 +41,7 @@ dyn_var<int> spawn_matcher(dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int
     return branch_func(str, str_len, str_start, dyn_current, dyn_next);
 }
 
-dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> &working_set, std::set<int> &done_set, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, bool enable_partial, int* cache, int match_index, Schedule options, int* groups, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next) {
+dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> &working_set, std::set<int> &done_set, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, bool enable_partial, int* cache, int match_index, Schedule options, const char* flags, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next) {
 
     const int re_len = strlen(re);
     bool ignore_case = options.ignore_case;
@@ -59,7 +59,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     }
 
     // activate the initial states
-    update_states(options, dyn_current, current.get(), groups, cache, first_state-1, re_len, true);
+    update_states(options, dyn_current, current.get(), flags, cache, first_state-1, re_len, true);
     
     static_var<int> mc = 0;
     while (to_match < str_len) {
@@ -74,9 +74,9 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             // only update current from the cache if update is set to 1
             // if current[state] == '|' we don't want to update from this
             // state, instead we are going to spawn a new function
-            bool grouped = options.state_group && is_in_group(state, groups, re_len);
+            bool grouped = options.state_group && is_in_group(state, flags, re_len);
             //bool update = !(options.or_split && current[state] == '|');
-            bool update = !(options.or_split && (groups[state] & 2) == 2);
+            bool update = !(options.or_split && (flags[state] & 2) == 2);
             // check if there is a match for this state
             static_var<int> state_match = 0;
             if ((!grouped && current[state]) || (grouped && (bool)dyn_current[state])) {
@@ -85,7 +85,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     if (-1 == early_break) {
                         // Normal character
                         if (match_char(str[to_match], m, ignore_case)) {
-                            update_states(options, dyn_next, next.get(), groups, cache, state, re_len, update);
+                            update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -96,11 +96,11 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        update_states(options, dyn_next, next.get(), groups, cache, state, re_len, update);
+                        update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    update_states(options, dyn_next, next.get(), groups, cache, state, re_len, update);
+                    update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
                     state_match = 1;
                 } else if ('[' == m) {
                     // we are inside a [...] class
@@ -129,7 +129,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     }
 		            if ((inverse == 1 && matches == 0) || (inverse == 0 && matches == 1)) {
                         state_match = 1;
-                        update_states(options, dyn_next, next.get(), groups, cache, state, re_len, update);
+                        update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
                     }
                 } else {
                     //printf("Invalid Character(%c)\n", (char)m);
@@ -140,7 +140,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             // and it is the first state in one of the options in an or group
             // create and call a new function
             //if (options.or_split && state_match && current[state] == '|') {
-            if (options.or_split && state_match && (groups[state] & 2) == 2) {
+            if (options.or_split && state_match && (flags[state] & 2) == 2) {
                 if (spawn_matcher(str, str_len, to_match+1, dyn_current, dyn_next, state+1, working_set, done_set)) {
                     return 1;    
                 }
@@ -154,7 +154,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             // that starts from the beginning of the string;
             // no other partial match will do
 			if (mc == match_index) {
-                update_states(options, dyn_next, next.get(), groups, cache, -1, re_len, true);
+                update_states(options, dyn_next, next.get(), flags, cache, -1, re_len, true);
             }
 			mc = (mc + 1) % n_threads;
 		}
@@ -168,7 +168,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         }
         if (options.state_group) {
             for (static_var<int> i = 0; i < re_len + 1; i++) {
-                if (is_in_group(i, groups, re_len)) {
+                if (is_in_group(i, flags, re_len)) {
                     dyn_current[i] = dyn_next[i];
                     dyn_next[i] = 0;
                 }    
