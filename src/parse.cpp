@@ -77,12 +77,12 @@ tuple<string, int, string> expand_sub_regex(string re, int start, string flags) 
             tuple<string, int, string> sub_s = expand_sub_regex(re, idx, flags);
             string ss = get<0>(sub_s);
 	        string sub_flags = get<2>(sub_s);
-            // we can't have nested []
+            /*// we can't have nested []
             // e.g. [\d] should parse to [0-9] not [[0-9]]
             if (ss[0] == '[' && re[start] == ']') {
                 ss = ss.substr(1, ss.length()-2);
 		        sub_flags = sub_flags.substr(1, sub_flags.length()-2);
-            }
+            }*/
             s = ss + s;
 	        curr_flags = sub_flags + curr_flags;
             idx = get<1>(sub_s);

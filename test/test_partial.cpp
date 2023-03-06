@@ -173,6 +173,10 @@ void test_escaping(MatchType type) {
     compare_result("\\Da\\Wbc\\S", "aa3bc_", "", type);
     compare_result("\\Dabc\\S", "aabc_00", "", type);
     compare_result("\\da\\wbc\\s", "a7a_bc cc", "", type);
+    
+    compare_result("ab[\\Dcd]", "aaabc22", "", type);
+    compare_result("ab[\\ddcd]", "11ab922", "", type);
+    compare_result("[\\W34]", "aa3bb", "", type);
 }
 
 void test_partial(MatchType type) {

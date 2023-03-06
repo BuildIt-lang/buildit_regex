@@ -102,31 +102,8 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
                     state_match = 1;
                 } else if ('[' == m) {
-                    // we are inside a [...] class
-                    static_var<int> idx = state + 1;
-					static_var<int> inverse = 0;
-		            if ('^' == re[idx]) {
-                        inverse = 1;
-			            idx = idx + 1;
-          		    }
-
-					dyn_var<int> matches = 0;
-                    // check if str[to_match] matches any of the chars in []
-                    while (re[idx] != ']') {
-                        if (re[idx] == '-') {
-                            // this is used for ranges, e.g. [a-d]
-                            bool in_range = is_in_range(re[idx-1], re[idx+1], str[to_match], ignore_case);
-                            if (in_range) {
-                                matches = 1;
-                                break;
-                            }
-                        } else if (match_char(str[to_match], re[idx], ignore_case)) {
-                            matches = 1;
-                            break;
-                        }
-                        idx = idx + 1;
-                    }
-		            if ((inverse == 1 && matches == 0) || (inverse == 0 && matches == 1)) {
+		            dyn_var<int> matched = match_class(str[to_match], re, state, ignore_case);
+                    if (matched) {
                         state_match = 1;
                         update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
                     }

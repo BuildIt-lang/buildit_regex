@@ -58,6 +58,52 @@ int is_alpha(char c) {
     return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');  
 }
 
+/**
+ Returns true if the character class starting at index `state` in `re`
+ matches the character `c` in the input string. Otherwise returns false.
+*/
+dyn_var<int> match_class(dyn_var<char> c, const char* re, int state, bool ignore_case) {
+    static_var<int> idx = state + 1;
+    // ^ means we are looking for an inverse match
+    static_var<int> inverse = 0;
+    if ('^' == re[idx]) {
+        inverse = 1;
+        idx = idx + 1;
+    }
+    // keep track of open brackets;
+    // due to recursion, only match chars from the
+    // top level [] i.e. if open == 1
+    static_var<int> open = 1;
+
+    dyn_var<int> matches = 0;
+    // check if c matches any of the chars in []
+    while (open > 0) {
+        if (re[idx] == '[') {
+            open++;
+            // in case of nested [] keep matching recursively
+            if (match_class(c, re, idx, ignore_case)) {
+                matches = 1;
+                break;
+            }
+        } else if (re[idx] == ']') {
+            open--;    
+        } else if (open == 1 && re[idx] == '-') {
+            // this is used for ranges, e.g. [a-d]
+            bool in_range = is_in_range(re[idx-1], re[idx+1], c, ignore_case);
+            if (in_range) {
+                matches = 1;
+                break;
+            }
+        } else if (open == 1 && match_char(c, re[idx], ignore_case)) {
+            // normal match
+            matches = 1;
+            break;
+        }
+        idx = idx + 1;
+    }
+    return (inverse == 1 && matches == 0) || (inverse == 0 && matches == 1);
+}
+
 
 /**
 Matches each character in `str` one by one.
@@ -112,31 +158,8 @@ dyn_var<int> match_regex(const char* re, dyn_var<char*> str, dyn_var<int> str_le
                     update_from_cache(next.get(), cache, state, re_len);
                     state_match = 1;
                 } else if ('[' == m) {
-                    // we are inside a [...] class
-                    static_var<int> idx = state + 1;
-					static_var<int> inverse = 0;
-		            if ('^' == re[idx]) {
-                        inverse = 1;
-			            idx = idx + 1;
-          		    }
-
-					dyn_var<int> matches = 0;
-                    // check if str[to_match] matches any of the chars in []
-                    while (re[idx] != ']') {
-                        if (re[idx] == '-') {
-                            // this is used for ranges, e.g. [a-d]
-                            bool in_range = is_in_range(re[idx-1], re[idx+1], str[to_match], ignore_case);
-                            if (in_range) {
-                                matches = 1;
-                                break;
-                            }
-                        } else if (match_char(str[to_match], re[idx], ignore_case)) {
-                            matches = 1;
-                            break;
-                        }
-                        idx = idx + 1;
-                    }
-		            if ((inverse == 1 && matches == 0) || (inverse == 0 && matches == 1)) {
+		            dyn_var<int> matched = match_class(str[to_match], re, state, ignore_case);
+                    if (matched) {
                         state_match = 1;
                         update_from_cache(next.get(), cache, state, re_len);
                     }

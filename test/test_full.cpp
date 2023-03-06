@@ -195,6 +195,8 @@ void test_escaping(MatchType type) {
     compare_result("\\Dabc\\S", "aabc_", "", type);
     compare_result("\\da\\wbc\\s", "7a_bc ", "", type);
     compare_result("ab[\\Dcd]", "abc", "", type);
+    compare_result("ab[\\ddcd]", "ab9", "", type);
+    compare_result("[\\W34]", "3", "", type);
 }
 
 void test_ignore_case(MatchType type) {

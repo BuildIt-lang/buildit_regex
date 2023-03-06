@@ -50,14 +50,14 @@ void expand_flags_tests() {
     // ignore case inside []
     re = "ab[\\dcd]";
     flags = "...gg...";
-    // ab[0-9cd]
-    expected = "...ggg...";
+    // ab[[0-9]cd]
+    expected = "...ggggg...";
     test_flag_expand(re, flags, expected);
 
     re = "ab[\\dcd]";
     flags = "..gggggg";
-    // ab[0-9cd]
-    expected = "..ggggggg";
+    // ab[[0-9]cd]
+    expected = "..ggggggggg";
     test_flag_expand(re, flags, expected);
 
     // or split
@@ -209,6 +209,7 @@ void test_or_split(MatchType type) {
     compare_result("(bc|de|[23]*)", "abac23a", ".s..s..ssss..", type);
     compare_result("a(bc|de|[23]*)", "a111", "..s..s..ssss..", type);
     compare_result("a(bc|de|[23]+)", "abcd", "..s..s..ssss..", type);
+    compare_result("a(bc|de|[\\dab]+)", "abc34", "..s..s..ssssss..", type);
     compare_result("a(bc|de|[23]+)", "a2332bc", "..s..s..ssss..", type);
     compare_result("a(bc|de|[23]?)", "a2323", "..s..s..ssss..", type);
     compare_result("(ab|(cd|ef)|dd)", "efffdd", ".....s..s......", type);

@@ -30,19 +30,20 @@ so on, the last `|` has the index of `)`
 */
 bool process_re(const char *re, ReStates re_states) {
     int re_len = (int)strlen(re);
-    vector<int> closed_parans; 
-    int last_bracket = -1;
+    vector<int> closed_parans;
+    vector<int> closed_brackets;
     vector<int> or_indices;
     int idx = re_len - 1;
     while (idx >= 0) {
         char c = re[idx];
 
         // keep track of () and [] pairs
-        if (c == ']') last_bracket = idx;
+        if (c == ']') closed_brackets.push_back(idx);
         else if (c == ')') {
             closed_parans.push_back(idx);
             or_indices.push_back(idx);
         } else if (c == '[') {
+            int last_bracket = closed_brackets.back();
             re_states.brackets[idx] = last_bracket;
             re_states.brackets[last_bracket] = idx;
         } else if (c == '(') {
@@ -74,12 +75,12 @@ bool process_re(const char *re, ReStates re_states) {
             } else {
                 re_states.next[idx] = re_states.next[closed_parans.back()];
             }
-        } else if (c != ']' && last_bracket != -1) {
+        } else if (c != ']' && closed_brackets.size() > 0) {
             // we are inside brackets
             // all chars map to the same state as the closing bracket
-            re_states.next[idx] = re_states.next[last_bracket];
+            re_states.next[idx] = re_states.next[closed_brackets.back()];
 			if (c == '[') {
-				last_bracket = -1;
+                closed_brackets.pop_back();
 			}
         } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?') {
             int next_i = idx + 1;
