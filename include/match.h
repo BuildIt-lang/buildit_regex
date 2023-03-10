@@ -7,6 +7,7 @@
 #include "builder/dyn_var.h"
 #include "builder/static_var.h"
 #include "blocks/c_code_generator.h"
+#include "builder/lib/utils.h"
 #include <stdlib.h>
 #include <vector>
 

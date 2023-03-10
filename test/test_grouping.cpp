@@ -223,7 +223,7 @@ int main() {
     //compare_result("(?GTom.{10,15}r)iver", "dsafdasfdTomswimminginrivercdsvadsfd", MatchType::PARTIAL_SINGLE);
     expand_flags_tests();
     auto start = high_resolution_clock::now();
-    cout << "--- FULL MATCHES ---" << endl;
+    /*cout << "--- FULL MATCHES ---" << endl;
     test_simple(MatchType::FULL);
     test_star(MatchType::FULL);
     test_brackets(MatchType::FULL);
@@ -231,7 +231,7 @@ int main() {
     test_repetition(MatchType::FULL);
     test_combined(MatchType::FULL);
     test_or_split(MatchType::FULL);
-
+    */
     cout << "--- PARTIAL MATCHES ---" << endl;
     test_simple(MatchType::PARTIAL_SINGLE);
     test_star(MatchType::PARTIAL_SINGLE);

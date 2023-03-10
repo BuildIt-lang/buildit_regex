@@ -14,6 +14,7 @@
 #include "parse.h"
 #include "frontend.h"
 #include <pcrecpp.h>
+#include "compile.h"
 
 using namespace std;
 using namespace re2;
@@ -99,9 +100,9 @@ std::string generate_random_text(int64_t nbytes) {
     return text->substr(0, nbytes);
 }
 
-void time_compare(const vector<string> &patterns, const vector<string> &strings, int n_iters, MatchType match_type, const vector<int> &n_funcs, const vector<int>& decompose) {
+void time_compare(const vector<string> &patterns, const vector<string> &strings, int n_iters, MatchType match_type, const vector<RegexOptions> &options) {
     // pattern compilation
-    vector<MatchFunction**> buildit_patterns;
+    vector<vector<Matcher>> buildit_patterns;
     vector<int> sub_parts; // sizes of the regex parts
     vector<unique_ptr<RE2>> re2_patterns;
 	vector<pcrecpp::RE> pcre_patterns;
@@ -111,56 +112,12 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     cout << endl << "COMPILATION TIMES" << endl << endl;
     for (int i = 0; i < patterns.size(); i++) {
         cout << "--- " << patterns[i] << " ---" << endl;
-        int n_threads = (match_type == MatchType::PARTIAL_SINGLE) ? n_funcs[i] : 1;
-        
-        // buildit
-        // parse regex
-        string processed_re = expand_regex(patterns[i]);
-        set<string> regex_parts = {processed_re};
-
-        if (decompose[i] && match_type == MatchType::PARTIAL_SINGLE) {
-            // decompose the regex into or groups
-            int* or_positions = new int[processed_re.length()];
-            get_or_positions(processed_re, or_positions);
-            regex_parts = split_regex(processed_re, or_positions, 0, processed_re.length()-1);
-            delete[] or_positions;
-        }
-
-        sub_parts.push_back(regex_parts.size());
-        MatchFunction** all_funcs = new MatchFunction*[regex_parts.size()];
         auto start = high_resolution_clock::now();
-        int rid = 0;
-        // generate n_threads functions for each regex part
-        for (string re: regex_parts) {
-
-            // cache the state transitions
-            const int re_len = re.length();
-            const int cache_size = (re_len + 1) * (re_len + 1); 
-            std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
-            int* cache = cache_states_ptr.get();
-            cache_states(re.c_str(), cache);
-            MatchFunction* funcs = new MatchFunction[n_threads];
-            all_funcs[rid] = funcs;
-
-            // generate a function for each thread
-            for (int tid = 0; tid < n_threads; tid++) {    
-                builder::builder_context context;
-                context.feature_unstructured = true;
-                context.run_rce = true;
-                bool partial = (match_type == MatchType::PARTIAL_SINGLE);
-                MatchFunction func;
-                if (match_type == MatchType::PARTIAL_ALL) {
-                    func = (MatchFunction)builder::compile_function_with_context(context, get_partial_match, re.c_str(), cache, ignore_case);
-                } else {
-                    func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), partial, cache, tid, n_threads, ignore_case);
-                }
-                funcs[tid] = func;
-            }
-            rid++;
-        }
+        cout << "interleaving parts: " << options[i].interleaving_parts << endl;
+        vector<Matcher> func = compile(patterns[i], options[i], match_type);
         auto end = high_resolution_clock::now();
         cout << "buildit compile time: " << (duration_cast<nanoseconds>(end - start)).count() / 1e6f << "ms" << endl;
-        buildit_patterns.push_back(all_funcs);
+        buildit_patterns.push_back(func);
        
         // re2
         auto re_start = high_resolution_clock::now();
@@ -189,7 +146,6 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
     cout << endl << "MATCHING TIMES" << endl << endl;
     for (int j = 0; j < patterns.size(); j++) {
         const string& cur_string = (match_type != MatchType::FULL) ? strings[0] : strings[j];
-        int n_threads = (match_type == MatchType::FULL) ? 1 : n_funcs[j];
        
         const char* s = cur_string.c_str();
         int s_len = cur_string.length();
@@ -271,67 +227,30 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
         
         // buildit timing
         float buildit_dur;
-        int buildit_result = 0;
-        if (match_type == MatchType::PARTIAL_ALL) {
+        int buildit_result = 0; 
+        vector<Matcher> funcs = buildit_patterns[j];
+        int n_funcs = funcs.size();
+        if (n_funcs == 1) {
             auto buildit_start = high_resolution_clock::now();
             for (int i = 0; i < n_iters; i++) {
-                buildit_result = 0;
-                int start = 0;
-                while (start < s_len) {
-                    int end = buildit_patterns[j][0][0](s, s_len, start);
-                    if (end != -1 && start != end) {
-                        //mathces.push_back(str.substr(start, end_idx - i));
-                        buildit_result++;
-                        start = end;
-                    } else {
-                        start++; 
-                    }
-                }
-            
-            }
-            auto buildit_end = high_resolution_clock::now();
-            buildit_dur = (duration_cast<nanoseconds>(buildit_end - buildit_start)).count() * 1.0 / (1e6f * n_iters);
-        } else if (match_type == MatchType::FULL || !decompose[j]) {
-            auto buildit_start = high_resolution_clock::now();
-            for (int i = 0; i < n_iters; i++) {
-                if (n_threads == 1) {
-                    buildit_result = buildit_patterns[j][0][0](s, s_len, 0);
-                } else {
-                    buildit_result = false;
-                    #pragma omp parallel for
-                    for (int tid = 0; tid < n_threads; tid++) {
-                        if (buildit_patterns[j][0][tid](s, s_len, 0))
-                            buildit_result = true;
-                    }
-                }
+                buildit_result = funcs[0](s, s_len, 0);
             }
             auto buildit_end = high_resolution_clock::now();
             buildit_dur = (duration_cast<nanoseconds>(buildit_end - buildit_start)).count() * 1.0 / (1e6f * n_iters);
         } else {
             auto buildit_start = high_resolution_clock::now();
             for (int i = 0; i < n_iters; i++) {
-                if (n_threads == 1) {
-                    buildit_result = false;
-                    #pragma omp parallel for
-                    for (int rid = 0; rid < sub_parts[j]; rid++) {
-                        if (buildit_patterns[j][rid][0](s, s_len, 0))
-                            buildit_result = true;
-                    }    
-                } else {
-                    buildit_result = false;
-                    #pragma omp parallel for
-                    for (int tid = 0; tid < n_threads; tid++) {
-                        //#pragma omp parallel for
-                        for (int rid = 0; rid < sub_parts[j]; rid++) {
-                            if (buildit_patterns[j][rid][tid](s, s_len, 0))
-                                buildit_result = true;
-                        }
-                    }
+                buildit_result = 0;
+                #pragma omp parallel for
+                for (int part_id = 0; part_id < n_funcs; part_id++) {
+                    if (funcs[part_id](s, s_len, 0))
+                        buildit_result = 1;
                 }
             }
             auto buildit_end = high_resolution_clock::now();
             buildit_dur = (duration_cast<nanoseconds>(buildit_end - buildit_start)).count() * 1.0 / (1e6f * n_iters);
         }
+        
         // check correctness
 		const string& str = (match_type != MatchType::FULL) ? "<text>" : strings[j].substr(0, 10) + "...";
         if (match_type == MatchType::PARTIAL_ALL) {
@@ -360,7 +279,7 @@ void time_compare(const vector<string> &patterns, const vector<string> &strings,
 
 void optimize_partial_match_loop(string str, string pattern) {
     
-    string re = expand_regex(pattern);
+    string re = get<0>(expand_regex(pattern));
     cout << "simple re " << re << endl;
     const int re_len = re.length();
     // precompute state transitions
@@ -407,7 +326,7 @@ void time_partial_single_split_ors(string &text, int n_iters) {
         "(.{2,4}(?STom|Sawyer|Huckleberry|Finn))",
         "(?STom.{10,15}river|river.{10,15}Tom)",
     };
-    for (string re: twain_patterns) {
+    /*for (string re: twain_patterns) {
         auto start = high_resolution_clock::now();
         MatchFunction func;
         for (int n = 0; n < n_iters; n++) {
@@ -428,7 +347,7 @@ void time_partial_single_split_ors(string &text, int n_iters) {
         cout << "run time: " << run_dur << endl;
         cout << "result: " << result << endl;
         cout << endl;
-    }
+    }*/
     
 }
 
@@ -451,19 +370,39 @@ void run_twain_benchmark() {
     };
     vector<int> n_funcs = {1, 1, 2, 1, 1, 1, 1, 4, 1};
     vector<int> decompose = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    RegexOptions parallel_flags_16;
+    parallel_flags_16.interleaving_parts = 16;
+    RegexOptions or_split_flags;
+    or_split_flags.flags = ".s................s................";
+    RegexOptions parallel_flags_2;
+    RegexOptions groups;
+    groups.flags = "....gggggggg.";
+    parallel_flags_2.interleaving_parts = 2;
+    RegexOptions flags;
+    vector<RegexOptions> options = {
+        flags,
+        flags,
+        parallel_flags_2,
+        flags,
+        flags,
+        flags,
+        flags,
+        or_split_flags,
+        flags
+    };
     vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "Tom swam in the river", "swimming"};
     
     cout << "\n------- FULL MATCH -------\n" << endl;
     
-    time_compare(twain_patterns, words, n_iters, MatchType::FULL, n_funcs, decompose);
+    time_compare(twain_patterns, words, n_iters, MatchType::FULL, options);
     
     cout << "\n------- PARTIAL SINGLE -------\n" << endl;
     
-    time_compare(twain_patterns, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, n_funcs, decompose);
+    time_compare(twain_patterns, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, options);
     
-    cout << "\n------- PARTIAL SINGLE SPLIT ORS ----------\n" << endl;
+    //cout << "\n------- PARTIAL SINGLE SPLIT ORS ----------\n" << endl;
     
-    time_partial_single_split_ors(text, n_iters);
+    //time_partial_single_split_ors(text, n_iters);
 
 /*
 // trying to optimize partial matches
@@ -473,25 +412,27 @@ void run_twain_benchmark() {
         optimize_partial_match_loop(text, re + ".*");
     }*/
     
-    cout << "\n------- PARTIAL ALL -------\n" << endl;
+    //cout << "\n------- PARTIAL ALL -------\n" << endl;
 	
-    time_compare(twain_patterns, vector<string>{text}, 1, MatchType::PARTIAL_ALL, n_funcs, decompose);
+    //time_compare(twain_patterns, vector<string>{text}, 1, MatchType::PARTIAL_ALL, options);
 }
 
 void run_re2_benchmark() {
     // benchmark taken from https://swtch.com/~rsc/regexp/regexp3.html
     int n_iters = 10;
     string text = generate_random_text(1000000); 
+    RegexOptions flags;
+    vector<RegexOptions> options = {flags};
     // full match
-    time_compare(vector<string>{".*"}, vector<string>{text}, n_iters, MatchType::FULL, vector<int>{1}, vector<int>{0});
-    time_compare(vector<string>{"[0-9]+.(.*)"}, vector<string>{"650-253-0001"}, n_iters, MatchType::FULL, vector<int>{1}, vector<int>{0});
+    time_compare(vector<string>{".*"}, vector<string>{text}, n_iters, MatchType::FULL, options);
+    time_compare(vector<string>{"[0-9]+.(.*)"}, vector<string>{"650-253-0001"}, n_iters, MatchType::FULL, options);
     // partial match, no submatch
-    time_compare(vector<string>{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, vector<int>{1}, vector<int>{0});
-    time_compare(vector<string>{"[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, vector<int>{1}, vector<int>{0});
-    time_compare(vector<string>{"A[AB]B[BC]C[CD]D[DE]E[EF]F[FG]G[GH]H[HI]I[IJ]J"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, vector<int>{1}, vector<int>{0});
-    time_compare(vector<string>{"A(A|B)B(B|C)C(C|D)D(D|E)E(E|F)F(F|G)G(G|H)H(H|I)I(I|J)J"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, vector<int>{1}, vector<int>{0});
-    time_compare(vector<string>{"[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, vector<int>{1}, vector<int>{0});
-    time_compare(vector<string>{"([ -~])*(A)(B)(C)(D)(E)(F)(G)(H)(I)(J)(K)(L)(M)(N)(O)(P)(Q)(R)(S)(T)(U)(V)(W)(X)(Y)(Z)"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, vector<int>{1}, vector<int>{0});
+    time_compare(vector<string>{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, options);
+    time_compare(vector<string>{"[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, options);
+    time_compare(vector<string>{"A[AB]B[BC]C[CD]D[DE]E[EF]F[FG]G[GH]H[HI]I[IJ]J"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, options);
+    time_compare(vector<string>{"A(A|B)B(B|C)C(C|D)D(D|E)E(E|F)F(F|G)G(G|H)H(H|I)I(I|J)J"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, options);
+    time_compare(vector<string>{"[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, options);
+    time_compare(vector<string>{"([ -~])*(A)(B)(C)(D)(E)(F)(G)(H)(I)(J)(K)(L)(M)(N)(O)(P)(Q)(R)(S)(T)(U)(V)(W)(X)(Y)(Z)"}, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, options);
     // partial match, with submatch
     //optimize_partial_match_loop(text + "650 253-0001", "(\\d{3}\\s+)(\\d{3}-\\d{4}).*");
     //time_compare(vector<string>{"(\\d{3}\\s+)(\\d{3}-\\d{4})"}, vector<string>{text + "650 253-0001"}, n_iters, MatchType::PARTIAL_SINGLE, vector<int>{16}, vector<int>{0});

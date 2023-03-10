@@ -10,10 +10,11 @@ struct RegexOptions {
     int interleaving_parts = 1;
     string flags = "";
 };
-typedef int (*Matcher) (const char*, int, int, char*, char*);
+typedef int (*Matcher) (const char*, int, int);
 
+Matcher compile_helper(const char* regex, const char* flags, bool partial, int* cache, int part_id, Schedule schedule);
 Schedule get_schedule_options(string regex, RegexOptions regex_options);
-pair<Matcher, int> compile(string regex, RegexOptions flags, MatchType match_type);
+vector<Matcher> compile(string regex, RegexOptions flags, MatchType match_type);
 int match(string regex, string str, RegexOptions flags, MatchType match_type);
 
 #endif
