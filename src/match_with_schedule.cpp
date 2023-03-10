@@ -50,16 +50,22 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
     std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
    
+    // initialize the state vector
+    for (static_var<int> i = 0; i < re_len + 1; i++) {
+        current[i] = next[i] = 0;
+    }
+
+    // allocate and initialize the dynamic state vectors
     dyn_var<char[]> dyn_current;
     dyn_var<char[]> dyn_next;
     resize_arr(dyn_current, re_len + 1);
     resize_arr(dyn_next, re_len + 1);
 
-    // initialize the state vector
-    for (static_var<int> i = 0; i < re_len + 1; i++) {
-        current[i] = next[i] = 0;
-        if (options.state_group)
-            dyn_current[i] = dyn_next[i] = 0;
+    if (options.state_group) {
+        for (static_var<int> i = 0; i < re_len + 1; i++) {
+            dyn_current[i] = 0;
+            dyn_next[i] = 0;
+        }
     }
 
     // activate the initial states
@@ -149,10 +155,8 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         }
         if (options.state_group) {
             for (static_var<int> i = 0; i < re_len + 1; i++) {
-                if (is_in_group(i, flags, re_len)) {
-                    dyn_current[i] = dyn_next[i];
-                    dyn_next[i] = 0;
-                }    
+                dyn_current[i] = dyn_next[i];
+                dyn_next[i] = 0;
             }    
             
         }
