@@ -4,7 +4,7 @@ bool is_in_group(int index, const char* flags, int re_len) {
     return index < re_len && (flags[index] == 'g');
 }
 
-void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
+void update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
     for (static_var<int> i = 0; i < re_len + 1; i = i + 1) {
@@ -20,7 +20,7 @@ void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* stati
     }    
 }
 
-void update_states(Schedule options, dyn_var<char*> dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
+void update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
     if (options.state_group) {
@@ -30,18 +30,18 @@ void update_states(Schedule options, dyn_var<char*> dyn_states, static_var<char>
     }
 }
 
-dyn_var<int> spawn_matcher(dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> str_start, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next, int start_state, std::set<int> &working_set, std::set<int> &done_set) {
+dyn_var<int> spawn_matcher(dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> str_start, int start_state, std::set<int> &working_set, std::set<int> &done_set) {
     
     if (done_set.find(start_state) == done_set.end()) {
         working_set.insert(start_state);
     }
 
     std::string name = "match_" + std::to_string(start_state);
-    dyn_var<int(char*, int, int, char*, char*)> branch_func = builder::with_name(name);
-    return branch_func(str, str_len, str_start, dyn_current, dyn_next);
+    dyn_var<int(char*, int, int)> branch_func = builder::with_name(name);
+    return branch_func(str, str_len, str_start);
 }
 
-dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> &working_set, std::set<int> &done_set, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, bool enable_partial, int* cache, int match_index, Schedule options, const char* flags, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next) {
+dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> &working_set, std::set<int> &done_set, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, bool enable_partial, int* cache, int match_index, Schedule options, const char* flags) {
     const int re_len = strlen(re);
     bool ignore_case = options.ignore_case;
     int n_threads = options.interleaving_parts;
@@ -49,12 +49,23 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     // allocate two state vectors
     std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
     std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
-    
+   
     // initialize the state vector
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         current[i] = next[i] = 0;
-        if (options.state_group)
-            dyn_current[i] = dyn_next[i] = 0;
+    }
+
+    // allocate and initialize the dynamic state vectors
+    dyn_var<char[]> dyn_current;
+    dyn_var<char[]> dyn_next;
+    resize_arr(dyn_current, re_len + 1);
+    resize_arr(dyn_next, re_len + 1);
+
+    if (options.state_group) {
+        for (static_var<int> i = 0; i < re_len + 1; i++) {
+            dyn_current[i] = 0;
+            dyn_next[i] = 0;
+        }
     }
 
     // activate the initial states
@@ -117,7 +128,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             // create and call a new function
             //if (options.or_split && state_match && current[state] == '|') {
             if (options.or_split && state_match && (flags[state] & 2) == 2) {
-                if (spawn_matcher(str, str_len, to_match+1, dyn_current, dyn_next, state+1, working_set, done_set)) {
+                if (spawn_matcher(str, str_len, to_match+1, state+1, working_set, done_set)) {
                     return 1;    
                 }
             }
@@ -144,10 +155,8 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         }
         if (options.state_group) {
             for (static_var<int> i = 0; i < re_len + 1; i++) {
-                if (is_in_group(i, flags, re_len)) {
-                    dyn_current[i] = dyn_next[i];
-                    dyn_next[i] = 0;
-                }    
+                dyn_current[i] = dyn_next[i];
+                dyn_next[i] = 0;
             }    
             
         }

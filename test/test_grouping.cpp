@@ -231,7 +231,7 @@ int main() {
     test_repetition(MatchType::FULL);
     test_combined(MatchType::FULL);
     test_or_split(MatchType::FULL);
-
+    
     cout << "--- PARTIAL MATCHES ---" << endl;
     test_simple(MatchType::PARTIAL_SINGLE);
     test_star(MatchType::PARTIAL_SINGLE);
@@ -243,4 +243,5 @@ int main() {
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
+    
 }

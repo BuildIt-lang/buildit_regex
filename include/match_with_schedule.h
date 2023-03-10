@@ -13,12 +13,12 @@ struct Schedule {
 
 bool is_in_group(int index, const char* flags, int re_len);
 
-void update_groups_from_cache(dyn_var<char*> dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update = true);
+void update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update = true);
 
-void update_states(Schedule options, dyn_var<char*> dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update);
+void update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update);
 
-dyn_var<int> spawn_matcher(dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> str_start, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next, int start_state, std::set<int> &working_set, std::set<int> &done_set);
+dyn_var<int> spawn_matcher(dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> str_start, int start_state, std::set<int> &working_set, std::set<int> &done_set);
 
-dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> &working_set, std::set<int> &done_set, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, bool enable_partial, int* cache, int match_index, Schedule options, const char* flags, dyn_var<char*> dyn_current, dyn_var<char*> dyn_next);
+dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> &working_set, std::set<int> &done_set, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, bool enable_partial, int* cache, int match_index, Schedule options, const char* flags);
 
 #endif

@@ -9,7 +9,33 @@ Schedule get_schedule_options(string regex, RegexOptions regex_options) {
     return options;
 }
 
-pair<Matcher, int> compile(string regex, RegexOptions options, MatchType match_type) {
+Matcher compile_helper(const char* regex, const char* flags, bool partial, int* cache, int part_id, Schedule schedule) {
+    // data for or_split
+    set<int> working_set, done_set;
+    vector<block::block::Ptr> functions;
+    working_set.insert(0);
+    
+    while (!working_set.empty()) {
+        int first_state = *working_set.begin();
+        working_set.erase(first_state);
+        done_set.insert(first_state);
+        string fname = "match_" + to_string(first_state);
+        // define context
+        builder::builder_context context;
+        context.feature_unstructured = true;
+        context.run_rce = true;
+        auto ast = context.extract_function_ast(match_with_schedule, fname, regex, first_state, working_set, done_set, partial, cache, part_id, schedule, flags);
+        functions.push_back(ast);
+    }
+    
+    // generate all functions
+    builder::builder_context ctx;
+    ctx.run_rce = true;
+    Matcher func = (Matcher)builder::compile_asts(ctx, functions, "match_0");
+    return func;
+}
+
+vector<Matcher> compile(string regex, RegexOptions options, MatchType match_type) {
     // regex preprocessing
     tuple<string, string> parsed = expand_regex(regex, options.flags);
     string parsed_regex = get<0>(parsed);
@@ -27,42 +53,34 @@ pair<Matcher, int> compile(string regex, RegexOptions options, MatchType match_t
     int* cache = new int[cache_size];
     cache_states(regex_cstr, cache);
 
-    // data for or_split
-    set<int> working_set, done_set;
-    vector<block::block::Ptr> functions;
-    working_set.insert(0);
-    
-    while (!working_set.empty()) {
-        int first_state = *working_set.begin();
-        working_set.erase(first_state);
-        done_set.insert(first_state);
-        string fname = "match_" + to_string(first_state);
-        // define context
-        builder::builder_context context;
-        context.feature_unstructured = true;
-        context.run_rce = true;
-        auto ast = context.extract_function_ast(match_with_schedule, fname, regex_cstr, first_state, working_set, done_set, partial, cache, 0, schedule, parsed_flags.c_str());
-        functions.push_back(ast);
+    vector<Matcher> funcs;
+    for (int part_id = 0; part_id < schedule.interleaving_parts; part_id++) {
+        Matcher func = compile_helper(parsed_regex.c_str(), parsed_flags.c_str(), partial, cache, part_id, schedule);
+        funcs.push_back(func);
     }
     
-    // generate all functions
-    builder::builder_context ctx;
-    Matcher func = (Matcher)builder::compile_asts(ctx, functions, "match_0");
     delete[] cache;
 
-    return make_pair(func, re_len);    
+    return funcs;    
 }
 
+
 int match(string regex, string str, RegexOptions options, MatchType match_type) {
-    pair<Matcher, int> matcher = compile(regex, options, match_type);
-    int re_len = matcher.second;
-    Matcher func = matcher.first;
+    vector<Matcher> funcs = compile(regex, options, match_type);
+    const char* str_c = str.c_str();
+    int str_len = str.length();
+
+    if (options.interleaving_parts == 1)
+        return funcs[0](str_c, str_len, 0);
+
+    // parallelize
+    int result = 0;
+    #pragma omp parallel for
+    for (int part_id = 0; part_id < options.interleaving_parts; part_id++) {
+        if (funcs[part_id](str_c, str_len, 0)) {
+            result = 1;
+        }
+    }
     
-    char* dyn_current = new char[re_len+1];
-    char* dyn_next = new char[re_len+1];
-    int result = func(str.c_str(), str.length(), 0, dyn_current, dyn_next);
-    
-    delete[] dyn_current;
-    delete[] dyn_next;
     return result;
 }
