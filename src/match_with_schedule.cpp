@@ -60,17 +60,26 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     dyn_var<char[]> dyn_next;
     resize_arr(dyn_current, re_len + 1);
     resize_arr(dyn_next, re_len + 1);
+    
+    // use this in the loops that reset the dyn state vectors
+    dyn_var<int> dyn_idx = 0;
 
     if (options.state_group) {
-        for (static_var<int> i = 0; i < re_len + 1; i++) {
-            dyn_current[i] = 0;
-            dyn_next[i] = 0;
+        for (dyn_idx = 0; dyn_idx < re_len + 1; dyn_idx = dyn_idx + 1) {
+            dyn_current[dyn_idx] = 0;
+            dyn_next[dyn_idx] = 0;
         }
+        
     }
 
     // activate the initial states
     update_states(options, dyn_current, current.get(), flags, cache, first_state-1, re_len, true);
-    
+   
+    // keep the dyn declarations here to avoid
+    // generating too many variables
+    dyn_var<int> char_matched;
+    dyn_var<char> str_to_match;
+
     static_var<int> mc = 0;
     while (to_match < str_len) {
 		if (enable_partial && current[re_len]) { // partial match stop early
@@ -94,7 +103,9 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                 if (is_normal(m)) {
                     if (-1 == early_break) {
                         // Normal character
-                        if (match_char(str[to_match], m, ignore_case)) {
+                        str_to_match = str[to_match];
+                        char_matched = match_char(str_to_match, m, ignore_case);
+                        if (char_matched) {
                             update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
                             // If a match happens, it
                             // cannot match anything else
@@ -129,7 +140,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             //if (options.or_split && state_match && current[state] == '|') {
             if (options.or_split && state_match && (flags[state] & 2) == 2) {
                 if (spawn_matcher(str, str_len, to_match+1, state+1, working_set, done_set)) {
-                    return 1;    
+                    return 1;
                 }
             }
 
@@ -154,15 +165,16 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                 count++;
         }
         if (options.state_group) {
-            for (static_var<int> i = 0; i < re_len + 1; i++) {
-                dyn_current[i] = dyn_next[i];
-                dyn_next[i] = 0;
+            for (dyn_idx = 0; dyn_idx < re_len + 1; dyn_idx = dyn_idx +1) {
+                dyn_current[dyn_idx] = dyn_next[dyn_idx];
+                dyn_next[dyn_idx] = 0;
             }    
             
         }
         to_match = to_match + 1;
 
     }
+    
     // Now that the string is done,
     // we should have $ in the state
     static_var<int> is_match = (char)current[re_len];
