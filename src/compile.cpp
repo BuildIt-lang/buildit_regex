@@ -9,7 +9,7 @@ Schedule get_schedule_options(string regex, RegexOptions regex_options) {
     return options;
 }
 
-Matcher compile_helper(const char* regex, const char* flags, bool partial, int* cache, int part_id, Schedule schedule) {
+Matcher compile_helper(const char* regex, const char* flags, bool partial, int* cache, int part_id, Schedule schedule, string headers) {
     // data for or_split
     set<int> working_set, done_set;
     vector<block::block::Ptr> functions;
@@ -31,6 +31,7 @@ Matcher compile_helper(const char* regex, const char* flags, bool partial, int* 
     // generate all functions
     builder::builder_context ctx;
     ctx.run_rce = true;
+    ctx.dynamic_header_includes = headers;
     Matcher func = (Matcher)builder::compile_asts(ctx, functions, "match_0");
     return func;
 }
@@ -53,9 +54,14 @@ vector<Matcher> compile(string regex, RegexOptions options, MatchType match_type
     int* cache = new int[cache_size];
     cache_states(regex_cstr, cache);
 
+    string headers = "// regex: " + regex + "\n";
+    string mt = (match_type == MatchType::FULL) ? "full" : "partial";
+    headers += "// match type: " + mt + "\n"; 
+    headers += "// config: (interleaving_parts: " + to_string(options.interleaving_parts) + "), (ignore_case: " + to_string(options.ignore_case) + "), (flags: " + options.flags + ")\n";
+
     vector<Matcher> funcs;
     for (int part_id = 0; part_id < schedule.interleaving_parts; part_id++) {
-        Matcher func = compile_helper(parsed_regex.c_str(), parsed_flags.c_str(), partial, cache, part_id, schedule);
+        Matcher func = compile_helper(parsed_regex.c_str(), parsed_flags.c_str(), partial, cache, part_id, schedule, headers);
         funcs.push_back(func);
     }
     

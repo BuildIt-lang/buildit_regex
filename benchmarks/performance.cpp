@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <map>
+#include "pattern_config.h"
 #include <re2/re2.h>
 #include <re2/stringpiece.h>
 #include <src/hs.h>
@@ -19,6 +21,7 @@
 using namespace std;
 using namespace re2;
 using namespace std::chrono;
+using namespace builder;
 
 typedef int (*GeneratedFunction)(const char*, int, int, int);
 
@@ -100,185 +103,236 @@ std::string generate_random_text(int64_t nbytes) {
     return text->substr(0, nbytes);
 }
 
-void time_compare(const vector<string> &patterns, const vector<string> &strings, int n_iters, MatchType match_type, const vector<RegexOptions> &options) {
-    // pattern compilation
-    vector<vector<Matcher>> buildit_patterns;
-    vector<int> sub_parts; // sizes of the regex parts
-    vector<unique_ptr<RE2>> re2_patterns;
-	vector<pcrecpp::RE> pcre_patterns;
-    vector<hs_database_t*> hs_databases;
-	vector<char *> hs_pattern_arrs;
-    int ignore_case = false;
-    cout << endl << "COMPILATION TIMES" << endl << endl;
-    for (int i = 0; i < patterns.size(); i++) {
-        cout << "--- " << patterns[i] << " ---" << endl;
-        auto start = high_resolution_clock::now();
-        cout << "interleaving parts: " << options[i].interleaving_parts << endl;
-        vector<Matcher> func = compile(patterns[i], options[i], match_type);
-        auto end = high_resolution_clock::now();
-        cout << "buildit compile time: " << (duration_cast<nanoseconds>(end - start)).count() / 1e6f << "ms" << endl;
-        buildit_patterns.push_back(func);
-       
-        // re2
-        auto re_start = high_resolution_clock::now();
-        re2_patterns.push_back(unique_ptr<RE2>(new RE2(patterns[i])));
-        auto re_end = high_resolution_clock::now();
-        cout << "re compile time: " << (duration_cast<nanoseconds>(re_end - re_start)).count() / 1e6f << "ms" << endl;
 
-		// hyperscan
-		hs_database_t *database;
-		hs_compile_error_t *compile_error;
-		auto hs_start = high_resolution_clock::now();
-		hs_compile((char*)patterns[i].c_str(), HS_FLAG_SOM_LEFTMOST, HS_MODE_BLOCK, NULL, &database, &compile_error);
-		auto hs_end = high_resolution_clock::now();
-		cout << "hs compile time: " << (duration_cast<nanoseconds>(hs_end - hs_start)).count() / 1e6f << "ms" << endl;
-		hs_databases.push_back(database);
+tuple<int, float, float> buildit_time(string text, string regex, RegexOptions options, MatchType match_type, int n_iters) {
     
-        // pcre
-        auto pcre_start = high_resolution_clock::now();
-        pcrecpp::RE pcre_re(patterns[i]);
-        pcre_patterns.push_back(pcre_re);
-        auto pcre_end = high_resolution_clock::now();
-        cout << "pcre compile time: " << (duration_cast<nanoseconds>(pcre_end - pcre_start)).count() / 1e6f << "ms" << endl;
-    }
+    // compile
+    auto start = high_resolution_clock::now();
+    vector<Matcher> funcs = compile(regex, options, match_type);
+    for (int iter = 0; iter < n_iters; iter++)
+        funcs = compile(regex, options, match_type);
+    auto end = high_resolution_clock::now();
+    float compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
 
-    // matching
-    cout << endl << "MATCHING TIMES" << endl << endl;
-    for (int j = 0; j < patterns.size(); j++) {
-        const string& cur_string = (match_type != MatchType::FULL) ? strings[0] : strings[j];
-       
-        const char* s = cur_string.c_str();
-        int s_len = cur_string.length();
-        
-        // re2 timing
-        int re_result = 0;
-        auto re_start = high_resolution_clock::now();
-        for (int i = 0; i < n_iters; i++) {
-            if (match_type == MatchType::PARTIAL_SINGLE) {
-                re_result = RE2::PartialMatch(cur_string, *re2_patterns[j].get()); 
-            } else if (match_type == MatchType::FULL) {
-                re_result = RE2::FullMatch(cur_string, *re2_patterns[j].get());    
-            } else {
-                // find all partial matches
-                string word;
-                re_result = 0;
-                StringPiece input(s);
-                while (RE2::FindAndConsume(&input, *re2_patterns[j].get(), &word)) {
-                    if (word.length() == 0) {
-                        // advance the input pointer by 1
-                        // otherwise it will be stuck in an infinite loop
-                        input.remove_prefix(1);
-                    } else {
-                        re_result++;
-                    }    
+    // run
+    int result = 0;
+    const char* s = text.c_str();
+    int s_len = text.length();
+    if (options.interleaving_parts == 1) {
+        // only one function to call
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++)
+            result = funcs[0](s, s_len, 0);
+        end = high_resolution_clock::now();
+    } else {
+        // interleave / parallelize
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++) {
+            result = 0;
+            #pragma omp parallel for
+            for (int part_id = 0; part_id < options.interleaving_parts; part_id++) {
+                if (funcs[part_id](s, s_len, 0))
+                    result = 1;
+            }
+        }
+        end = high_resolution_clock::now();
+    }
+    float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    return tuple<int, float, float>{result, compile_time, run_time};
+}
+
+tuple<int, float, float> re2_time(string text, string regex, MatchType match_type, int n_iters) {
+   
+    // compile
+    RE2 re2_pattern(regex);
+    auto start = high_resolution_clock::now();
+    for (int iter = 0; iter < n_iters; iter++)
+        RE2 re2_pattern_copy(regex);
+    auto end = high_resolution_clock::now();
+    float compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+
+    // run
+    int result = 0;
+    if (match_type == MatchType::FULL) {
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++)
+            result = RE2::FullMatch(text, re2_pattern);
+        end = high_resolution_clock::now();
+    } else if (match_type == MatchType::PARTIAL_SINGLE) {
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++)
+            result = RE2::PartialMatch(text, re2_pattern);
+        end = high_resolution_clock::now();
+    } else {
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++) {
+            // find all partial matches
+            string word;
+            result = 0;
+            StringPiece input(text);
+            while (RE2::FindAndConsume(&input, re2_pattern, &word)) {
+                if (word.length() == 0) {
+                    // advance the input pointer by 1
+                    // otherwise it will be stuck in an infinite loop
+                    input.remove_prefix(1);
+                } else {
+                    result++;
                 }
             }
         }
-        auto re_end = high_resolution_clock::now();
-        float re2_dur = (duration_cast<nanoseconds>(re_end - re_start)).count() * 1.0 / (1e6f *  n_iters);
-        
-        // hs timing
-        int hs_result = 0;
-        auto hs_start = high_resolution_clock::now();
-        for (int i = 0; i < n_iters; i++) {
+        end = high_resolution_clock::now();
+    }
+
+    float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f *  n_iters);
+    return tuple<int, float, float>{result, compile_time, run_time}; 
+}
+
+tuple<int, float, float> hyperscan_time(string text, string regex, MatchType match_type, int n_iters) {
+    
+    char* re_cstr = (char*)regex.c_str();
+    char* s = (char*)text.c_str();
+    int s_len = text.length();
+
+    // compile
+    hs_database_t *database;
+    hs_compile_error_t *compile_error;
+    hs_compile(re_cstr, HS_FLAG_SOM_LEFTMOST, HS_MODE_BLOCK, NULL, &database, &compile_error);
+    auto start = high_resolution_clock::now();
+    for (int iter = 0; iter < n_iters; iter++) {
+        hs_database_t *database_copy;
+        hs_compile_error_t *compile_error_copy;
+        hs_compile(re_cstr, HS_FLAG_SOM_LEFTMOST, HS_MODE_BLOCK, NULL, &database_copy, &compile_error_copy);
+    }
+    auto end = high_resolution_clock::now();
+    float compile_time = (duration_cast<nanoseconds>(end - start)).count() / (1e6f * n_iters);
+
+    // run
+    int result = 0;
+    if (match_type == MatchType::PARTIAL_SINGLE || match_type == MatchType::FULL) {
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++) {
             vector<int> matches;
             hs_scratch_t *scratch = NULL;
-            hs_alloc_scratch(hs_databases[j], &scratch);
-			if (match_type == MatchType::PARTIAL_SINGLE || match_type == MatchType::FULL) {
-				hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, single_match_handler, &matches);
-                hs_result = (matches.size() == 2);
-  			} else {
-                // hs doesn't support greedy matching like PCRE, RE2 and our current implementation
-                // it reports all matches as explained here
-                // https://intel.github.io/hyperscan/dev-reference/compilation.html#semantics
-                // it generally results in more matches, so we won't be using it to compare runtimes
+            hs_alloc_scratch(database, &scratch);
+            hs_scan(database, s, s_len, 0, scratch, single_match_handler, &matches);
+            result = (matches.size() == 2);
+        }
+        end = high_resolution_clock::now();
+    } else {
+        // PARTIAL_ALL
+        // hs doesn't support greedy matching like PCRE, RE2 and our current implementation
+        // it reports all matches as explained here
+        // https://intel.github.io/hyperscan/dev-reference/compilation.html#semantics
+        // it generally results in more matches, so we won't be using it to compare runtimes
 
-                /*hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, all_matches_handler, &matches);
-                hs_result = matches.size() / 2; // the number of partial matches*/
-                
-            }
-        }
-        auto hs_end = high_resolution_clock::now();
-        float hs_dur = (duration_cast<nanoseconds>(hs_end - hs_start)).count() * 1.0 / (1e6f * n_iters);
-        // pcre timing
-        auto pcre_start = high_resolution_clock::now();
-        int pcre_result = 0;
-        for (int i = 0; i < n_iters; i++) { 
-            if (match_type == MatchType::PARTIAL_SINGLE) {
-                pcre_result = pcre_patterns[j].PartialMatch(s); 
-            } else if (match_type == MatchType::FULL) { 
-                pcre_result = pcre_patterns[j].FullMatch(s);    
-            } else {
-                // find all partial matches
-                string word;
-                pcre_result = 0;
-                pcrecpp::StringPiece input(s);
-                while (pcre_patterns[j].FindAndConsume(&input, &word)) {
-                    if (word.length() == 0) {
-                        input.remove_prefix(1);    
-                    } else {
-                        pcre_result++;    
-                    }
-                }
-            }
-        }
-        auto pcre_end = high_resolution_clock::now();
-        float pcre_dur = (duration_cast<nanoseconds>(pcre_end - pcre_start)).count() * 1.0 / (1e6f * n_iters);
+        /*hs_scan(hs_databases[j], (char*)s, s_len, 0, scratch, all_matches_handler, &matches);
+        hs_result = matches.size() / 2; // the number of partial matches*/
         
-        // buildit timing
-        float buildit_dur;
-        int buildit_result = 0; 
-        vector<Matcher> funcs = buildit_patterns[j];
-        int n_funcs = funcs.size();
-        if (n_funcs == 1) {
-            auto buildit_start = high_resolution_clock::now();
-            for (int i = 0; i < n_iters; i++) {
-                buildit_result = funcs[0](s, s_len, 0);
-            }
-            auto buildit_end = high_resolution_clock::now();
-            buildit_dur = (duration_cast<nanoseconds>(buildit_end - buildit_start)).count() * 1.0 / (1e6f * n_iters);
-        } else {
-            auto buildit_start = high_resolution_clock::now();
-            for (int i = 0; i < n_iters; i++) {
-                buildit_result = 0;
-                #pragma omp parallel for
-                for (int part_id = 0; part_id < n_funcs; part_id++) {
-                    if (funcs[part_id](s, s_len, 0))
-                        buildit_result = 1;
-                }
-            }
-            auto buildit_end = high_resolution_clock::now();
-            buildit_dur = (duration_cast<nanoseconds>(buildit_end - buildit_start)).count() * 1.0 / (1e6f * n_iters);
-        }
-        
-        // check correctness
-		const string& str = (match_type != MatchType::FULL) ? "<text>" : strings[j].substr(0, 10) + "...";
-        if (match_type == MatchType::PARTIAL_ALL) {
-            // we are not comparing times with Hyperscan in this mode
-            // make its output correct by default
-            hs_result = buildit_result;
-        }
-        
-        if (!((hs_result == buildit_result || match_type == MatchType::FULL) && re_result == buildit_result)) {
-            cout << endl << "Correctness failed for regex " << patterns[j] << " and text " << str << ":" <<endl;
-            cout << "  re2 match = " << re_result << endl;
-            cout << "  hs match = " << hs_result << endl;
-            cout << "  pcre match = " << pcre_result << endl;
-            cout << "  buildit match = " << buildit_result << endl;
-        }
-
-        cout << "--- pattern: " << patterns[j] << " text: " << str << " ---" << endl;
-        cout << "buildit run time: " << buildit_dur << " ms" << endl;
-        cout << "re2 run time: " << re2_dur << " ms" << endl;
-        if (match_type != MatchType::PARTIAL_ALL)
-            cout << "hs run time: " << hs_dur << " ms" << endl;
-        cout << "pcre run time: " << pcre_dur << " ms" << endl;
     }
+    float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    return tuple<int, float, float>{result, compile_time, run_time};
+}
+
+tuple<int, float, float> pcre_time(string text, string regex, MatchType match_type, int n_iters) {
+    
+    //compile 
+    pcrecpp::RE pcre_re(regex);
+    auto start = high_resolution_clock::now();
+    for (int iter = 0; iter < n_iters; iter++)
+        pcrecpp::RE pcre_re_copy(regex);
+    auto end = high_resolution_clock::now();
+    float compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+
+    // run
+    int result = 0;
+    const char* s = text.c_str();
+    if (match_type == MatchType::PARTIAL_SINGLE) {
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++)
+            result = pcre_re.PartialMatch(s);
+        end = high_resolution_clock::now();
+    } else if (match_type == MatchType::FULL) { 
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++)
+            result = pcre_re.FullMatch(s);
+        end = high_resolution_clock::now();
+    } else {
+        // find all partial matches
+        start = high_resolution_clock::now();
+        for (int iter = 0; iter < n_iters; iter++) {
+            string word;
+            result = 0;
+            pcrecpp::StringPiece input(s);
+            while (pcre_re.FindAndConsume(&input, &word)) {
+                if (word.length() == 0) {
+                    input.remove_prefix(1);    
+                } else {
+                    result++;    
+                }
+            }
+        }
+        end = high_resolution_clock::now();
+    }
+    float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    
+    return tuple<int, float, float>{result, compile_time, run_time};
+}
+
+void compare_matches(string regex, string text, int buildit_res, int re2_res, int hs_res, int pcre_res) {
+    bool all_match = (buildit_res == re2_res) && (re2_res == hs_res) && (hs_res == pcre_res);
+    if (all_match)
+        return;
+    cout << endl << "Correctness failed for regex " << regex << " and text " << text << ":" <<endl;
+    cout << "  buildit match = " << buildit_res << endl;
+    cout << "  re2 match = " << re2_res << endl;
+    cout << "  hs match = " << hs_res << endl;
+    cout << "  pcre match = " << pcre_res << endl;
 
 }
 
-void optimize_partial_match_loop(string str, string pattern) {
+void print_times(string regex, string text, string lib_name, string match_type, tuple<int, float, float> result, RegexOptions options) {
+    printf("matcher: %s, regex %s, text: %s, match type: %s\n", lib_name.c_str(), regex.c_str(), text.c_str(), match_type.c_str());
+    if (lib_name == "buildit")
+        printf("config: (interleaved_parts, %d), (ignore_case, %d), (flags, %s)\n", options.interleaving_parts, options.ignore_case, options.flags.c_str());
+    printf("compile time: %f ms, run time: %f ms\n", get<1>(result), get<2>(result));
+}
+
+void compare_all(int n_iters, string text, string match) {
+    vector<map<string, string>> patterns = get_pattern_config(match);
+    MatchType match_type = (match == "partial") ? MatchType::PARTIAL_SINGLE : MatchType::FULL;
+    for (auto config: patterns) {
+        string regex = config["regex"];
+        // if full take the string to match from the config
+        if (match == "full") {
+            text = config["text"];    
+        }
+        string text_to_print = (match == "full") ? text : "<Twain text>";
+        // set buildit flags
+        RegexOptions options;
+        options.interleaving_parts = stoi(config["interleaving_parts"]);
+        options.ignore_case = stoi(config["ignore_case"]);
+        options.flags = config["flags"];
+        cout << regex << options.flags << endl;
+        tuple<int, float, float> buildit_result = buildit_time(text, regex, options, match_type, n_iters);
+        tuple<int, float, float> re2_result = re2_time(text, regex, match_type, n_iters);
+        tuple<int, float, float> hs_result = hyperscan_time(text, regex, match_type, n_iters);
+        tuple<int, float, float> pcre_result = pcre_time(text, regex, match_type, n_iters);
+        compare_matches(regex, text_to_print, get<0>(buildit_result), get<0>(re2_result), get<0>(hs_result), get<0>(pcre_result));
+        print_times(regex, text_to_print, "buildit", match, buildit_result, options);
+        cout << endl;
+        print_times(regex, text_to_print, "re2", match, re2_result, options);
+        cout << endl;
+        print_times(regex, text_to_print, "hyperscan", match, hs_result, options);
+        cout << endl;
+        print_times(regex, text_to_print, "pcre", match, pcre_result, options);
+        cout << endl << endl;
+
+        // TODO: pass the ignore case flag to the other libs
+    }
     
+}
+void optimize_partial_match_loop(string str, string pattern) {
+
     string re = get<0>(expand_regex(pattern));
     cout << "simple re " << re << endl;
     const int re_len = re.length();
@@ -290,14 +344,14 @@ void optimize_partial_match_loop(string str, string pattern) {
     builder::builder_context context;
     context.feature_unstructured = true;
     context.run_rce = true;
-    
+
     // compilation
     auto start = high_resolution_clock::now();
     MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), 0, cache, 0, 1, 0); 
     auto end = high_resolution_clock::now();
     int compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / 1e6f;
     cout << "compile time: " << compile_time << "ms" << endl;
-    
+
     // running
     const char* s = str.c_str();
     int len = str.length();
@@ -317,107 +371,16 @@ void optimize_partial_match_loop(string str, string pattern) {
 
 }
 
-void time_partial_single_split_ors(string &text, int n_iters) {
-    
-    vector<string> twain_patterns = {
-        "(?SHuck[a-zA-Z]+|Saw[a-zA-Z]+)",
-        "(?STom|Sawyer|Huckleberry|Finn)",
-        "(.{0,2}(?STom|Sawyer|Huckleberry|Finn))",
-        "(.{2,4}(?STom|Sawyer|Huckleberry|Finn))",
-        "(?STom.{10,15}river|river.{10,15}Tom)",
-    };
-    /*for (string re: twain_patterns) {
-        auto start = high_resolution_clock::now();
-        MatchFunction func;
-        for (int n = 0; n < n_iters; n++) {
-            func = compile_split(text, re, 0, MatchType::PARTIAL_SINGLE, "");
-        }
-        auto end = high_resolution_clock::now();
-        float compile_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
-        const char* c_text = text.c_str();
-        start = high_resolution_clock::now();
-        int result = 0;
-        for (int n = 0; n < n_iters; n++) {
-            result = func(c_text, text.length(), 0);
-        }
-        end = high_resolution_clock::now();
-        float run_dur = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
-        cout << "regex: " << re << endl;
-        cout << "compile time: " << compile_dur << endl;
-        cout << "run time: " << run_dur << endl;
-        cout << "result: " << result << endl;
-        cout << endl;
-    }*/
-    
-}
-
-
 void run_twain_benchmark() {
     int n_iters = 10;
     string corpus_file = "./data/twain.txt";
     string text = load_corpus(corpus_file);
     std::cout << "Twain Text Length: " << text.length() << std::endl;
-    vector<string> twain_patterns = {
-        "(Twain)",
-        "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)",
-        "([a-q][^u-z]{5}x)", 
-        "(Tom|Sawyer|Huckleberry|Finn)",
-        "(.{0,2}(Tom|Sawyer|Huckleberry|Finn))",
-        "(.{2,4}(Tom|Sawyer|Huckleberry|Finn))",
-        "(Tom.{10,15})",
-        "(Tom.{10,15}river|river.{10,15}Tom)",
-        "([a-zA-Z]+ing)",
-    };
-    vector<int> n_funcs = {1, 1, 2, 1, 1, 1, 1, 4, 1};
-    vector<int> decompose = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-    RegexOptions parallel_flags_16;
-    parallel_flags_16.interleaving_parts = 16;
-    RegexOptions or_split_flags;
-    or_split_flags.flags = ".s................s................";
-    RegexOptions parallel_flags_2;
-    RegexOptions groups;
-    groups.flags = "....gggggggg.";
-    parallel_flags_2.interleaving_parts = 2;
-    RegexOptions flags;
-    vector<RegexOptions> options = {
-        flags,
-        flags,
-        parallel_flags_2,
-        flags,
-        flags,
-        flags,
-        flags,
-        or_split_flags,
-        flags
-    };
-    vector<string> words = {"Twain", "HuckleberryFinn", "qabcabx", "Sawyer", "Sawyer Tom", "SaHuckleberry", "Tom swam in the river", "Tom swam in the river", "swimming"};
-    
-    cout << "\n------- FULL MATCH -------\n" << endl;
-    
-    time_compare(twain_patterns, words, n_iters, MatchType::FULL, options);
-    
-    cout << "\n------- PARTIAL SINGLE -------\n" << endl;
-    
-    time_compare(twain_patterns, vector<string>{text}, n_iters, MatchType::PARTIAL_SINGLE, options);
-    
-    //cout << "\n------- PARTIAL SINGLE SPLIT ORS ----------\n" << endl;
-    
-    //time_partial_single_split_ors(text, n_iters);
-
-/*
-// trying to optimize partial matches
-    for (string re: twain_patterns) {
-        cout << endl;
-        cout << re << endl;
-        optimize_partial_match_loop(text, re + ".*");
-    }*/
-    
-    //cout << "\n------- PARTIAL ALL -------\n" << endl;
-	
-    //time_compare(twain_patterns, vector<string>{text}, 1, MatchType::PARTIAL_ALL, options);
+    compare_all(n_iters, text, "full");
+    compare_all(n_iters, text, "partial");
 }
 
-void run_re2_benchmark() {
+/*void run_re2_benchmark() {
     // benchmark taken from https://swtch.com/~rsc/regexp/regexp3.html
     int n_iters = 10;
     string text = generate_random_text(1000000); 
@@ -437,7 +400,7 @@ void run_re2_benchmark() {
     //optimize_partial_match_loop(text + "650 253-0001", "(\\d{3}\\s+)(\\d{3}-\\d{4}).*");
     //time_compare(vector<string>{"(\\d{3}\\s+)(\\d{3}-\\d{4})"}, vector<string>{text + "650 253-0001"}, n_iters, MatchType::PARTIAL_SINGLE, vector<int>{16}, vector<int>{0});
 
-}
+}*/
 
 int main() {
     string patterns_file = "./data/twain_patterns.txt";
