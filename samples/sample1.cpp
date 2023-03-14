@@ -1,28 +1,20 @@
-#include <iostream>
-#include <fstream>
-#include <cstring>
-#include "builder/dyn_var.h"
-#include "builder/static_var.h"
-#include "blocks/c_code_generator.h"
-#include "match.h"
-#include "progress.h"
+#include "compile.h"
 
-int main(int argc, char* argv[]) {
-    builder::builder_context context;
-    context.feature_unstructured = true;
-    context.run_rce = true;
-    std::ofstream code_file;
-    code_file.open("generated_code/sample1.h");
-    const int re_len = strlen("[abc]+");
-    const int cache_size = (re_len + 1) * (re_len + 1);
-    std::unique_ptr<int> cache_states_ptr(new int[cache_size]);
-    int* next_states = cache_states_ptr.get();
-    cache_states("[abc]+", next_states);
-    auto ast = context.extract_function_ast(match_regex_full, "match_re", "[abc]+", next_states, 0);
-    code_file << "#include <string.h>" << std::endl;
-    block::c_code_generator::generate_code(ast, code_file);
-    code_file.close();
-    return 0;
+int main() {
+    // full match
+    string regex = "a(bc)*d";
+    string str = "Abcbcd";
+    
+    // default options (ignore_case = 0, interleaving_parts = 1, no special flags)
+    RegexOptions default_options;
+    int is_match = match(regex, str, default_options, MatchType::FULL);
+    cout << "regex: " << regex << " str: " << str << " match: " << is_match << endl;
+
+    // ignore_case included
+    RegexOptions ic_options;
+    ic_options.ignore_case = 1;
+    is_match = match(regex, str, ic_options, MatchType::FULL);
+    cout << "regex: " << regex << " str: " << str << " match: " << is_match << endl;
+
 }
-
 

@@ -1,8 +1,5 @@
 #include <iostream>
 #include "test.h"
-#include "../include/parse.h"
-#include "../include/progress.h"
-#include "../include/frontend.h"
 
 void test_simple(MatchType type) {
     compare_result("aaaa", "aaaa", "", type);

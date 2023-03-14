@@ -1,9 +1,12 @@
 #include "match_with_schedule.h"
 
+
+// is the state at index a part of a group of states
 bool is_in_group(int index, const char* flags, int re_len) {
     return index < re_len && (flags[index] == 'g');
 }
 
+// same as update_from_cache but updates a dynamic array in case of grouped states
 void update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
@@ -20,6 +23,7 @@ void update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char>* sta
     }    
 }
 
+// generic version - chooses between grouped and normal version of cache update
 void update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
@@ -30,6 +34,7 @@ void update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<cha
     }
 }
 
+// adds a new function to be generated to the working set
 dyn_var<int> spawn_matcher(dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> str_start, int start_state, std::set<int> &working_set, std::set<int> &done_set) {
     
     if (done_set.find(start_state) == done_set.end()) {
@@ -41,6 +46,7 @@ dyn_var<int> spawn_matcher(dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int
     return branch_func(str, str_len, str_start);
 }
 
+// the main matching function that is used to generate code
 dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> &working_set, std::set<int> &done_set, dyn_var<char*> str, dyn_var<int> str_len, dyn_var<int> to_match, bool enable_partial, int* cache, int match_index, Schedule options, const char* flags) {
     const int re_len = strlen(re);
     bool ignore_case = options.ignore_case;

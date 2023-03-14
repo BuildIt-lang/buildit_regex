@@ -5,7 +5,8 @@
 #include "builder/builder_dynamic.h"
 #include "match.h"
 #include <chrono>
-#include "../include/frontend.h"
+#include "../include/parse.h"
+#include "../include/progress.h"
 #include "../include/compile.h"
 
 using namespace std::chrono;

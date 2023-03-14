@@ -4,9 +4,17 @@
 #include "blocks/c_code_generator.h"
 #include "builder/builder_context.h"
 #include "builder/builder_dynamic.h"
-#include "frontend.h"
+#include <string>
+#include "match.h"
+#include "progress.h"
+#include "parse.h"
+#include "all_partial.h"
 #include "match_with_schedule.h"
 #include <tuple>
+
+using namespace std;
+
+enum MatchType { FULL, PARTIAL_SINGLE, PARTIAL_ALL };
 
 struct RegexOptions {
     bool ignore_case = false;
@@ -19,5 +27,6 @@ Matcher compile_helper(const char* regex, const char* flags, bool partial, int* 
 Schedule get_schedule_options(string regex, RegexOptions regex_options);
 vector<Matcher> compile(string regex, RegexOptions flags, MatchType match_type);
 int match(string regex, string str, RegexOptions flags, MatchType match_type);
+vector<string> get_all_partial_matches(string str, string regex, RegexOptions options);
 
 #endif

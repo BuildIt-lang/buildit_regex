@@ -36,6 +36,9 @@ Matcher compile_helper(const char* regex, const char* flags, bool partial, int* 
     return func;
 }
 
+/**
+ Generates code for the given regex accroding to the provided scheduling options.
+*/
 vector<Matcher> compile(string regex, RegexOptions options, MatchType match_type) {
     // regex preprocessing
     tuple<string, string> parsed = expand_regex(regex, options.flags);
@@ -70,7 +73,9 @@ vector<Matcher> compile(string regex, RegexOptions options, MatchType match_type
     return funcs;    
 }
 
-
+/**
+ Compiles and calls the generated function. Returns if there is a match or not.
+*/
 int match(string regex, string str, RegexOptions options, MatchType match_type) {
     vector<Matcher> funcs = compile(regex, options, match_type);
     const char* str_c = str.c_str();
@@ -90,3 +95,48 @@ int match(string regex, string str, RegexOptions options, MatchType match_type) 
     
     return result;
 }
+
+/**
+ Returns a list of the longest partial matches starting from each char in str.
+*/
+vector<string> get_all_partial_matches(string str, string regex, RegexOptions options) {
+    // parse regex and cache state transitions
+    tuple<string, string> parsed = expand_regex(regex);
+    string parsed_re = get<0>(parsed);
+    string flags = get<1>(parsed);
+    const char* regex_cstr = parsed_re.c_str();
+    int re_len = parsed_re.length();
+
+    int cache_size = (re_len + 1) * (re_len + 1);
+    int* cache = new int[cache_size];
+    cache_states(regex_cstr, cache);
+
+    builder::builder_context context;
+    context.feature_unstructured = true;
+    context.run_rce = true;
+
+    Matcher func = (Matcher)builder::compile_function_with_context(context, get_partial_match, regex_cstr, cache, options.ignore_case);
+    
+    delete[] cache;
+
+    // run anchored partial match starting from each position in the string
+    vector<string> matches;
+    const char* s = str.c_str();
+    int str_len = str.length();
+    
+    int i = 0;
+    while (i < str_len) {
+        int end_idx = func(s, str_len, i);
+        // don't include empty matches
+        if (end_idx != -1 && i != end_idx) {
+            matches.push_back(str.substr(i, end_idx - i));
+            i = end_idx;
+        } else {
+            i++;    
+        }
+       
+    }
+    return matches;
+    
+}
+

@@ -14,7 +14,6 @@
 #include "match.h"
 #include "progress.h"
 #include "parse.h"
-#include "frontend.h"
 #include <pcrecpp.h>
 #include "compile.h"
 
@@ -331,7 +330,8 @@ void compare_all(int n_iters, string text, string match) {
     }
     
 }
-void optimize_partial_match_loop(string str, string pattern) {
+
+void all_partial_time(string str, string pattern) {
 
     string re = get<0>(expand_regex(pattern));
     cout << "simple re " << re << endl;
@@ -347,28 +347,33 @@ void optimize_partial_match_loop(string str, string pattern) {
 
     // compilation
     auto start = high_resolution_clock::now();
-    MatchFunction func = (MatchFunction)builder::compile_function_with_context(context, match_regex, re.c_str(), 0, cache, 0, 1, 0); 
+    Matcher func = (Matcher)builder::compile_function_with_context(context, get_partial_match, re.c_str(), cache, 0); 
     auto end = high_resolution_clock::now();
     int compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / 1e6f;
     cout << "compile time: " << compile_time << "ms" << endl;
 
-    // running
+    
+    // run anchored partial match starting from each position in the string
+    vector<string> matches;
     const char* s = str.c_str();
-    int len = str.length();
-    int result = 0;
-    int stride = 16;
-    int n_iters = 10;
+    int str_len = str.length();
+    
     start = high_resolution_clock::now();
-    for (int k = 0; k < n_iters; k++) {
-        result = partial_match_loop(s, len, stride, func);
+    int i = 0;
+    while (i < str_len) {
+        int end_idx = func(s, str_len, i);
+        // don't include empty matches
+        if (end_idx != -1 && i != end_idx) {
+            matches.push_back(str.substr(i, end_idx - i));
+            i = end_idx;
+        } else {
+            i++;    
+        }
+       
     }
     end = high_resolution_clock::now();
-    int expected = RE2::PartialMatch(s, pattern);
-    cout << "expected: " << expected << ", got: " << result << endl;
-
-    float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / 1e6f;
     cout << "run time: " << run_time << "ms" << endl;
-
 }
 
 void run_twain_benchmark() {

@@ -1,9 +1,5 @@
 #include <iostream>
 #include "test.h"
-#include "../include/parse.h"
-#include "../include/progress.h"
-#include "../include/frontend.h"
-
 using namespace std::chrono;
 
 void test_simple(MatchType type) {

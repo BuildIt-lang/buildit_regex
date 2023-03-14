@@ -36,7 +36,8 @@ string load_corpus(string fname) {
 */
 void check_correctness(string regex, string text, bool verbose) {
     vector<string> expected = get_pcre_submatches(text, "(" + regex + ")");
-    vector<string> result = get_all_partial_matches(text, regex, "");
+    RegexOptions options;
+    vector<string> result = get_all_partial_matches(text, regex, options);
     string display_text = (text.length() > 20) ? "<text>" : text;
     cout << "Matching " << regex << " in " << display_text << ": ";
     
