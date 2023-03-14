@@ -19,7 +19,7 @@ We support the following operators and expressions.
 | `x?`                         | zero or one `x`                                  |
 | `x+`                         | one or more `x`                                  |
 | `x*`                         | zero or more `x`                                 |
-| `(x|y)`                      | `x` or `y`                                       |
+| `(x\|y)`                     | `x` or `y`                                       |
 | `x{n}`                       | `x` repeated `n` times                           |
 | `x{n,m}`                     | `x` repeated between `n` and `m` times inclusive |
 | `\d`, `\w`, `\s`, `\D`, `\W` | escaped character classes                        |
