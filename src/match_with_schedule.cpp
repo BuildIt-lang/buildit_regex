@@ -7,7 +7,7 @@ bool is_in_group(int index, const char* flags, int re_len) {
 }
 
 // same as update_from_cache but updates a dynamic array in case of grouped states
-void update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
+void update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
     for (static_var<int> i = 0; i < re_len + 1; i = i + 1) {
@@ -24,7 +24,7 @@ void update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char>* sta
 }
 
 // generic version - chooses between grouped and normal version of cache update
-void update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<char>* static_states, const char* flags, int* cache, int p, int re_len, bool update) {
+void update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
     if (options.state_group) {
@@ -53,9 +53,14 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     int n_threads = options.interleaving_parts;
 
     // allocate two state vectors
-    std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
-    std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
-   
+    //std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
+    //std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
+    
+    static_var<char[]> current;
+    static_var<char[]> next;
+    current.resize(re_len + 1);
+    next.resize(re_len + 1);
+
     // initialize the state vector
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         current[i] = next[i] = 0;
@@ -79,7 +84,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     }
 
     // activate the initial states
-    update_states(options, dyn_current, current.get(), flags, cache, first_state-1, re_len, true);
+    update_states(options, dyn_current, current, flags, cache, first_state-1, re_len, true);
    
     // keep the dyn declarations here to avoid
     // generating too many variables
@@ -112,7 +117,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                         str_to_match = str[to_match];
                         char_matched = match_char(str_to_match, m, ignore_case);
                         if (char_matched) {
-                            update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
+                            update_states(options, dyn_next, next, flags, cache, state, re_len, update);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -123,17 +128,17 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
+                        update_states(options, dyn_next, next, flags, cache, state, re_len, update);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
+                    update_states(options, dyn_next, next, flags, cache, state, re_len, update);
                     state_match = 1;
                 } else if ('[' == m) {
 		            dyn_var<int> matched = match_class(str[to_match], re, state, ignore_case);
                     if (matched) {
                         state_match = 1;
-                        update_states(options, dyn_next, next.get(), flags, cache, state, re_len, update);
+                        update_states(options, dyn_next, next, flags, cache, state, re_len, update);
                     }
                 } else {
                     //printf("Invalid Character(%c)\n", (char)m);
@@ -158,7 +163,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             // that starts from the beginning of the string;
             // no other partial match will do
 			if (mc == match_index) {
-                update_states(options, dyn_next, next.get(), flags, cache, -1, re_len, true);
+                update_states(options, dyn_next, next, flags, cache, -1, re_len, true);
             }
 			mc = (mc + 1) % n_threads;
 		}

@@ -45,12 +45,12 @@ dyn_var<int> match_char(dyn_var<char> dyn_c, char static_c, bool ignore_case) {
 /**
 Update `next` with the reachable states from state `p`.
 */
-void update_from_cache(static_var<char>* next, int* cache, int p, int re_len, bool update) {
+void update_from_cache(static_var<char[]>& next, int* cache, int p, int re_len, bool update) {
     if (!update)
         return;
     for (int i = 0; i < re_len + 1; i++) {
         static_var<char> cache_val = cache[(p+1) * (re_len + 1) + i];
-        next[i] = (cache_val != 0) ? cache_val : next[i];
+        next[i] = (cache_val != 0) ? (char)cache_val : next[i];
     }    
 }
 

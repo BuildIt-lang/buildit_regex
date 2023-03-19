@@ -9,14 +9,16 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
     const int re_len = strlen(re);
 
     // allocate two state vectors
-    std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
-    std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
-    
+    static_var<char[]> current;
+    static_var<char[]> next;
+    current.resize(re_len + 1);
+    next.resize(re_len + 1);
+
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         current[i] = next[i] = 0;
     }
 
-    update_from_cache(current.get(), cache, -1, re_len);
+    update_from_cache(current, cache, -1, re_len);
     
     static_var<int> mc = 0;
     
@@ -37,7 +39,7 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m || (ignore_case && is_alpha(m) && str[to_match] == (m ^ 32))) {
-                            update_from_cache(next.get(), cache, state, re_len);
+                            update_from_cache(next, cache, state, re_len);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -48,13 +50,13 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        update_from_cache(next.get(), cache, state, re_len);
+                        update_from_cache(next, cache, state, re_len);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
                     // according to PCRE . doesn't match the newline char
                     if (str[to_match] != '\n') {
-                        update_from_cache(next.get(), cache, state, re_len);
+                        update_from_cache(next, cache, state, re_len);
                         state_match = 1;
                     }
                 } else if ('[' == m) {
@@ -84,7 +86,7 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
                     }
 		            if ((inverse == 1 && matches == 0) || (inverse == 0 && matches == 1)) {
                         state_match = 1;
-                        update_from_cache(next.get(), cache, state, re_len);
+                        update_from_cache(next, cache, state, re_len);
                     }
                 } else {
                     printf("Invalid Character(%c)\n", (char)m);
