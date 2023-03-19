@@ -7,30 +7,38 @@ bool is_in_group(int index, const char* flags, int re_len) {
 }
 
 // same as update_from_cache but updates a dynamic array in case of grouped states
-void update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool update) {
+bool update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool update, bool read_only) {
     if (!update)
-        return;
+        return false;
     for (static_var<int> i = 0; i < re_len + 1; i = i + 1) {
         static_var<char> cache_val = cache[(p+1) * (re_len + 1) + i];
         if (!cache_val)
             continue;
         bool grouped = is_in_group(i, flags, re_len);
-        if (grouped) {
-            dyn_states[i] = cache_val;
+        if (read_only) {
+            if (grouped && !(bool)dyn_states[i])
+                return true;
+            if (!grouped && !static_states[i])
+                return true;
         } else {
-            static_states[i] = cache_val;    
+            if (grouped) {
+                dyn_states[i] = cache_val;
+            } else {
+                static_states[i] = cache_val;    
+            }
         }
-    }    
+    }
+    return false;
 }
 
 // generic version - chooses between grouped and normal version of cache update
-void update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool update) {
+bool update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool update, bool read_only) {
     if (!update)
-        return;
+        return false;
     if (options.state_group) {
-        update_groups_from_cache(dyn_states, static_states, flags, cache, p, re_len, update);    
+        return update_groups_from_cache(dyn_states, static_states, flags, cache, p, re_len, update, read_only);    
     } else {
-        update_from_cache(static_states, cache, p, re_len, update);    
+        return update_from_cache(static_states, cache, p, re_len, update, read_only);    
     }
 }
 
@@ -53,9 +61,6 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     int n_threads = options.interleaving_parts;
 
     // allocate two state vectors
-    //std::unique_ptr<static_var<char>[]> current(new static_var<char>[re_len + 1]());
-    //std::unique_ptr<static_var<char>[]> next(new static_var<char>[re_len + 1]());
-    
     static_var<char[]> current;
     static_var<char[]> next;
     current.resize(re_len + 1);
@@ -100,16 +105,17 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         // Don’t do anything for $.
         static_var<int> early_break = -1;
         for (static_var<int> state = 0; state < re_len; ++state) {
-           
             // only update current from the cache if update is set to 1
             // if current[state] == '|' we don't want to update from this
             // state, instead we are going to spawn a new function
             bool grouped = options.state_group && is_in_group(state, flags, re_len);
             //bool update = !(options.or_split && current[state] == '|');
-            bool update = !(options.or_split && (flags[state] & 2) == 2);
+            bool update = !(options.or_split && (flags[state] == 's'));
             // check if there is a match for this state
             static_var<int> state_match = 0;
             if ((!grouped && current[state]) || (grouped && (bool)dyn_current[state])) {
+                if (!update_states(options, dyn_next, next, flags, cache, state, re_len, true, true))
+                    continue;
                 static_var<char> m = re[state];
                 if (is_normal(m)) {
                     if (-1 == early_break) {
@@ -145,11 +151,12 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     return false;
                 }
             }
+            
             // if this state matches the current char in string
             // and it is the first state in one of the options in an or group
             // create and call a new function
             //if (options.or_split && state_match && current[state] == '|') {
-            if (options.or_split && state_match && (flags[state] & 2) == 2) {
+            if (options.or_split && state_match && (flags[state] == 's')) {
                 if (spawn_matcher(str, str_len, to_match+1, state+1, working_set, done_set)) {
                     return 1;
                 }

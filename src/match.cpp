@@ -45,13 +45,29 @@ dyn_var<int> match_char(dyn_var<char> dyn_c, char static_c, bool ignore_case) {
 /**
 Update `next` with the reachable states from state `p`.
 */
-void update_from_cache(static_var<char[]>& next, int* cache, int p, int re_len, bool update) {
+bool update_from_cache(static_var<char[]>& next, int* cache, int p, int re_len, bool update, bool read_only) {
     if (!update)
-        return;
+        return false;
     for (int i = 0; i < re_len + 1; i++) {
         static_var<char> cache_val = cache[(p+1) * (re_len + 1) + i];
-        next[i] = (cache_val != 0) ? (char)cache_val : next[i];
-    }    
+        if (read_only) {
+            if (cache_val && !next[i])
+                return true;
+        } else {
+            next[i] = (cache_val != 0) ? (char)cache_val : next[i];
+        }
+    }
+    return false;
+}
+
+bool check_state_updates(static_var<char[]>& next, int* cache, int p, int re_len) {
+    for (int i = 0; i < re_len + 1; i++) {
+        static_var<char> cache_val = cache[(p + 1) * (re_len + 1) + i];
+        if (cache_val && !next[i]) {
+            return true;
+        }
+    }
+    return false;
 }
 
 int is_alpha(char c) {

@@ -204,6 +204,7 @@ void test_ignore_case(MatchType type) {
 }
 
 int main() {    
+    
     auto start = high_resolution_clock::now();
     MatchType type = MatchType::PARTIAL_SINGLE;
     test_simple(type);

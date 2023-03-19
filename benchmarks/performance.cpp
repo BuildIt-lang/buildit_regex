@@ -311,7 +311,7 @@ void compare_all(int n_iters, string text, string match) {
         options.interleaving_parts = stoi(config["interleaving_parts"]);
         options.ignore_case = stoi(config["ignore_case"]);
         options.flags = config["flags"];
-        cout << regex << options.flags << endl;
+        cout << regex << endl;
         tuple<int, float, float> buildit_result = buildit_time(text, regex, options, match_type, n_iters);
         tuple<int, float, float> re2_result = re2_time(text, regex, match_type, n_iters);
         tuple<int, float, float> hs_result = hyperscan_time(text, regex, match_type, n_iters);

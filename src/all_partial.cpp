@@ -18,7 +18,7 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
         current[i] = next[i] = 0;
     }
 
-    update_from_cache(current, cache, -1, re_len);
+    update_from_cache(current, cache, -1, re_len, true);
     
     static_var<int> mc = 0;
     
@@ -39,7 +39,7 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
                     if (-1 == early_break) {
                         // Normal character
                         if (str[to_match] == m || (ignore_case && is_alpha(m) && str[to_match] == (m ^ 32))) {
-                            update_from_cache(next, cache, state, re_len);
+                            update_from_cache(next, cache, state, re_len, true);
                             // If a match happens, it
                             // cannot match anything else
                             // Setting early break
@@ -50,13 +50,13 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
                     } else if (early_break == m) {
                         // The comparison has been done
                         // already, let us not repeat
-                        update_from_cache(next, cache, state, re_len);
+                        update_from_cache(next, cache, state, re_len, true);
                         state_match = 1;
                     }
                 } else if ('.' == m) {
                     // according to PCRE . doesn't match the newline char
                     if (str[to_match] != '\n') {
-                        update_from_cache(next, cache, state, re_len);
+                        update_from_cache(next, cache, state, re_len, true);
                         state_match = 1;
                     }
                 } else if ('[' == m) {
@@ -86,7 +86,7 @@ dyn_var<int> get_partial_match(const char* re, dyn_var<char*> str, dyn_var<int> 
                     }
 		            if ((inverse == 1 && matches == 0) || (inverse == 0 && matches == 1)) {
                         state_match = 1;
-                        update_from_cache(next, cache, state, re_len);
+                        update_from_cache(next, cache, state, re_len, true);
                     }
                 } else {
                     printf("Invalid Character(%c)\n", (char)m);

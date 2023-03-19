@@ -220,7 +220,7 @@ void test_or_split(MatchType type) {
 
 
 int main() {
-    //compare_result("(?GTom.{10,15}r)iver", "dsafdasfdTomswimminginrivercdsvadsfd", MatchType::PARTIAL_SINGLE);
+
     expand_flags_tests();
     auto start = high_resolution_clock::now();
     cout << "--- FULL MATCHES ---" << endl;
