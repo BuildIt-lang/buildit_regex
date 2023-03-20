@@ -24,6 +24,19 @@ using namespace builder;
 
 typedef int (*GeneratedFunction)(const char*, int, int, int);
 
+string make_lazy(string greedy_regex) {
+    string lazy = "";
+    for (int i = 0; i < greedy_regex.length(); i++) {
+        lazy += greedy_regex[i];
+        char c = greedy_regex[i];
+        if (c == '*' || c == '+' || c == '?' || c == '}')
+            lazy += "?";
+    }
+    return lazy;
+}
+
+
+
 /**
 Loads the patterns from a file into a vector.
 */
@@ -143,6 +156,8 @@ tuple<int, float, float> buildit_time(string text, string regex, RegexOptions op
 tuple<int, float, float> re2_time(string text, string regex, MatchType match_type, int n_iters) {
    
     // compile
+    regex = make_lazy(regex);
+    cout << "lazy regex: " << regex << endl;
     RE2 re2_pattern(regex);
     auto start = high_resolution_clock::now();
     for (int iter = 0; iter < n_iters; iter++)
@@ -235,6 +250,7 @@ tuple<int, float, float> hyperscan_time(string text, string regex, MatchType mat
 tuple<int, float, float> pcre_time(string text, string regex, MatchType match_type, int n_iters) {
     
     //compile 
+    regex = make_lazy(regex);
     pcrecpp::RE pcre_re(regex);
     auto start = high_resolution_clock::now();
     for (int iter = 0; iter < n_iters; iter++)
