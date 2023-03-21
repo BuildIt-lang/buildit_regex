@@ -20,6 +20,9 @@ struct RegexOptions {
     bool ignore_case = false;
     int interleaving_parts = 1;
     string flags = "";
+    bool start_anchor = false;
+    bool last_eom = false;
+    bool reverse = false;
 };
 typedef int (*Matcher) (const char*, int, int);
 
@@ -28,5 +31,6 @@ Schedule get_schedule_options(string regex, RegexOptions regex_options);
 vector<Matcher> compile(string regex, RegexOptions flags, MatchType match_type);
 int match(string regex, string str, RegexOptions flags, MatchType match_type);
 vector<string> get_all_partial_matches(string str, string regex, RegexOptions options);
+int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type);
 
 #endif

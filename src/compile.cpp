@@ -6,6 +6,9 @@ Schedule get_schedule_options(string regex, RegexOptions regex_options) {
     options.state_group = regex_options.flags.find("g") != string::npos;
     options.interleaving_parts = regex_options.interleaving_parts;
     options.ignore_case = regex_options.ignore_case;
+    options.start_anchor = regex_options.start_anchor;
+    options.last_eom = regex_options.last_eom;
+    options.reverse = regex_options.reverse;
     return options;
 }
 
@@ -73,22 +76,41 @@ vector<Matcher> compile(string regex, RegexOptions options, MatchType match_type
     return funcs;    
 }
 
+// convert the end of match index into a binary result (match or no match)
+int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type) {
+    //cout << "eom: " << eom << endl;
+    if (eom == (str_start - 1)) // no match
+        return 0;
+    else if (match_type == MatchType::PARTIAL_SINGLE)
+        return 1;
+    else
+        return eom == str_len; // in case of full match eom has to be str_len
+}
+
 /**
  Compiles and calls the generated function. Returns if there is a match or not.
 */
 int match(string regex, string str, RegexOptions options, MatchType match_type) {
+    if (match_type == MatchType::FULL) {
+        options.start_anchor = true;
+        options.last_eom = true;
+    } else if (match_type == MatchType::PARTIAL_SINGLE) {
+        // just use the default values which are false    
+    }
+    
+    
     vector<Matcher> funcs = compile(regex, options, match_type);
     const char* str_c = str.c_str();
     int str_len = str.length();
 
     if (options.interleaving_parts == 1)
-        return funcs[0](str_c, str_len, 0);
+        return eom_to_binary(funcs[0](str_c, str_len, 0), 0, str_len, match_type);
 
     // parallelize
     int result = 0;
     #pragma omp parallel for
     for (int part_id = 0; part_id < options.interleaving_parts; part_id++) {
-        if (funcs[part_id](str_c, str_len, 0)) {
+        if (eom_to_binary(funcs[part_id](str_c, str_len, 0), 0, str_len, match_type)) {
             result = 1;
         }
     }

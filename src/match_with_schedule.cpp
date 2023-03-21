@@ -88,9 +88,17 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         
     }
 
+    dyn_var<int> str_start = to_match;
+    dyn_var<int> last_end = str_start - 1; // keep track of the last end of match
+
     // activate the initial states
     update_states(options, dyn_current, current, flags, cache, first_state-1, re_len, true);
-   
+    
+    if (current[re_len]) {
+        if (!options.last_eom) // any match is good
+            return str_start; // empty match
+        last_end = str_start; // this is our first possible end position
+    }
     // keep the dyn declarations here to avoid
     // generating too many variables
     dyn_var<int> char_matched;
@@ -98,9 +106,6 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
 
     static_var<int> mc = 0;
     while (to_match < str_len) {
-		if (enable_partial && current[re_len]) { // partial match stop early
-            break;
-		}
 
         // Don’t do anything for $.
         static_var<int> early_break = -1;
@@ -156,16 +161,27 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             // and it is the first state in one of the options in an or group
             // create and call a new function
             //if (options.or_split && state_match && current[state] == '|') {
-            if (options.or_split && state_match && (flags[state] == 's')) {
-                if (spawn_matcher(str, str_len, to_match+1, state+1, working_set, done_set)) {
-                    return 1;
+            if (options.or_split && state_match && (flags[state] == 's')) { // TODO: fix this
+                dyn_var<int> submatch_end = spawn_matcher(str, str_len, to_match+1, state+1, working_set, done_set);
+                // we've already matched the first state of the current | option
+                // so any submatch_end will give a partial match, we just need to find
+                // the rightmost one (or leftmost in reverse case)
+                if (submatch_end > to_match) {
+                    // there is a match (there is no match for submatch_end == to_match
+                    // according to the str_match - 1 formula)
+                    if (!options.last_eom)
+                        return submatch_end; // return any match
+                        // if we want the shortest match here we'll need to do more work
+                    bool update_last_end = (options.reverse) ? (bool)(submatch_end < last_end) : (bool)(submatch_end > last_end);
+                    if (update_last_end)
+                        last_end = submatch_end;
                 }
             }
 
         }
 
         // All the states have been checked
-		if (enable_partial && first_state == 0) {
+		if (!options.start_anchor && first_state == 0) {
 			// in case of first_state != 0 we need a partial match
             // that starts from the beginning of the string;
             // no other partial match will do
@@ -189,16 +205,30 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             }    
             
         }
+
         to_match = to_match + 1;
+        
+        // check for break conditions and update the rightmost end of match so far
+        if (current[re_len]) {
+            bool update_last_end = (options.reverse) ? (bool)(to_match < last_end) : (bool)(to_match > last_end);
+            if (update_last_end)
+                last_end = to_match; // update the last end of match
+
+            // be careful when implementing shortest match!!
+            if (!options.last_eom)
+                break; // we already have a match - just break and return
+        }
+
+        //if (count == 0)
+          //  break; // we can't match anything else
 
     }
     
-    // Now that the string is done,
-    // we should have $ in the state
-    static_var<int> is_match = (char)current[re_len];
+    // reset arrays
     for (static_var<int> i = 0; i < re_len + 1; i++) {
         next[i] = 0;
         current[i] = 0;
     }
-    return is_match;
+
+    return last_end;
 }

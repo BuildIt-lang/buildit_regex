@@ -9,6 +9,9 @@ struct Schedule {
     bool state_group = false;
     int interleaving_parts = 1;
     bool ignore_case = false;
+    bool start_anchor = false;
+    bool last_eom = false;
+    bool reverse = false;
 };
 
 bool is_in_group(int index, const char* flags, int re_len);
