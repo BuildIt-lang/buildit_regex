@@ -8,6 +8,7 @@
 #include "../include/parse.h"
 #include "../include/progress.h"
 #include "../include/compile.h"
+#include <pcrecpp.h>
 
 using namespace std::chrono;
 
@@ -36,28 +37,40 @@ void test_ignore_case(MatchType type);
 
 
 void compare_result(const char* pattern, const char* candidate, string groups, MatchType match_type, const char* flags) {
+    bool ignore_case = (strcmp(flags, "i") == 0);
+
     bool expected = 0;
+    string expected_word;
+    string regex = pattern;
+    pcrecpp::RE_Options pcre_opt;
+    pcre_opt.set_caseless(ignore_case);
+    pcrecpp::RE pcre_re("(" + regex + ")", pcre_opt);
+    pcrecpp::StringPiece text(candidate);
     if (match_type == MatchType::FULL) {
-    	expected = (strcmp(flags, "i") == 0) ? 
-            regex_match(candidate, regex(pattern, regex_constants::icase)) :
-            regex_match(candidate, regex(pattern));
+        expected = pcre_re.FullMatch(text, &expected_word);    
     } else if (match_type == MatchType::PARTIAL_SINGLE) {
-        expected = (strcmp(flags, "i") == 0) ? 
-            regex_search(candidate, regex(pattern, regex_constants::icase)) :
-            regex_search(candidate, regex(pattern));
+        expected = pcre_re.PartialMatch(text, &expected_word);
     }
+    
+    cout << "Matching " << pattern << " with " << candidate << " -> ";
+    
     RegexOptions options;
-    if (strcmp(flags, "i") == 0)
-        options.ignore_case = true;
+    options.ignore_case = ignore_case;
     options.flags = groups;
     int result = match(pattern, candidate, options, match_type);
     
-    cout << "Matching " << pattern << " with " << candidate << " -> ";
     bool match = (result == expected);
     if (match) {
         cout << "ok. Result is: " << result << endl;
     } else {
         cout << "failed\nExpected: " << expected << ", got: " << result << endl;
     }
+    if (match_type == MatchType::PARTIAL_SINGLE) {
+        string actual_match = first_longest(pattern, candidate, options);
+        if (actual_match != expected_word) {
+            cout << "expected: " << expected_word << " got: " << actual_match << endl;    
+        }
+    }
+
 }
 
