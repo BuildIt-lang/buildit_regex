@@ -120,9 +120,9 @@ tuple<int, float, float> buildit_time(string text, string regex, RegexOptions op
     
     // compile
     auto start = high_resolution_clock::now();
-    vector<Matcher> funcs = compile(regex, options, match_type);
+    vector<Matcher> funcs = get<0>(compile(regex, options, match_type, false));
     for (int iter = 0; iter < n_iters; iter++)
-        funcs = compile(regex, options, match_type);
+        funcs = get<0>(compile(regex, options, match_type, false));
     auto end = high_resolution_clock::now();
     float compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
 
@@ -136,6 +136,7 @@ tuple<int, float, float> buildit_time(string text, string regex, RegexOptions op
         for (int iter = 0; iter < n_iters; iter++)
             result = funcs[0](s, s_len, 0);
         end = high_resolution_clock::now();
+        result = (result > -1) ? 1 : 0;
     } else {
         // interleave / parallelize
         start = high_resolution_clock::now();
@@ -143,7 +144,7 @@ tuple<int, float, float> buildit_time(string text, string regex, RegexOptions op
             result = 0;
             #pragma omp parallel for
             for (int part_id = 0; part_id < options.interleaving_parts; part_id++) {
-                if (funcs[part_id](s, s_len, 0))
+                if (funcs[part_id](s, s_len, 0) > -1)
                     result = 1;
             }
         }
@@ -327,6 +328,7 @@ void compare_all(int n_iters, string text, string match) {
         options.interleaving_parts = stoi(config["interleaving_parts"]);
         options.ignore_case = stoi(config["ignore_case"]);
         options.flags = config["flags"];
+        options.binary = true;
         cout << regex << endl;
         tuple<int, float, float> buildit_result = buildit_time(text, regex, options, match_type, n_iters);
         tuple<int, float, float> re2_result = re2_time(text, regex, match_type, n_iters);
