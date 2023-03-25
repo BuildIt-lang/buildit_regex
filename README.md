@@ -4,7 +4,7 @@ This repo contains an implementation of a regular expression library using [Buil
 
 We currently support the following types of matches:
 - full match that checks if the regex exactly matches the text; example code is given in `./samples/sample1.cpp`
-- partial match with binary output that tells if there is a match or not (`./samples/sample2.cpp`)
+- partial match with binary output with an option to extract the first match (`./samples/sample2.cpp`)
 - all partial matches returned as a list of strings (`./samples/sample3.cpp`); the output of all partial matches
 is the same as the output of reapeatedly applying the PCRE or RE2 FindAndConsume function that gives non-overlapping
 leftmost longest matches
@@ -28,6 +28,8 @@ We have a couple of flag options that affect the way the code is generated:
 - specifying the number of interleaving parts for partial matches
 - splitting the code generation on `|` characters
 - grouping multiple consecutive states into one
+- `ignore_case` to match both upper and lowercase
+- `greedy` - set to true to prefer longer partial matches
 These options can be set using the `RegexOptions` struct as shown in `./samples/sample2.cpp`.
 
 To compile the code run `make` from the root directory. To run the sample1 code for example, run `./build/sample1`.
