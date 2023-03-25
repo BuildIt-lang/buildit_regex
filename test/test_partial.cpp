@@ -204,7 +204,7 @@ void test_ignore_case(MatchType type) {
 }
 
 int main() {    
-    //compare_result("ab", "abcd", "", MatchType::PARTIAL_SINGLE);     
+    compare_result("(a.)*b", "abb", "", MatchType::PARTIAL_SINGLE);     
     auto start = high_resolution_clock::now();
     MatchType type = MatchType::PARTIAL_SINGLE;
     test_simple(type);

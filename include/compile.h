@@ -20,18 +20,17 @@ struct RegexOptions {
     bool ignore_case = false;
     int interleaving_parts = 1;
     string flags = "";
-    bool start_anchor = false;
-    bool last_eom = false;
-    bool reverse = false;
+    bool greedy = false;
 };
 typedef int (*Matcher) (const char*, int, int);
 
 Matcher compile_helper(const char* regex, const char* flags, bool partial, int* cache, int part_id, Schedule schedule, string headers, int start_state);
-Schedule get_schedule_options(string regex, RegexOptions regex_options);
-vector<Matcher> compile(string regex, RegexOptions flags, MatchType match_type);
-int match(string regex, string str, RegexOptions flags, MatchType match_type);
+Schedule get_schedule_options(string regex, RegexOptions regex_options, MatchType match_type, int pass);
+tuple<vector<Matcher>, vector<Matcher>> compile(string regex, RegexOptions flags, MatchType match_type, bool two_pass);
+int match(string regex, string str, RegexOptions flags, MatchType match_type, string* submatch = nullptr);
 vector<string> get_all_partial_matches(string str, string regex, RegexOptions options);
-int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type, RegexOptions options);
-int run_matchers(vector<Matcher>& funcs, string str, int str_start, RegexOptions options, MatchType match_type);
-string first_longest(string regex, string str, RegexOptions opt);
+int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type, Schedule options);
+vector<int> run_matchers(vector<Matcher>& funcs, string str, int str_start, Schedule options, MatchType match_type, bool binary);
+string generate_headers(string regex, MatchType match_type, RegexOptions options);
+vector<Matcher> compile_single_pass(string regex, RegexOptions options, MatchType match_type, int pass, string flags, int* cache);
 #endif

@@ -57,16 +57,19 @@ void compare_result(const char* pattern, const char* candidate, string groups, M
     RegexOptions options;
     options.ignore_case = ignore_case;
     options.flags = groups;
+    // binary match
     int result = match(pattern, candidate, options, match_type);
     
-    bool match = (result == expected);
-    if (match) {
+    bool is_match = (result == expected);
+    if (is_match) {
         cout << "ok. Result is: " << result << endl;
     } else {
         cout << "failed\nExpected: " << expected << ", got: " << result << endl;
     }
     if (match_type == MatchType::PARTIAL_SINGLE) {
-        string actual_match = first_longest(pattern, candidate, options);
+        string actual_match;
+        options.greedy = true;
+        match(pattern, candidate, options, match_type, &actual_match);
         if (actual_match != expected_word) {
             cout << "expected: " << expected_word << " got: " << actual_match << endl;    
         }

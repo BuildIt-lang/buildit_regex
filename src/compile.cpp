@@ -1,14 +1,28 @@
 #include "compile.h"
 
-Schedule get_schedule_options(string regex, RegexOptions regex_options) {
+Schedule get_schedule_options(string regex, RegexOptions regex_options, MatchType match_type, int pass) {
     Schedule options;
     options.or_split = regex_options.flags.find("s") != string::npos;
     options.state_group = regex_options.flags.find("g") != string::npos;
     options.interleaving_parts = regex_options.interleaving_parts;
     options.ignore_case = regex_options.ignore_case;
-    options.start_anchor = regex_options.start_anchor;
-    options.last_eom = regex_options.last_eom;
-    options.reverse = regex_options.reverse;
+    if (match_type == MatchType::FULL) {
+        options.start_anchor = true;
+        options.last_eom = true;
+        options.reverse = false;
+    } else if (match_type == MatchType::PARTIAL_SINGLE) {
+        if (regex_options.greedy) {
+            // look for the first longest match
+            options.start_anchor = (pass == 1); // true if second pass
+            options.last_eom = true; // last match in both passes
+            options.reverse = (pass == 0); // reverse if first pass
+        } else {
+            // lazy matching, return the first found match
+            options.start_anchor = (pass == 1); // anchor in second pass
+            options.last_eom = false;
+            options.reverse = (pass == 1); // reverse in the second pass
+        }
+    }
     return options;
 }
 
@@ -39,10 +53,42 @@ Matcher compile_helper(const char* regex, const char* flags, bool partial, int* 
     return func;
 }
 
+// generate a comment to add at the top of the generated code file
+string generate_headers(string regex, MatchType match_type, RegexOptions options) {
+        
+    string headers = "// regex: " + regex + "\n";
+    string mt = (match_type == MatchType::FULL) ? "full" : "partial";
+    headers += "// match type: " + mt + "\n"; 
+    headers += "// config: (interleaving_parts: " + to_string(options.interleaving_parts) + "), (ignore_case: " + to_string(options.ignore_case) + "), (flags: " + options.flags +  ")\n";
+    return headers;
+}
+
+vector<Matcher> compile_single_pass(string regex, RegexOptions options, MatchType match_type, int pass, string flags, int* cache) {
+    
+    Schedule schedule = get_schedule_options(regex, options, match_type, pass);
+    
+    int re_len = regex.length();
+    int start_state = (schedule.reverse) ? re_len + 1 : 0;
+    
+    string headers = generate_headers(regex, match_type, options);
+
+    bool partial = (match_type == MatchType::PARTIAL_SINGLE);
+
+    vector<Matcher> funcs;
+    for (int part_id = 0; part_id < schedule.interleaving_parts; part_id++) {
+        Matcher func = compile_helper(regex.c_str(), flags.c_str(), partial, cache, part_id, schedule, headers, start_state);
+        funcs.push_back(func);
+    }
+    return funcs;
+    
+}
+
+
+
 /**
  Generates code for the given regex accroding to the provided scheduling options.
 */
-vector<Matcher> compile(string regex, RegexOptions options, MatchType match_type) {
+tuple<vector<Matcher>, vector<Matcher>> compile(string regex, RegexOptions options, MatchType match_type, bool two_pass) {
     // regex preprocessing
     tuple<string, string> parsed = expand_regex(regex, options.flags);
     string parsed_regex = get<0>(parsed);
@@ -50,36 +96,28 @@ vector<Matcher> compile(string regex, RegexOptions options, MatchType match_type
     const char* regex_cstr = parsed_regex.c_str();
     int re_len = parsed_regex.length();
     
-    // get schedule
-    Schedule schedule = get_schedule_options(regex, options);
-    bool partial = (match_type == MatchType::PARTIAL_SINGLE);
-    
     // precompute state transitions
     // mark grouped states and or groups
     int cache_size = (re_len + 1) * (re_len + 1);
     int* cache = new int[cache_size];
     cache_states(regex_cstr, cache);
-
-    int start_state = (options.reverse) ? re_len + 1 : 0;
-
-    string headers = "// regex: " + regex + "\n";
-    string mt = (match_type == MatchType::FULL) ? "full" : "partial";
-    headers += "// match type: " + mt + "\n"; 
-    headers += "// config: (interleaving_parts: " + to_string(options.interleaving_parts) + "), (ignore_case: " + to_string(options.ignore_case) + "), (flags: " + options.flags + "), (reverse: " + to_string(options.reverse) + ")\n";
-
-    vector<Matcher> funcs;
-    for (int part_id = 0; part_id < schedule.interleaving_parts; part_id++) {
-        Matcher func = compile_helper(parsed_regex.c_str(), parsed_flags.c_str(), partial, cache, part_id, schedule, headers, start_state);
-        funcs.push_back(func);
-    }
+    
+    string headers = generate_headers(regex, match_type, options);
+    
+    // first pass
+    vector<Matcher> first_funcs = compile_single_pass(parsed_regex, options, match_type, 0, parsed_flags, cache);
+    // second pass
+    vector<Matcher> second_funcs;
+    if (two_pass)
+        second_funcs = compile_single_pass(parsed_regex, options, match_type, 1, parsed_flags, cache);
     
     delete[] cache;
 
-    return funcs;    
+    return tuple<vector<Matcher>, vector<Matcher>>{first_funcs, second_funcs};  
 }
 
 // convert the end of match index into a binary result (match or no match)
-int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type, RegexOptions options) {
+int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type, Schedule options) {
     //cout << "eom: " << eom << endl;
     int inc = (options.reverse) ? -1 : 1;
     if (eom == (str_start - inc)) // no match
@@ -90,21 +128,30 @@ int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type, Reg
         return eom == str_len; // in case of full match eom has to be str_len
 }
 
-int run_matchers(vector<Matcher>& funcs, string str, int str_start, RegexOptions options, MatchType match_type) {
+vector<int> run_matchers(vector<Matcher>& funcs, string str, int str_start, Schedule options, MatchType match_type, bool binary) {
     
     const char* str_c = str.c_str();
     int str_len = str.length();
+    
+    // intialize the result
+    vector<int> result;
+    for (int i = 0; i < options.interleaving_parts; i++)
+        result.push_back(0);
 
-    if (options.interleaving_parts == 1)
-        return eom_to_binary(funcs[0](str_c, str_len, str_start), str_start, str_len, match_type, options);
+    // only one function to run
+    if (options.interleaving_parts == 1) {
+        result[0] = funcs[0](str_c, str_len, str_start);
+        if (binary)
+            result[0] = eom_to_binary(result[0], str_start, str_len, match_type, options);
+        return result;
+    }
 
     // parallelize
-    int result = 0;
     #pragma omp parallel for
     for (int part_id = 0; part_id < options.interleaving_parts; part_id++) {
-        if (eom_to_binary(funcs[part_id](str_c, str_len, str_start), str_start, str_len, match_type, options)) {
-            result = 1;
-        }
+        int current = funcs[part_id](str_c, str_len, str_start);
+        int binary_match = eom_to_binary(current, str_start, str_len, match_type, options);
+        result[part_id] = (binary) ? binary_match : current;
     }
     return result;
 }
@@ -112,17 +159,49 @@ int run_matchers(vector<Matcher>& funcs, string str, int str_start, RegexOptions
 /**
  Compiles and calls the generated function. Returns if there is a match or not.
 */
-int match(string regex, string str, RegexOptions options, MatchType match_type) {
-    if (match_type == MatchType::FULL) {
-        options.start_anchor = true;
-        options.last_eom = true;
-    } else if (match_type == MatchType::PARTIAL_SINGLE) {
-        // just use the default values which are false    
+int match(string regex, string str, RegexOptions options, MatchType match_type, string* submatch) {
+    Schedule schedule1 = get_schedule_options(regex, options, match_type, 0);
+    if (submatch == nullptr) {
+        // binary match - one pass is enough
+        vector<Matcher> funcs = get<0>(compile(regex, options, match_type, false));
+        return run_matchers(funcs, str, 0, schedule1, match_type, true)[0];
+    }
+
+    // need to extract the first match - need 2 passes
+    tuple<vector<Matcher>, vector<Matcher>> funcs = compile(regex, options, match_type, true);
+    Schedule schedule2 = get_schedule_options(regex, options, match_type, 1);
+    
+    int str_start = (options.greedy) ? str.length() - 1 : 0;
+    vector<int> first_pass = run_matchers(get<0>(funcs), str, str_start, schedule1, match_type, false);
+
+
+    if (options.greedy) {
+        // the first pass is reversed, the second one is forward
+        int som = *min_element(first_pass.begin(), first_pass.end());
+        if (som == (int)str.length()) {
+            *submatch = ""; // no match
+            return 0;
+        } else {
+            vector<int> second_pass = run_matchers(get<1>(funcs), str, som + 1, schedule2, match_type, false);
+            int eom = *max_element(second_pass.begin(), second_pass.end());
+            *submatch = str.substr(som + 1, eom - som - 1);
+            return 1;
+        }
+    } else {
+        // the first pass is forward, the second one backward
+        // any match is good
+        int eom = *max_element(first_pass.begin(), first_pass.end());    
+        if (eom == -1) {
+            *submatch = ""; // no match
+            return 0;
+        } else {
+            vector<int> second_pass = run_matchers(get<1>(funcs), str, eom - 1, schedule2, match_type, false);
+            int som = *min_element(second_pass.begin(), second_pass.end());
+            *submatch = str.substr(som + 1, eom - som - 1);
+            return 1;
+        }
     }
     
-    
-    vector<Matcher> funcs = compile(regex, options, match_type);
-    return run_matchers(funcs, str, 0, options, match_type);
 }
 
 /**
@@ -168,32 +247,6 @@ vector<string> get_all_partial_matches(string str, string regex, RegexOptions op
     return matches;
     
 }
-
-string first_longest(string regex, string str, RegexOptions opt) {
-    // backward pass
-    opt.last_eom = true;
-    opt.reverse = true;
-    opt.start_anchor = false;
-    // TODO: enable interleaving
-    // TODO: run expand_regex, cache_states only once
-    vector<Matcher> backward_funcs = compile(regex, opt, MatchType::PARTIAL_SINGLE);
-    int som = backward_funcs[0](str.c_str(), str.length(), str.length() - 1);
-    
-    if (som == (int)str.length())
-        return ""; // no match
-    // forward pass
-    opt.last_eom = true;
-    opt.reverse = false;
-    opt.start_anchor = true;
-
-    vector<Matcher> forward_funcs = compile(regex, opt, MatchType::PARTIAL_SINGLE);
-    int eom = forward_funcs[0](str.c_str(), str.length(), som + 1);
-    
-    //cout << "som: " << som + 1 << endl;
-    //cout << "eom: " << eom << endl;
-    return str.substr(som + 1, eom - som - 1);
-}
-
 
 
 
