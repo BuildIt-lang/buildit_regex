@@ -11,7 +11,12 @@ Schedule get_schedule_options(string regex, RegexOptions regex_options, MatchTyp
         options.last_eom = true;
         options.reverse = false;
     } else if (match_type == MatchType::PARTIAL_SINGLE) {
-        if (regex_options.greedy) {
+        if (regex_options.binary) {
+            // any match is fine
+            options.start_anchor = false;
+            options.last_eom = false;
+            options.reverse = false;
+        } else if (regex_options.greedy) {
             // look for the first longest match
             options.start_anchor = (pass == 1); // true if second pass
             options.last_eom = true; // last match in both passes
@@ -19,8 +24,8 @@ Schedule get_schedule_options(string regex, RegexOptions regex_options, MatchTyp
         } else {
             // lazy matching, return the first found match
             options.start_anchor = (pass == 1); // anchor in second pass
-            options.last_eom = false;
-            options.reverse = (pass == 1); // reverse in the second pass
+            options.last_eom = (pass == 0);
+            options.reverse = (pass == 0); // reverse in the first pass
         }
     }
     return options;
@@ -118,7 +123,6 @@ tuple<vector<Matcher>, vector<Matcher>> compile(string regex, RegexOptions optio
 
 // convert the end of match index into a binary result (match or no match)
 int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type, Schedule options) {
-    //cout << "eom: " << eom << endl;
     int inc = (options.reverse) ? -1 : 1;
     if (eom == (str_start - inc)) // no match
         return 0;
@@ -161,9 +165,10 @@ vector<int> run_matchers(vector<Matcher>& funcs, string str, int str_start, Sche
 */
 int match(string regex, string str, RegexOptions options, MatchType match_type, string* submatch) {
     Schedule schedule1 = get_schedule_options(regex, options, match_type, 0);
-    if (submatch == nullptr) {
+    if (options.binary || submatch == nullptr) {
         // binary match - one pass is enough
         vector<Matcher> funcs = get<0>(compile(regex, options, match_type, false));
+
         return run_matchers(funcs, str, 0, schedule1, match_type, true)[0];
     }
 
@@ -171,35 +176,21 @@ int match(string regex, string str, RegexOptions options, MatchType match_type, 
     tuple<vector<Matcher>, vector<Matcher>> funcs = compile(regex, options, match_type, true);
     Schedule schedule2 = get_schedule_options(regex, options, match_type, 1);
     
-    int str_start = (options.greedy) ? str.length() - 1 : 0;
+    //int str_start = (options.greedy) ? str.length() - 1 : 0;
+    int str_start = str.length() - 1; // both greedy and lazy start with reversed matching
     vector<int> first_pass = run_matchers(get<0>(funcs), str, str_start, schedule1, match_type, false);
 
 
-    if (options.greedy) {
-        // the first pass is reversed, the second one is forward
-        int som = *min_element(first_pass.begin(), first_pass.end());
-        if (som == (int)str.length()) {
-            *submatch = ""; // no match
-            return 0;
-        } else {
-            vector<int> second_pass = run_matchers(get<1>(funcs), str, som + 1, schedule2, match_type, false);
-            int eom = *max_element(second_pass.begin(), second_pass.end());
-            *submatch = str.substr(som + 1, eom - som - 1);
-            return 1;
-        }
+    // the first pass is reversed, the second one is forward
+    int som = *min_element(first_pass.begin(), first_pass.end());
+    if (som == (int)str.length()) {
+        *submatch = ""; // no match
+        return 0;
     } else {
-        // the first pass is forward, the second one backward
-        // any match is good
-        int eom = *max_element(first_pass.begin(), first_pass.end());    
-        if (eom == -1) {
-            *submatch = ""; // no match
-            return 0;
-        } else {
-            vector<int> second_pass = run_matchers(get<1>(funcs), str, eom - 1, schedule2, match_type, false);
-            int som = *min_element(second_pass.begin(), second_pass.end());
-            *submatch = str.substr(som + 1, eom - som - 1);
-            return 1;
-        }
+        vector<int> second_pass = run_matchers(get<1>(funcs), str, som + 1, schedule2, match_type, false);
+        int eom = *max_element(second_pass.begin(), second_pass.end());
+        *submatch = str.substr(som + 1, eom - som - 1);
+        return 1;
     }
     
 }

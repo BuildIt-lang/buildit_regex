@@ -21,6 +21,7 @@ struct RegexOptions {
     int interleaving_parts = 1;
     string flags = "";
     bool greedy = false;
+    bool binary = true;
 };
 typedef int (*Matcher) (const char*, int, int);
 

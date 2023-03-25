@@ -185,15 +185,15 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         }
 
         // All the states have been checked
-		if (!options.start_anchor && (first_state == 0 || first_state == re_len + 1)) { // TODO: remove the first_state check, instead pass start_achor = true through options
-			// in case of first_state != 0 we need a partial match
-            // that starts from the beginning of the string;
+		if (!options.start_anchor && (first_state == 0 || first_state == re_len + 1)) {
+            // in case of first_state != 0 and re_len + 1  we need a partial match
+            // that starts from the specified start of string (this is for | split);
             // no other partial match will do
 			if (mc == match_index) {
                 update_states(options, dyn_next, next, flags, cache, first_state-1, re_len, options.reverse, true);
             }
-			mc = (mc + 1) % n_threads; // TODO: confirm it this for reverse match
-		}
+			mc = (mc + 1) % n_threads; 
+        }
         // Now swap the states and clear next
         static_var<int> count = 0;
         for (static_var<int> i = 0; i < re_len + 1; i++) {

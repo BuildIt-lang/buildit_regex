@@ -35,13 +35,28 @@ void test_escaping(MatchType type);
 void test_expand_regex();
 void test_ignore_case(MatchType type);
 
+string make_lazy(string greedy_regex);
+
+string make_lazy(string greedy_regex) {
+    string lazy = "";
+    for (int i = 0; i < (int)greedy_regex.length(); i++) {
+        lazy += greedy_regex[i];
+        char c = greedy_regex[i];
+        if (c == '*' || c == '+' || c == '?' || c == '}')
+            lazy += "?";
+    }
+    return lazy;
+}
 
 void compare_result(const char* pattern, const char* candidate, string groups, MatchType match_type, const char* flags) {
     bool ignore_case = (strcmp(flags, "i") == 0);
+    bool greedy = true;
 
     bool expected = 0;
     string expected_word;
     string regex = pattern;
+    if (!greedy)
+        regex = make_lazy(regex);
     pcrecpp::RE_Options pcre_opt;
     pcre_opt.set_caseless(ignore_case);
     pcrecpp::RE pcre_re("(" + regex + ")", pcre_opt);
@@ -68,7 +83,8 @@ void compare_result(const char* pattern, const char* candidate, string groups, M
     }
     if (match_type == MatchType::PARTIAL_SINGLE) {
         string actual_match;
-        options.greedy = true;
+        options.greedy = greedy;
+        options.binary = false;
         match(pattern, candidate, options, match_type, &actual_match);
         if (actual_match != expected_word) {
             cout << "expected: " << expected_word << " got: " << actual_match << endl;    
