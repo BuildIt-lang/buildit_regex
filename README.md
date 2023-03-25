@@ -30,6 +30,7 @@ We have a couple of flag options that affect the way the code is generated:
 - grouping multiple consecutive states into one
 - `ignore_case` to match both upper and lowercase
 - `greedy` - set to true to prefer longer partial matches
+
 These options can be set using the `RegexOptions` struct as shown in `./samples/sample2.cpp`.
 
 To compile the code run `make` from the root directory. To run the sample1 code for example, run `./build/sample1`.
