@@ -151,7 +151,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
                     state_match = 1;
                 } else if ('[' == m) {
-		            dyn_var<int> matched = match_class(str[to_match], re, state, ignore_case);
+		            bool matched = match_class(str[to_match], re, state, ignore_case);
                     if (matched) {
                         state_match = 1;
                         update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);

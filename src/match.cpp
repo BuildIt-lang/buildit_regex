@@ -80,7 +80,7 @@ int is_alpha(char c) {
  Returns true if the character class starting at index `state` in `re`
  matches the character `c` in the input string. Otherwise returns false.
 */
-dyn_var<int> match_class(dyn_var<char> c, const char* re, int state, bool ignore_case) {
+bool match_class(dyn_var<char> c, const char* re, int state, bool ignore_case) {
     static_var<int> idx = state + 1;
     // ^ means we are looking for an inverse match
     static_var<int> inverse = 0;
@@ -100,26 +100,24 @@ dyn_var<int> match_class(dyn_var<char> c, const char* re, int state, bool ignore
             open++;
             // in case of nested [] keep matching recursively
             if (match_class(c, re, idx, ignore_case)) {
-                matches = 1;
-                break;
+                return true ^ inverse;
             }
         } else if (re[idx] == ']') {
             open--;    
-        } else if (open == 1 && re[idx] == '-') {
+        } else if (open == 1 && re[idx+1] == '-') {
             // this is used for ranges, e.g. [a-d]
-            bool in_range = is_in_range(re[idx-1], re[idx+1], c, ignore_case);
+            bool in_range = is_in_range(re[idx], re[idx+2], c, ignore_case);
+            idx = idx + 2;
             if (in_range) {
-                matches = 1;
-                break;
+                return true ^ inverse;
             }
         } else if (open == 1 && match_char(c, re[idx], ignore_case)) {
             // normal match
-            matches = 1;
-            break;
+            return true ^ inverse;
         }
         idx = idx + 1;
     }
-    return (inverse == 1 && matches == 0) || (inverse == 0 && matches == 1);
+    return false ^ inverse;
 }
 
 
