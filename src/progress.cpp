@@ -4,7 +4,7 @@
 Returns if `m` is an alphanumeric character.
 */
 bool is_normal(char m) {
-    return (m >= 'a' && m <= 'z') || (m >= 'A' && m <= 'Z') || (m >= '0' && m <= '9') || m == ' ' || m == '~' || m == '-';
+    return (m >= 'a' && m <= 'z') || (m >= 'A' && m <= 'Z') || (m >= '0' && m <= '9') || m == ' ' || m == '~' || m == '-' || m == '\n' || m == '\r';
 }
 
 bool is_digit(char m) {

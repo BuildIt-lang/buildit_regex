@@ -106,9 +106,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     // generating too many variables
     dyn_var<int> char_matched;
     dyn_var<char> str_to_match;
-
     static_var<int> mc = 0;
-
     int increment = (options.reverse) ? -1 : 1;
     while (to_match >= 0 && to_match < str_len) {
 
@@ -148,8 +146,10 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                         state_match = 1;
                     }
                 } else if ('.' == m) {
-                    update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
-                    state_match = 1;
+                    if (options.dotall || (bool)(str[to_match] != '\n')) {
+                        update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
+                        state_match = 1;
+                    }
                 } else if ('[' == m) {
 		            bool matched = match_class(str[to_match], re, state, ignore_case);
                     if (matched) {
@@ -189,7 +189,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             // in case of first_state != 0 and re_len + 1  we need a partial match
             // that starts from the specified start of string (this is for | split);
             // no other partial match will do
-			if (mc == match_index) {
+            if (mc == match_index) {
                 update_states(options, dyn_next, next, flags, cache, first_state-1, re_len, options.reverse, true);
             }
 			mc = (mc + 1) % n_threads; 

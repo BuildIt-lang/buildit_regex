@@ -9,6 +9,7 @@ struct Schedule {
     bool state_group = false;
     int interleaving_parts = 1;
     bool ignore_case = false;
+    bool dotall = false;
     bool start_anchor = false;
     bool last_eom = false;
     bool reverse = false;

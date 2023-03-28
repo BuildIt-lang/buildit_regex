@@ -203,10 +203,26 @@ void test_ignore_case(MatchType type) {
     compare_result("\\D\\W\\S", "a k", "", type, "i");
 }
 
+void test_extra(MatchType type) {
+    compare_result("(a.)*b", "abb", "", type);     
+    compare_result("ab\ncd", "dsadab\ncdfgfg", "", type);
+    compare_result("ab\\ncd", "dsadab\\ncdfgfg", "", type);
+    compare_result("ab\\ncd", "dsadab\ncdfgfg", "", type);
+    compare_result(".abcd", "12\nabcd", "", type, "s");
+    compare_result(".{3}abcd", "12\nd\nabcd", "", type, "s");
+    compare_result(".abcd", "12\nabcd", "", type);
+    compare_result("^start", "startend", "", type);    
+    compare_result("^start", "beforestartend", "", type);    
+    compare_result("^ab*", "abbbbacc", "", type);    
+    compare_result("a{3,}", "bbaaabbb", "", type);    
+    compare_result("a{3,}", "bbaaaabbb", "", type);    
+    compare_result("a{3,}", "bbaabbb", "", type);    
+}
+
 int main() {    
-    compare_result("(a.)*b", "abb", "", MatchType::PARTIAL_SINGLE);     
     auto start = high_resolution_clock::now();
     MatchType type = MatchType::PARTIAL_SINGLE;
+    test_extra(type);
     test_simple(type);
     test_star(type);
     test_brackets(type);
@@ -225,7 +241,6 @@ int main() {
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
-    
 }
 
 

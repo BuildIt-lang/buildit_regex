@@ -48,7 +48,7 @@ To compile the code run `make` from the root directory. To run the sample1 code 
 - To build Hyperscan follow the steps 2 and 3 from [here](https://intel.github.io/hyperscan/dev-reference/getting_started.html).
 - Use one of the scripts in `./benchmarks/hyperscan/tools/hsbench/scripts` to create a corpus SQLite database.
 - Add the regex patterns to a file following [this format](http://intel.github.io/hyperscan/dev-reference/tools.html#tools-pattern-format).
-- From the hyperscan build directory run `bin/hsbench -e <pattern_file> -c <corpus.db>`. More directions are available [here](http://intel.github.io/hyperscan/dev-reference/tools.html#running-hsbench).
+- From the hyperscan build directory run `build/bin/hsbench -e <pattern_file> -c <corpus.db>`. More directions are available [here](http://intel.github.io/hyperscan/dev-reference/tools.html#running-hsbench).
 
 ### RE2
 

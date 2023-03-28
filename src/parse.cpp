@@ -37,8 +37,10 @@ string escape_char(char c) {
     else if (c == 'W') return "[^0-9a-zA-Z_]";
     else if (c == 's') return " ";
     else if (c == 'S') return "[^ ]";
+    else if (c == 'n') return "\n";
+    else if (c == 'r') return "\r";
     else {
-        std::cout << "Error in exape_char. ";
+        std::cout << "Error in escape_char. ";
         std::cout << "Invalid character after \\: " << c << "."  << std::endl; 
         return "";
     }
@@ -99,15 +101,20 @@ tuple<string, int, string> expand_sub_regex(string re, int start, string flags) 
 	        curr_flags += get<2>(sub_s);
             counters[1] -= 1;
         }
-        string rest = "";
-	    string rest_flags = "";
-        // repetition from the second counter
-        for (int i = 0; i < counters[1]; i++) {
-            rest = "(" + get<0>(sub_s) + rest + ")?";
-	        rest_flags = repeat_flag + get<2>(sub_s) + rest_flags + repeat_flag + repeat_flag;
+        if (re[start-1] == ',') { // {m,} = m or more
+            s += get<0>(sub_s) + "*";
+            curr_flags += get<2>(sub_s) + repeat_flag;
+        } else { // {m} or {m,n}
+            string rest = "";
+            string rest_flags = "";
+            // repetition from the second counter
+            for (int i = 0; i < counters[1]; i++) {
+                rest = "(" + get<0>(sub_s) + rest + ")?";
+                rest_flags = repeat_flag + get<2>(sub_s) + rest_flags + repeat_flag + repeat_flag;
+            }
+            s += rest;
+            curr_flags += rest_flags;
         }
-        s += rest;
-        curr_flags += rest_flags;
         return tuple<string, int, string>{s, get<1>(sub_s), curr_flags};
     } else if (re[start] == '+') {
         tuple<string, int, string> sub_s = expand_sub_regex(re, start-1, flags);
@@ -147,6 +154,11 @@ tuple<string, string> expand_regex(string re, string flags) {
     string s = "";
     string f = "";
     while (start >= 0) {
+        if (start == 0 && re[start] == '^') {
+            // ^ is converted into the start_anchor flag
+            // we don't need it to be a part of the regex
+            break;
+        }
         tuple<string, int, string> sub_s = expand_sub_regex(re, start, flags);
         s = get<0>(sub_s) + s;
         f = get<2>(sub_s) + f;

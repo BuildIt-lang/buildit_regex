@@ -34,6 +34,7 @@ void test_partial(MatchType type);
 void test_escaping(MatchType type);
 void test_expand_regex();
 void test_ignore_case(MatchType type);
+void test_extra(MatchType type);
 
 string make_lazy(string greedy_regex);
 
@@ -49,7 +50,9 @@ string make_lazy(string greedy_regex) {
 }
 
 void compare_result(const char* pattern, const char* candidate, string groups, MatchType match_type, const char* flags) {
-    bool ignore_case = (strcmp(flags, "i") == 0);
+    string sflags = flags;
+    bool ignore_case = (sflags.find("i") != std::string::npos);
+    bool include_newline = (sflags.find("s") != std::string::npos);
     bool greedy = true;
 
     bool expected = 0;
@@ -59,6 +62,7 @@ void compare_result(const char* pattern, const char* candidate, string groups, M
         regex = make_lazy(regex);
     pcrecpp::RE_Options pcre_opt;
     pcre_opt.set_caseless(ignore_case);
+    pcre_opt.set_dotall(include_newline);
     pcrecpp::RE pcre_re("(" + regex + ")", pcre_opt);
     pcrecpp::StringPiece text(candidate);
     if (match_type == MatchType::FULL) {
@@ -71,7 +75,9 @@ void compare_result(const char* pattern, const char* candidate, string groups, M
     
     RegexOptions options;
     options.ignore_case = ignore_case;
+    options.dotall = include_newline;
     options.flags = groups;
+    options.binary = true;
     // binary match
     int result = match(pattern, candidate, options, match_type);
     
