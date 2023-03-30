@@ -185,7 +185,8 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         }
 
         // All the states have been checked
-		if (!options.start_anchor && (first_state == 0 || first_state == re_len + 1)) {
+		bool inside_block = (options.block_size == -1 || (bool)(increment * (to_match - str_start) < options.block_size));
+        if (!options.start_anchor && (first_state == 0 || first_state == re_len + 1) && inside_block) {
             // in case of first_state != 0 and re_len + 1  we need a partial match
             // that starts from the specified start of string (this is for | split);
             // no other partial match will do

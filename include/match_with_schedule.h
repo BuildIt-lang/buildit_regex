@@ -13,6 +13,7 @@ struct Schedule {
     bool start_anchor = false;
     bool last_eom = false;
     bool reverse = false;
+    int block_size = -1;
 };
 
 bool is_in_group(int index, const char* flags, int re_len);

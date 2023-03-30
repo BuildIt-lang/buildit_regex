@@ -87,7 +87,7 @@ string generate_flags(string pattern) {
 }
 
 
-vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns) {
+vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns, int block_size) {
     auto start = high_resolution_clock::now();
     vector<vector<Matcher>> compiled_patterns;
     for (int re_id = 0; re_id < n_patterns * 2; re_id = re_id + 2) {
@@ -103,6 +103,7 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns)
         cout << "Split positions: " << opt.flags << endl;
         opt.ignore_case = (flags.find("i") != std::string::npos);
         opt.dotall = (flags.find("s") != std::string::npos);
+        opt.block_size = block_size;
         vector<Matcher> funcs = get<0>(compile(regex, opt, MatchType::PARTIAL_SINGLE, false));
         compiled_patterns.push_back(funcs);
     }
@@ -112,7 +113,7 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns)
     return compiled_patterns;
 }
 
-void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_iters, bool individual) {
+void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_iters, bool individual, int block_size) {
     const char* s = text.c_str();
     int s_len = text.length();
     cout << "text len: " << s_len << endl;
@@ -123,25 +124,37 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
     for (int iter = 0; iter < n_iters; iter++) {
         for (int i = 0; i < compiled_patterns.size(); i++) {
             vector<Matcher> funcs = compiled_patterns[i];
-
-            int result = 0;
-            if (funcs.size() == 1) {
-                result = funcs[0](s, s_len, 0);    
+            int result = -1;
+            if (block_size == s_len) {
+                if (funcs.size() == 1) {
+                    result = funcs[0](s, s_len, 0);    
+                } else {
+                    result = -1;
+                    #pragma omp parallel for
+                    for (int tid = 0; tid < funcs.size(); tid++) {
+                        int curr_result = funcs[tid](s, s_len, 0);
+                        if (curr_result > -1 && result == -1)
+                            result = curr_result;
+                    }
+                }
             } else {
-                result = -1;
                 #pragma omp parallel for
-                for (int tid = 0; tid < funcs.size(); tid++) {
-                    int curr_result = funcs[tid](s, s_len, 0);
-                    if (curr_result > -1 && result == -1)
-                        result = curr_result;
+                for (int chunk = 0; chunk < s_len; chunk = chunk + block_size) {
+                    if (result > -1)
+                        continue;
+                    if (funcs.size() == 1) {
+                        result = funcs[0](s, s_len, chunk);    
+                    } else {
+                        result = -1;
+                        #pragma omp parallel for
+                        for (int tid = 0; tid < funcs.size(); tid++) {
+                            int curr_result = funcs[tid](s, s_len, chunk);
+                            if (curr_result > -1 && result == -1)
+                                result = curr_result;
+                        }
+                    }
                 }
             }
-            /*int result = 0;
-            #pragma omp parallel for
-            for (int chunk = 0; chunk < s_len; chunk = chunk + chunk_len) {
-                if (funcs[0](s, s_len, chunk - chunk_len, chunk) > -1)
-                    result = 1;
-            }*/
             if (iter == 0 && individual) {
                 auto end = high_resolution_clock::now();
                 float elapsed_time = (duration_cast<nanoseconds>(end - last_end)).count() * 1.0 / 1e6f;
@@ -282,18 +295,29 @@ void all_partial_time(string str, string pattern) {
     cout << "run time: " << run_time << "ms" << endl;
 }
 int main() {
+    bool run_teakettle = true;
+    bool run_snort = false;
     string data_dir = "data/hsbench-samples/";
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
-    int n_iters = 100;
+    int n_iters = 10;
     bool individual_times = true;
     int n_patterns = 50;
-    vector<string> teakettle = load_patterns(data_dir + "pcre/teakettle_2500");
-    vector<vector<Matcher>> compiled_teakettle = compile_buildit(teakettle, n_patterns); 
-    run_buildit(compiled_teakettle, gutenberg, n_iters, individual_times);
-    run_re2(teakettle, gutenberg, n_iters, individual_times, n_patterns);
-    run_hyperscan(teakettle, gutenberg, n_iters, individual_times, n_patterns);
-
-    //vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_literals");
-    //string alexa = load_corpus(data_dir + "corpora/alexa200.txt");
-    
+    int n_chunks = 2;
+    if (run_teakettle) {
+        int block_size = (int)(gutenberg.length() / n_chunks);
+        vector<string> teakettle = load_patterns(data_dir + "pcre/teakettle_2500");
+        vector<vector<Matcher>> compiled_teakettle = compile_buildit(teakettle, n_patterns, block_size); 
+        run_buildit(compiled_teakettle, gutenberg, n_iters, individual_times, block_size);
+        run_re2(teakettle, gutenberg, n_iters, individual_times, n_patterns);
+        run_hyperscan(teakettle, gutenberg, n_iters, individual_times, n_patterns);
+    }
+    if (run_snort) {
+        vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_literals");
+        string alexa = load_corpus(data_dir + "corpora/alexa200.txt");
+        int block_size = (int)(alexa.length() / n_chunks);
+        vector<vector<Matcher>> compiled_snort = compile_buildit(snort_literals, n_patterns, block_size); 
+        run_buildit(compiled_snort, alexa, n_iters, individual_times, block_size);
+        run_re2(snort_literals, alexa, n_iters, individual_times, n_patterns);
+        run_hyperscan(snort_literals, alexa, n_iters, individual_times, n_patterns);
+    }
 }

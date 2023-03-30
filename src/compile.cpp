@@ -7,6 +7,7 @@ Schedule get_schedule_options(string regex, RegexOptions regex_options, MatchTyp
     options.interleaving_parts = regex_options.interleaving_parts;
     options.ignore_case = regex_options.ignore_case;
     options.dotall = regex_options.dotall;
+    options.block_size = regex_options.block_size;
     if (match_type == MatchType::FULL) {
         options.start_anchor = true;
         options.last_eom = true;

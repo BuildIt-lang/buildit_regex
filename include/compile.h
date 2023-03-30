@@ -23,6 +23,7 @@ struct RegexOptions {
     string flags = "";
     bool greedy = false;
     bool binary = true;
+    int block_size = -1; // split the string into blocks
 };
 typedef int (*Matcher) (const char*, int, int);
 
