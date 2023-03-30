@@ -27,7 +27,7 @@ LIBRARY=$(BUILD_DIR)/lib$(LIBRARY_NAME).a
 INCLUDES=$(wildcard $(BASE_DIR)/*.h) $(wildcard $(RE2_DIR)/*/*.h) $(wildcard $(BUILDIT_DIR)/include/*.h) $(wildcard $(BUILDIT_DIR)/include/*/*.h) $(BUILDIT_REGEX_DIR)/include/*.h 
 INCLUDE_FLAG=-I$(BASE_DIR) -I$(HYPERSCAN_DIR) -I$(RE2_DIR) -I$(BUILDIT_DIR)/include -I$(BUILDIT_DIR)/build/gen_headers -I$(BUILDIT_REGEX_DIR)/include
 
-all: $(BUILD_DIR)/performance.o $(BUILD_DIR)/performance
+all: $(BUILD_DIR)/performance.o $(BUILD_DIR)/performance $(BUILD_DIR)/hs_benchmark.o $(BUILD_DIR)/bench
 
 $(BUILD_DIR)/performance.o: $(BASE_DIR)/performance.cpp $(INCLUDES)
 	$(CXX) $(CFLAGS) $< -o $@ $(INCLUDE_FLAG) -c 
@@ -35,6 +35,11 @@ $(BUILD_DIR)/performance.o: $(BASE_DIR)/performance.cpp $(INCLUDES)
 $(BUILD_DIR)/performance: $(BUILD_DIR)/performance.o $(LIBRARY) $(BUILDIT_DIR)/build/libbuildit.a $(BUILDIT_REGEX_DIR)/build/libbuildit_regex.a $(RE2_DIR)/obj/so/libre2.so.10 $(HYPERSCAN_DIR)/build/lib/libhs.a
 	$(CXX) -o $@ $< $(LINKER_FLAGS)
 
+$(BUILD_DIR)/hs_benchmark.o: $(BASE_DIR)/hs_benchmark.cpp $(INCLUDES)
+	$(CXX) $(CFLAGS) $< -o $@ $(INCLUDE_FLAG) -c 
+
+$(BUILD_DIR)/bench: $(BUILD_DIR)/hs_benchmark.o $(LIBRARY) $(BUILDIT_DIR)/build/libbuildit.a $(BUILDIT_REGEX_DIR)/build/libbuildit_regex.a $(RE2_DIR)/obj/so/libre2.so.10 $(HYPERSCAN_DIR)/build/lib/libhs.a
+	$(CXX) -o $@ $< $(LINKER_FLAGS)
 
 $(LIBRARY): $(OBJS)
 	ar rv $(LIBRARY) $(OBJS)	

@@ -1,6 +1,7 @@
 generated_code
 build
 benchmarks/data/twain.txt
+benchmarks/data/hsbench-samples
 benchmarks/build
 benchmarks/hyperscan
 benchmarks/re2
