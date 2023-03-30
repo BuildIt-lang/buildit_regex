@@ -25,6 +25,18 @@ using namespace std::chrono;
 using namespace builder;
 
 
+/** 
+ This function will get called when a match is found.
+ Returning a non-zero number should halt the scanning.
+*/
+int single_match_handler(unsigned int id, unsigned long long from,
+                        unsigned long long to, unsigned int flags, void *context) {
+    vector<int>* matches = (vector<int>*)context;
+    matches->push_back((int)from);
+    matches->push_back((int)to);
+    return 1;
+}
+
 /**
 Loads the patterns from a file into a vector.
 */
@@ -75,16 +87,16 @@ string generate_flags(string pattern) {
 }
 
 
-vector<vector<Matcher>> compile_buildit(vector<string> patterns) {
+vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns) {
     auto start = high_resolution_clock::now();
     vector<vector<Matcher>> compiled_patterns;
-    for (int re_id = 0; re_id < 100; re_id = re_id + 2) {
+    for (int re_id = 0; re_id < n_patterns * 2; re_id = re_id + 2) {
         cout << "Compiling regex " << to_string(re_id / 2) << ": " << patterns[re_id] << endl;
         string regex = patterns[re_id];
         string flags = patterns[re_id + 1];
         cout << "Flags: " << flags << "; ";
         RegexOptions opt;
-        opt.interleaving_parts = 1; // TODO: change this!!
+        opt.interleaving_parts = 16; // TODO: change this!!
         opt.binary = true; // we don't care about the specific match
         //opt.flags = "";
         opt.flags = generate_flags(regex); // split for faster compilation
@@ -116,11 +128,12 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
             if (funcs.size() == 1) {
                 result = funcs[0](s, s_len, 0);    
             } else {
-                result = 0;
+                result = -1;
                 #pragma omp parallel for
                 for (int tid = 0; tid < funcs.size(); tid++) {
-                    if (funcs[tid](s, s_len, 0) > -1)
-                        result = 1;
+                    int curr_result = funcs[tid](s, s_len, 0);
+                    if (curr_result > -1 && result == -1)
+                        result = curr_result;
                 }
             }
             /*int result = 0;
@@ -142,10 +155,10 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
     cout << "BuildIt running time: " << elapsed_time << "ms" << endl;
 }
 
-void run_re2(vector<string> patterns, string text, int n_iters, bool individual) {
+void run_re2(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns) {
     auto start = high_resolution_clock::now();
     vector<unique_ptr<RE2>> compiled_patterns;
-    for (int i = 0; i < 100; i = i + 2) {
+    for (int i = 0; i < n_patterns * 2; i = i + 2) {
         string regex = "(" + patterns[i] + ")";
         string flags = patterns[i+1];
         RE2::Options opt;
@@ -173,6 +186,55 @@ void run_re2(vector<string> patterns, string text, int n_iters, bool individual)
     end = high_resolution_clock::now();
     elapsed_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
     cout << "RE2 running time: " << elapsed_time << "ms" << endl;
+}
+
+void run_hyperscan(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns) {
+        
+    char* s = (char*)text.c_str();
+    int s_len = text.length();
+
+    // compile
+    vector<hs_database_t*> compiled_patterns;
+    auto start = high_resolution_clock::now();
+    for (int i = 0; i < n_patterns * 2; i = i + 2) {
+        char* re_cstr = (char*)patterns[i].c_str();
+        string flags = patterns[i+1];
+        bool caseless = (flags.find("i") != std::string::npos);
+        bool dotall = (flags.find("s") != std::string::npos);
+        hs_database_t *database;
+        hs_compile_error_t *compile_error;
+        unsigned int hs_flags = HS_FLAG_SOM_LEFTMOST;
+        if (caseless) hs_flags = hs_flags || HS_FLAG_CASELESS;
+        if (dotall) hs_flags = hs_flags || HS_FLAG_DOTALL;
+        hs_compile(re_cstr, hs_flags, HS_MODE_BLOCK, NULL, &database, &compile_error);
+        compiled_patterns.push_back(database);
+    }
+    auto end = high_resolution_clock::now();
+    float compile_time = (duration_cast<nanoseconds>(end - start)).count() / (1e6f * n_iters);
+    cout << "Hyperscan compilation time: " << compile_time << "ms" << endl;
+
+    // run
+    start = high_resolution_clock::now();
+    auto last_end = start;
+    for (int iter = 0; iter < n_iters; iter++) {
+        for (int i = 0; i < compiled_patterns.size(); i++) {
+            vector<int> matches;
+            hs_database_t *database = compiled_patterns[i];
+            hs_scratch_t *scratch = NULL;
+            hs_alloc_scratch(database, &scratch);
+            hs_scan(database, s, s_len, 0, scratch, single_match_handler, &matches);
+            int result = (matches.size() == 2);
+            if (iter == 0 && individual) {
+                end = high_resolution_clock::now();
+                float elapsed_time = (duration_cast<nanoseconds>(end - last_end)).count() * 1.0 / 1e6f;
+                last_end = end;
+                cout << i << " running time: " << elapsed_time << "ms; result: " << result << endl;
+            }
+        }
+    }
+    end = high_resolution_clock::now();
+    float elapsed_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    cout << "Hyperscan running time: " << elapsed_time << "ms" << endl;
 }
 
 void all_partial_time(string str, string pattern) {
@@ -222,10 +284,16 @@ void all_partial_time(string str, string pattern) {
 int main() {
     string data_dir = "data/hsbench-samples/";
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
-    vector<string> teakettle = load_patterns(data_dir + "pcre/teakettle_2500");
-    vector<vector<Matcher>> compiled_teakettle = compile_buildit(teakettle); 
     int n_iters = 100;
     bool individual_times = true;
+    int n_patterns = 50;
+    vector<string> teakettle = load_patterns(data_dir + "pcre/teakettle_2500");
+    vector<vector<Matcher>> compiled_teakettle = compile_buildit(teakettle, n_patterns); 
     run_buildit(compiled_teakettle, gutenberg, n_iters, individual_times);
-    run_re2(teakettle, gutenberg, n_iters, individual_times);
+    run_re2(teakettle, gutenberg, n_iters, individual_times, n_patterns);
+    run_hyperscan(teakettle, gutenberg, n_iters, individual_times, n_patterns);
+
+    //vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_literals");
+    //string alexa = load_corpus(data_dir + "corpora/alexa200.txt");
+    
 }
