@@ -212,11 +212,21 @@ void test_extra(MatchType type) {
     compare_result(".{3}abcd", "12\nd\nabcd", "", type, "s");
     compare_result(".abcd", "12\nabcd", "", type);
     compare_result("^start", "startend", "", type);    
+    compare_result("^(start)", "startend", "", type);    
     compare_result("^start", "beforestartend", "", type);    
     compare_result("^ab*", "abbbbacc", "", type);    
     compare_result("a{3,}", "bbaaabbb", "", type);    
     compare_result("a{3,}", "bbaaaabbb", "", type);    
     compare_result("a{3,}", "bbaabbb", "", type);    
+    // literals
+    compare_result("a\\.", "a...", "", type);
+    compare_result("a\\|b", "a|b", "", type);
+    compare_result("a\\(1", "ba(1.", "", type);
+    compare_result("a\\+1", "ba+1.", "", type);
+    compare_result("a\\?1", "ba?1.", "", type);
+    compare_result("a\\*1", "ba*1.", "", type);
+    compare_result("a\\){2}", "ba))1.", "", type);
+    compare_result("a(\\)){2}", "ba))1.", "", type);
 }
 
 int main() {    

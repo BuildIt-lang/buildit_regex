@@ -36,17 +36,17 @@ bool process_re(const char *re, ReStates re_states) {
     int idx = re_len - 1;
     while (idx >= 0) {
         char c = re[idx];
-
+        bool inside_brackets = closed_brackets.size() > 0;
         // keep track of () and [] pairs
         if (c == ']') closed_brackets.push_back(idx);
-        else if (c == ')') {
+        else if (c == ')' && !inside_brackets) {
             closed_parans.push_back(idx);
             or_indices.push_back(idx);
         } else if (c == '[') {
             int last_bracket = closed_brackets.back();
             re_states.brackets[idx] = last_bracket;
             re_states.brackets[last_bracket] = idx;
-        } else if (c == '(') {
+        } else if (c == '(' && !inside_brackets) {
             int last_paran = closed_parans.back();
             closed_parans.pop_back();
             re_states.brackets[idx] = last_paran;
@@ -59,6 +59,14 @@ bool process_re(const char *re, ReStates re_states) {
         // find the next character/state from re that should be matched
         if (idx == re_len - 1) {
             re_states.next[idx] = idx + 1;
+        } else if (c != ']' && closed_brackets.size() > 0) {
+            // we are inside brackets
+            // all chars map to the same state as the closing bracket
+            // all chars inside brackets are treated as literals e.g. \. is turned into [.]
+            re_states.next[idx] = re_states.next[closed_brackets.back()];
+			if (c == '[') {
+                closed_brackets.pop_back();
+			}
         } else if (c == '|') {
             re_states.next[idx] = idx + 1;
             re_states.helper_states[idx] = or_indices.back();
@@ -75,13 +83,6 @@ bool process_re(const char *re, ReStates re_states) {
             } else {
                 re_states.next[idx] = re_states.next[closed_parans.back()];
             }
-        } else if (c != ']' && closed_brackets.size() > 0) {
-            // we are inside brackets
-            // all chars map to the same state as the closing bracket
-            re_states.next[idx] = re_states.next[closed_brackets.back()];
-			if (c == '[') {
-                closed_brackets.pop_back();
-			}
         } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?') {
             int next_i = idx + 1;
             char next_c = re[next_i];

@@ -27,6 +27,11 @@ int get_counters(string re, int idx, int *counters) {
     return idx - 1;
 }
 
+bool is_special(char c) {
+    string specials = "(){}|.*+?";
+    return specials.find(c) != std::string::npos;
+}
+
 /**
 Transform the escaped character into the corresponding char class.
 */
@@ -39,6 +44,7 @@ string escape_char(char c) {
     else if (c == 'S') return "[^ ]";
     else if (c == 'n') return "\n";
     else if (c == 'r') return "\r";
+    else if (is_special(c)) return "[" + string(1, c) + "]";
     else {
         std::cout << "Error in escape_char. ";
         std::cout << "Invalid character after \\: " << c << "."  << std::endl; 
@@ -68,7 +74,15 @@ tuple<string, int, string> expand_sub_regex(string re, int start, string flags) 
         // base case: we've processed the entire regex
         return tuple<string, int, string>{"", -1, ""};
     }
-    if (re[start] == ')' || re[start] == ']') {
+    if (start > 0 && re[start-1] == '\\') {
+        // character escaping
+        string s = escape_char(re[start]);
+        string curr_flags = "";
+        for (int si = 0; si < (int)s.length(); si++) {
+            curr_flags += flags[start];   
+        }
+        return tuple<string, int, string>{s, start - 2, curr_flags};
+    } else if (re[start] == ')' || re[start] == ']') {
         char end = (re[start] == ')') ? '(' : '[';
         string s = "";
 	    string curr_flags = "";
@@ -121,14 +135,6 @@ tuple<string, int, string> expand_sub_regex(string re, int start, string flags) 
         string s = get<0>(sub_s);
         string curr_flags = get<2>(sub_s);
         return tuple<string, int, string>{s + s + "*", get<1>(sub_s), curr_flags + curr_flags + flags[start]};
-    } else if (start > 0 && re[start-1] == '\\') {
-        // character escaping
-        string s = escape_char(re[start]);
-        string curr_flags = "";
-        for (int si = 0; si < (int)s.length(); si++) {
-            curr_flags += flags[start];   
-        }
-        return tuple<string, int, string>{s, start - 2, curr_flags};
     } else {
         // normal chracter
         string s = ""; 

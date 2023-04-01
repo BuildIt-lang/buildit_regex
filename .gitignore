@@ -3,6 +3,7 @@ build
 benchmarks/data/twain.txt
 benchmarks/data/hsbench-samples
 benchmarks/build
+benchmarks/logs
 benchmarks/hyperscan
 benchmarks/re2
 benchmarks/build

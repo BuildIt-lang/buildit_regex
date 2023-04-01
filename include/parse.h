@@ -10,6 +10,7 @@
 
 using namespace std;
 
+bool is_special(char c);
 int get_counters(string re, int idx, int *counters);
 string escape_char(char c);
 tuple<string, string> expand_regex(string re, string flags = "");

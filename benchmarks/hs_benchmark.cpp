@@ -57,6 +57,8 @@ vector<string> load_patterns(string fname) {
                 patterns.push_back(token);
             tok_id++;
         }
+        if (tok_id == 2) // empty flags
+            patterns.push_back("");
     }
     patterns_file.close();
     return patterns;
@@ -87,16 +89,17 @@ string generate_flags(string pattern) {
 }
 
 
-vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns, int block_size) {
+vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns, int block_size, int batch_id) {
     auto start = high_resolution_clock::now();
     vector<vector<Matcher>> compiled_patterns;
-    for (int re_id = 0; re_id < n_patterns * 2; re_id = re_id + 2) {
+    for (int re_id = 2 * n_patterns * batch_id; re_id < n_patterns * 2 * (batch_id + 1); re_id = re_id + 2) {
         cout << "Compiling regex " << to_string(re_id / 2) << ": " << patterns[re_id] << endl;
-        string regex = patterns[re_id];
+        string re = patterns[re_id];
+        string regex = (re[0] == '^') ? "^(" + re.substr(1, re.length() - 1) + ")" : "(" + re + ")";
         string flags = patterns[re_id + 1];
         cout << "Flags: " << flags << "; ";
         RegexOptions opt;
-        opt.interleaving_parts = 16; // TODO: change this!!
+        opt.interleaving_parts = 8; // TODO: change this!!
         opt.binary = true; // we don't care about the specific match
         //opt.flags = "";
         opt.flags = generate_flags(regex); // split for faster compilation
@@ -113,7 +116,7 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns,
     return compiled_patterns;
 }
 
-void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_iters, bool individual, int block_size) {
+void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_iters, bool individual, int block_size, int batch_id) {
     const char* s = text.c_str();
     int s_len = text.length();
     cout << "text len: " << s_len << endl;
@@ -125,7 +128,7 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
         for (int i = 0; i < compiled_patterns.size(); i++) {
             vector<Matcher> funcs = compiled_patterns[i];
             int result = -1;
-            if (block_size == s_len) {
+            if (block_size == -1) {
                 if (funcs.size() == 1) {
                     result = funcs[0](s, s_len, 0);    
                 } else {
@@ -168,11 +171,12 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
     cout << "BuildIt running time: " << elapsed_time << "ms" << endl;
 }
 
-void run_re2(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns) {
+void run_re2(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns, int batch_id) {
     auto start = high_resolution_clock::now();
     vector<unique_ptr<RE2>> compiled_patterns;
-    for (int i = 0; i < n_patterns * 2; i = i + 2) {
-        string regex = "(" + patterns[i] + ")";
+    for (int i = 2 * n_patterns * batch_id; i < n_patterns * 2 * (batch_id + 1); i = i + 2) {
+        string re = patterns[i];
+        string regex = (re[0] == '^') ? "^(" + re.substr(1, re.length() - 1) + ")" : "(" + re + ")";
         string flags = patterns[i+1];
         RE2::Options opt;
         opt.set_dot_nl(flags.find('s') != std::string::npos);
@@ -201,7 +205,7 @@ void run_re2(vector<string> patterns, string text, int n_iters, bool individual,
     cout << "RE2 running time: " << elapsed_time << "ms" << endl;
 }
 
-void run_hyperscan(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns) {
+void run_hyperscan(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns,  int batch_id) {
         
     char* s = (char*)text.c_str();
     int s_len = text.length();
@@ -209,8 +213,9 @@ void run_hyperscan(vector<string> patterns, string text, int n_iters, bool indiv
     // compile
     vector<hs_database_t*> compiled_patterns;
     auto start = high_resolution_clock::now();
-    for (int i = 0; i < n_patterns * 2; i = i + 2) {
-        char* re_cstr = (char*)patterns[i].c_str();
+    for (int i = 2 * n_patterns * batch_id; i < 2 * n_patterns * (batch_id + 1); i = i + 2) {
+        string pattern = patterns[i];
+        char* re_cstr = (char*)pattern.c_str();
         string flags = patterns[i+1];
         bool caseless = (flags.find("i") != std::string::npos);
         bool dotall = (flags.find("s") != std::string::npos);
@@ -294,30 +299,39 @@ void all_partial_time(string str, string pattern) {
     float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / 1e6f;
     cout << "run time: " << run_time << "ms" << endl;
 }
-int main() {
+int main(int argc, char **argv) {
+    if (argc == 1) {
+        cout << "Missing batch id!" << endl;    
+        return 0;
+    }
+    int batch_id = stoi(argv[1]);
+    cout << "Running batch " << batch_id << endl;
     bool run_teakettle = true;
     bool run_snort = false;
     string data_dir = "data/hsbench-samples/";
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
-    int n_iters = 10;
+    int n_iters = 5;
     bool individual_times = true;
     int n_patterns = 50;
-    int n_chunks = 2;
+    int n_chunks = 1;
     if (run_teakettle) {
         int block_size = (int)(gutenberg.length() / n_chunks);
+        if (n_chunks == 1) block_size = -1;
         vector<string> teakettle = load_patterns(data_dir + "pcre/teakettle_2500");
-        vector<vector<Matcher>> compiled_teakettle = compile_buildit(teakettle, n_patterns, block_size); 
-        run_buildit(compiled_teakettle, gutenberg, n_iters, individual_times, block_size);
-        run_re2(teakettle, gutenberg, n_iters, individual_times, n_patterns);
-        run_hyperscan(teakettle, gutenberg, n_iters, individual_times, n_patterns);
+        //n_patterns = teakettle.size();
+        cout << "Num patterns: " << n_patterns << endl;
+        vector<vector<Matcher>> compiled_teakettle = compile_buildit(teakettle, n_patterns, block_size, batch_id); 
+        run_buildit(compiled_teakettle, gutenberg, n_iters, individual_times, block_size, batch_id);
+        run_re2(teakettle, gutenberg, n_iters, individual_times, n_patterns, batch_id);
+        run_hyperscan(teakettle, gutenberg, n_iters, individual_times, n_patterns, batch_id);
     }
     if (run_snort) {
-        vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_literals");
+        vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_pcres");
         string alexa = load_corpus(data_dir + "corpora/alexa200.txt");
         int block_size = (int)(alexa.length() / n_chunks);
-        vector<vector<Matcher>> compiled_snort = compile_buildit(snort_literals, n_patterns, block_size); 
-        run_buildit(compiled_snort, alexa, n_iters, individual_times, block_size);
-        run_re2(snort_literals, alexa, n_iters, individual_times, n_patterns);
-        run_hyperscan(snort_literals, alexa, n_iters, individual_times, n_patterns);
+        vector<vector<Matcher>> compiled_snort = compile_buildit(snort_literals, n_patterns, block_size, batch_id); 
+        run_buildit(compiled_snort, alexa, n_iters, individual_times, block_size, batch_id);
+        run_re2(snort_literals, alexa, n_iters, individual_times, n_patterns, batch_id);
+        run_hyperscan(snort_literals, alexa, n_iters, individual_times, n_patterns, batch_id);
     }
 }
