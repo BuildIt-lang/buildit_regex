@@ -204,6 +204,7 @@ void test_ignore_case(MatchType type) {
 }
 
 void test_extra(MatchType type) {
+    compare_result("00dcR\\x0A\\x00\\x00\\x01\\x00\\x0AR\\x00P\\x00<UU\\x11\\x00", "some string", "", type);
     compare_result("(a.)*b", "abb", "", type);     
     compare_result("ab\ncd", "dsadab\ncdfgfg", "", type);
     compare_result("ab\\ncd", "dsadab\\ncdfgfg", "", type);
@@ -219,14 +220,30 @@ void test_extra(MatchType type) {
     compare_result("a{3,}", "bbaaaabbb", "", type);    
     compare_result("a{3,}", "bbaabbb", "", type);    
     // literals
+    //compare_result("\\\\", "\\", "", type);
     compare_result("a\\.", "a...", "", type);
     compare_result("a\\|b", "a|b", "", type);
     compare_result("a\\(1", "ba(1.", "", type);
     compare_result("a\\+1", "ba+1.", "", type);
     compare_result("a\\?1", "ba?1.", "", type);
     compare_result("a\\*1", "ba*1.", "", type);
-    compare_result("a\\){2}", "ba))1.", "", type);
+    compare_result("a(\\*){2}", "ba))1.", "", type);
     compare_result("a(\\)){2}", "ba))1.", "", type);
+    compare_result("a(\\^){2}", "ba^^1.", "", type);
+    compare_result("a\\(\\)", "a()1.", "", type);
+    compare_result("\\(\\)", "()1.", "", type);
+    compare_result("\\[\\)\\{\\}", "[)1.", "", type);
+    compare_result("\\[\\]\\(\\)\\|\\+", "[](|+", "", type);
+    compare_result("(\\||\\^)", "^", "", type);
+    compare_result("(\\||\\^)", "|", "", type);
+    compare_result("\\x43", "\x43", "", type);
+    compare_result("\\xA3", "\xA3", "", type);
+    compare_result("a\\x5A", "a\x5A", "", type);
+    compare_result("\\x5A", "a\x5A", "", type);
+    compare_result("\\x5B", "a\x5B", "", type); // 5B is [
+    compare_result("\\x43{2}", "\x43\x43", "", type);
+    compare_result("\\x4", "\x4safd", "", type);
+    compare_result("\x043", "\x43", "", type);
 }
 
 int main() {    

@@ -36,4 +36,5 @@ int eom_to_binary(int eom, int str_start, int str_len, MatchType match_type, Sch
 vector<int> run_matchers(vector<Matcher>& funcs, string str, int str_start, Schedule options, MatchType match_type, bool binary);
 string generate_headers(string regex, MatchType match_type, RegexOptions options);
 vector<Matcher> compile_single_pass(string orig_regex, string regex, RegexOptions options, MatchType match_type, int pass, string flags, int* cache);
+void print_cache(int* cache, int re_len);
 #endif

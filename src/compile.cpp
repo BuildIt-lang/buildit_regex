@@ -95,7 +95,16 @@ vector<Matcher> compile_single_pass(string orig_regex, string regex, RegexOption
     
 }
 
-
+void print_cache(int* cache, int re_len) {
+    cout << "cache: " << endl;
+    for (int i = 0; i < re_len + 1; i++) {
+        for (int j = 0; j < re_len + 1; j++) {
+            cout << cache[i * (re_len + 1) + j] << " ";    
+        }
+        cout << endl;
+    }
+    cout << endl;
+}
 
 /**
  Generates code for the given regex accroding to the provided scheduling options.
@@ -105,6 +114,7 @@ tuple<vector<Matcher>, vector<Matcher>> compile(string regex, RegexOptions optio
     tuple<string, string> parsed = expand_regex(regex, options.flags);
     string parsed_regex = get<0>(parsed);
     string parsed_flags = get<1>(parsed);
+    //cout << "parsed: " << parsed_regex << endl;
     const char* regex_cstr = parsed_regex.c_str();
     int re_len = parsed_regex.length();
     
@@ -113,6 +123,8 @@ tuple<vector<Matcher>, vector<Matcher>> compile(string regex, RegexOptions optio
     int cache_size = (re_len + 1) * (re_len + 1);
     int* cache = new int[cache_size];
     cache_states(regex_cstr, cache);
+    
+    //print_cache(cache, re_len);
     
     string headers = generate_headers(regex, match_type, options);
     

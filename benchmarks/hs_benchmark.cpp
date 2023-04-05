@@ -99,7 +99,7 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns,
         string flags = patterns[re_id + 1];
         cout << "Flags: " << flags << "; ";
         RegexOptions opt;
-        opt.interleaving_parts = 8; // TODO: change this!!
+        opt.interleaving_parts = 1; // TODO: change this!!
         opt.binary = true; // we don't care about the specific match
         //opt.flags = "";
         opt.flags = generate_flags(regex); // split for faster compilation
@@ -136,7 +136,7 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
                     #pragma omp parallel for
                     for (int tid = 0; tid < funcs.size(); tid++) {
                         int curr_result = funcs[tid](s, s_len, 0);
-                        if (curr_result > -1 && result == -1)
+                        if (curr_result > -1)
                             result = curr_result;
                     }
                 }
@@ -146,13 +146,15 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
                     if (result > -1)
                         continue;
                     if (funcs.size() == 1) {
-                        result = funcs[0](s, s_len, chunk);    
+                        result = funcs[0](s, s_len, chunk);
+                        if (result == chunk - 1)
+                            result = -1;
                     } else {
                         result = -1;
                         #pragma omp parallel for
                         for (int tid = 0; tid < funcs.size(); tid++) {
                             int curr_result = funcs[tid](s, s_len, chunk);
-                            if (curr_result > -1 && result == -1)
+                            if (curr_result > chunk-1)
                                 result = curr_result;
                         }
                     }
@@ -300,20 +302,21 @@ void all_partial_time(string str, string pattern) {
     cout << "run time: " << run_time << "ms" << endl;
 }
 int main(int argc, char **argv) {
+    int batch_id = 0;
     if (argc == 1) {
-        cout << "Missing batch id!" << endl;    
-        return 0;
+        cout << "Missing batch id! The default is 0." << endl;    
+    } else {
+        batch_id = stoi(argv[1]);
     }
-    int batch_id = stoi(argv[1]);
     cout << "Running batch " << batch_id << endl;
-    bool run_teakettle = true;
-    bool run_snort = false;
+    bool run_teakettle = false;
+    bool run_snort = true;
     string data_dir = "data/hsbench-samples/";
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
-    int n_iters = 5;
+    int n_iters = 1;
     bool individual_times = true;
     int n_patterns = 50;
-    int n_chunks = 1;
+    int n_chunks = 32;
     if (run_teakettle) {
         int block_size = (int)(gutenberg.length() / n_chunks);
         if (n_chunks == 1) block_size = -1;
@@ -326,9 +329,10 @@ int main(int argc, char **argv) {
         run_hyperscan(teakettle, gutenberg, n_iters, individual_times, n_patterns, batch_id);
     }
     if (run_snort) {
-        vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_pcres");
+        vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_literals");
         string alexa = load_corpus(data_dir + "corpora/alexa200.txt");
         int block_size = (int)(alexa.length() / n_chunks);
+        if (n_chunks == 1) block_size = -1;
         vector<vector<Matcher>> compiled_snort = compile_buildit(snort_literals, n_patterns, block_size, batch_id); 
         run_buildit(compiled_snort, alexa, n_iters, individual_times, block_size, batch_id);
         run_re2(snort_literals, alexa, n_iters, individual_times, n_patterns, batch_id);

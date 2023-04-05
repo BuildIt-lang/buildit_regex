@@ -14,7 +14,7 @@ std::vector<std::map<std::string, std::string>> get_pattern_config(std::string m
     std::vector<std::map<std::string, std::string>> patterns;
     
     if (match_type == "full") {
-        add_pattern(patterns, "(Twain)", "1", "0", "", "Twain");
+/*        add_pattern(patterns, "(Twain)", "1", "0", "", "Twain");
         add_pattern(patterns, "(Twain)", "1", "1", "", "Twain");
         add_pattern(patterns, "([a-z]shing)", "1", "0", "", "ishing");
         add_pattern(patterns, "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)", "1", "0", "", "Huckleberry");
@@ -29,9 +29,11 @@ std::vector<std::map<std::string, std::string>> get_pattern_config(std::string m
         add_pattern(patterns, "(([A-Za-z]awyer|[A-Za-z]inn)\\s)", "1", "0", "", "Sawyer");
         add_pattern(patterns, "(Tom.{10,15}river|river.{10,15}Tom)", "1", "0", "", "Tom swimming river");
         add_pattern(patterns, "(Tom.{10,25}river|river.{10,15}Tom)", "1", "0", "", "Tom swimming river");
-        
+  */      
     } else {
-        add_pattern(patterns, "(Twain)", "1", "0", "", "");
+        add_pattern(patterns, "(TomddsaSawyerdsad)", "1", "0", "", "");
+        //add_pattern(patterns, "(Tom|Sawyer|Huckleberry|Finn)", "1", "0", "", "");
+    /*    add_pattern(patterns, "(Twain)", "1", "0", "", "");
         add_pattern(patterns, "(Twain)", "1", "1", "", "");
         add_pattern(patterns, "([a-z]shing)", "1", "0", "", "");
         add_pattern(patterns, "(Huck[a-zA-Z]+|Saw[a-zA-Z]+)", "1", "0", "", "");
@@ -65,6 +67,7 @@ std::vector<std::map<std::string, std::string>> get_pattern_config(std::string m
         //add_pattern(patterns, "(Tom.{10,25}river|river.{10,15}Tom)", "16", "0", "", "");
         //add_pattern(patterns, "(Tom.{10,25}river|river.{10,15}Tom)", "32", "0", "", "");
         //add_pattern(patterns, "(Tom.{10,25}river|river.{10,15}Tom)", "1", "0", ".s................s................", "");
+    */
     }
     return patterns;
 }

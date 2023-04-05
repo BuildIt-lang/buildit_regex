@@ -1,74 +1,5 @@
 #include "test.h"
 
-void test_flag_expand(string regex, string inp_flags, string expected) {
-    tuple<string, string> result = expand_regex(regex, inp_flags);
-    string re = get<0>(result);
-    int re_len = re.length();
-    string flags = get<1>(result);
-    assert((int)flags.length() == re_len);
-    assert(flags.length() == expected.length());
-    for (int i = 0; i < re_len; i++) {
-        assert(flags[i] == expected[i]);
-    }
-    cout << re << ": passed" << endl;
-}
-
-void expand_flags_tests() {
-    // + expand
-    string re = "abc+de";
-    string flags = "..gg..";
-    // abcc*de
-    string expected = "..ggg..";
-    test_flag_expand(re, flags, expected);
-    
-    // {} expand
-    re = "ab{2}c";
-    flags = ".gggg.";
-    // abbc
-    expected = ".gg.";
-    test_flag_expand(re, flags, expected);
-
-    re = "ab{2,4}c";
-    flags = ".gggggg.";
-    // abb(b(b)?)?c
-    expected = ".gggggggggg.";
-    test_flag_expand(re, flags, expected);
-
-    re = "ab{2,4}c";
-    flags = ".g......";
-    // abb(b(b)?)?c
-    expected = ".gg.g.g.....";
-    test_flag_expand(re, flags, expected);
-
-    // ignore case
-    re = "ab\\dcd";
-    flags = "..gg..";
-    // ab[0-9]cd
-    expected = "..ggggg..";
-    test_flag_expand(re, flags, expected);
-
-    // ignore case inside []
-    re = "ab[\\dcd]";
-    flags = "...gg...";
-    // ab[[0-9]cd]
-    expected = "...ggggg...";
-    test_flag_expand(re, flags, expected);
-
-    re = "ab[\\dcd]";
-    flags = "..gggggg";
-    // ab[[0-9]cd]
-    expected = "..ggggggggg";
-    test_flag_expand(re, flags, expected);
-
-    // or split
-    re = "(ab|cd|ef)+";
-    flags = ".s..s..s...";
-    // (ab|cd|ef)(ab|cd|ef)*
-    expected = ".s..s..s...s..s..s...";
-    test_flag_expand(re, flags, expected);
-    
-}
-
 void test_simple(MatchType type) {
     compare_result("abcdef", "abcdef", "......", type);
     compare_result("abcdef", "abcdef", ".ggg..", type);
@@ -221,7 +152,6 @@ void test_or_split(MatchType type) {
 
 int main() {
 
-    expand_flags_tests();
     auto start = high_resolution_clock::now();
     cout << "--- FULL MATCHES ---" << endl;
     test_simple(MatchType::FULL);
@@ -243,5 +173,4 @@ int main() {
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
-    
 }

@@ -27,29 +27,88 @@ int get_counters(string re, int idx, int *counters) {
     return idx - 1;
 }
 
-bool is_special(char c) {
-    string specials = "(){}|.*+?";
+// special characters from the user's perspective
+bool is_special_external(char c) {
+    string specials = "[](){}|.*+?^\\";
     return specials.find(c) != std::string::npos;
+}
+
+// special characters in our internal representation
+// e.g. {} and + are not internally special
+// ^ is special only when inside []
+bool is_special_internal(char c) {
+    string specials = "[]()|.*?^\\";
+    return specials.find(c) != std::string::npos;
+}
+
+bool is_normal(char c) {
+    return !is_special_external(c);    
+}
+
+bool is_digit(char c) {
+    return c >= '0' && c <= '9';    
+}
+
+bool is_letter(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+bool is_word_char(char c) {
+    return is_digit(c) || is_letter(c) || c == '_';
+}
+
+// returns true if c is a special character
+// that can never be activated as a valid state
+bool never_active(char c) {
+    string special = "](){}|*+?^";
+    return special.find(c) != std::string::npos;
+}
+
+bool is_hx_symbol(char c) {
+    return ('0' <= c && c <='9') || ('A' <= c && c <= 'F') || ('a' <= c && c <='f');    
+}
+
+char hx_to_int(char c) {
+    if (is_digit(c))
+        return c - '0';
+    if ('A' <= c && c <= 'F')
+        return c - 'A' + 10;
+    if ('a' <= c && c <= 'f')
+        return c - 'a' + 10;
+    return '0';
+}
+
+tuple<char, int> convert_to_hx(string re, int start) {
+    tuple<char, int> not_hx('\x0', start);
+    if (start < 2 || !is_hx_symbol(re[start]))
+        return not_hx;
+    char num = '\x0';
+    char second_char = hx_to_int(re[start]);
+    start--;
+    // '\x5' type of numbers
+    if (start > 0 && re[start] == 'x' && re[start-1] == '\\')
+        return tuple<char, int>{num + second_char, start-2};
+
+    // '\x53' type of numbers
+    if (!is_hx_symbol(re[start]))
+        return not_hx;
+    char first_char = hx_to_int(re[start]);
+    num = num + first_char;
+    num = (num << 4) + second_char;
+    start--;
+    if (start > 0 && re[start] == 'x' && re[start-1] == '\\')
+        return tuple<char, int>{num, start-2};
+
+   return not_hx;
 }
 
 /**
 Transform the escaped character into the corresponding char class.
 */
 string escape_char(char c) {
-    if (c == 'd') return "[0-9]";
-    else if (c == 'D') return "[^0-9]";
-    else if (c == 'w') return "[0-9a-zA-Z_]";
-    else if (c == 'W') return "[^0-9a-zA-Z_]";
-    else if (c == 's') return " ";
-    else if (c == 'S') return "[^ ]";
-    else if (c == 'n') return "\n";
+    if (c == 'n') return "\n";
     else if (c == 'r') return "\r";
-    else if (is_special(c)) return "[" + string(1, c) + "]";
-    else {
-        std::cout << "Error in escape_char. ";
-        std::cout << "Invalid character after \\: " << c << "."  << std::endl; 
-        return "";
-    }
+    else return "(\\" + string(1, c) + ")";
 }
 
 /**
@@ -73,6 +132,21 @@ tuple<string, int, string> expand_sub_regex(string re, int start, string flags) 
     if (start < 0) {
         // base case: we've processed the entire regex
         return tuple<string, int, string>{"", -1, ""};
+    }
+
+    tuple<char, int> possible_hx = convert_to_hx(re, start);
+    char hx = get<0>(possible_hx);
+    int new_start = get<1>(possible_hx);
+    if (new_start < start) {
+        // we have a hx conversion
+        string s = string(1, hx);
+        if (is_special_external(hx))
+            s = escape_char(hx);
+        string curr_flags = "";
+        for (int si = 0; si < (int)s.length(); si++) {
+            curr_flags += flags[start];   
+        }
+        return tuple<string, int, string>{s, new_start, curr_flags};
     }
     if (start > 0 && re[start-1] == '\\') {
         // character escaping

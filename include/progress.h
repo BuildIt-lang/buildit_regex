@@ -20,8 +20,6 @@ struct ReStates {
     int* helper_states;
 };
 
-bool is_normal(char m);
-bool is_digit(char m);
 bool is_special_group(const char* re, int idx);
 bool is_group_type(const char* re, int idx, char type);
 void reset_array(char* arr, int len);

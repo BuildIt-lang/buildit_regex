@@ -26,11 +26,27 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c, int ignore_case
         return left <= c && c <= right;    
     }
     // ignore case: lowercase and uppercase letters are the same in binary 
-    // except for the 6th least significant bit
+    // except for the 6th least bsignificant bit
     return (left <= c && c <= right) || ((left ^ 32) <= c && c <= (right ^ 32));
 }
 
-dyn_var<int> match_char(dyn_var<char> dyn_c, char static_c, bool ignore_case) {
+dyn_var<int> match_char(dyn_var<char> dyn_c, char static_c, bool ignore_case, bool escaped) {
+    if (escaped) {
+        // special classes
+        if (static_c == 'd') // a digit
+            return dyn_c >= '0' && dyn_c <= '9';
+        else if (static_c == 'D') // not a digit
+            return !(dyn_c >= '0' && dyn_c <= '9');
+        else if (static_c == 'w') // a word character
+            return (dyn_c >= 'a' && dyn_c <= 'z') || (dyn_c >= 'A' && dyn_c <= 'Z') || (dyn_c >= '0' && dyn_c <= '9') || dyn_c == '_';
+        else if (static_c == 'W') // not a word character
+            return !((dyn_c >= 'a' && dyn_c <= 'z') || (dyn_c >= 'A' && dyn_c <= 'Z') || (dyn_c >= '0' && dyn_c <= '9') || dyn_c == '_');
+        else if (static_c == 's') // a space
+            return (dyn_c == ' ');
+        else if (static_c == 'S') //  not a space
+            return dyn_c != ' ';
+    }
+
     // upper and lower case letters differ only by the 5th bit
     bool is_upper = ('A' <= static_c && static_c <= 'Z');
     bool is_lower = ('a' <= static_c && static_c <= 'z');
@@ -88,30 +104,23 @@ bool match_class(dyn_var<char> c, const char* re, int state, bool ignore_case) {
         inverse = 1;
         idx = idx + 1;
     }
-    // keep track of open brackets;
-    // due to recursion, only match chars from the
-    // top level [] i.e. if open == 1
-    static_var<int> open = 1;
 
     dyn_var<int> matches = 0;
     // check if c matches any of the chars in []
-    while (open > 0) {
-        if (re[idx] == '[') {
-            open++;
-            // in case of nested [] keep matching recursively
-            if (match_class(c, re, idx, ignore_case)) {
+    while (re[idx] != ']') {
+        if (re[idx] == '\\') {
+            if (match_char(c, re[idx+1], ignore_case, true)) {
                 return true ^ inverse;
             }
-        } else if (re[idx] == ']') {
-            open--;    
-        } else if (open == 1 && re[idx+1] == '-') {
+            idx = idx + 1;
+        } else if (re[idx+1] == '-') {
             // this is used for ranges, e.g. [a-d]
             bool in_range = is_in_range(re[idx], re[idx+2], c, ignore_case);
             idx = idx + 2;
             if (in_range) {
                 return true ^ inverse;
             }
-        } else if (open == 1 && match_char(c, re[idx], ignore_case)) {
+        } else if (match_char(c, re[idx], ignore_case)) {
             // normal match
             return true ^ inverse;
         }

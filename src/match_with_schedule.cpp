@@ -90,7 +90,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         
     }
 
-    dyn_var<int> str_start = to_match;
+    dyn_var<int> str_start = to_match * 1;
     dyn_var<int> no_match = (options.reverse) ? str_start + 1 : str_start - 1;
     dyn_var<int> last_end = no_match; // keep track of the last end of match
 
@@ -155,6 +155,14 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     if (matched) {
                         state_match = 1;
                         update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
+                    }
+                } else if ('\\' == m) {
+                    // treat the following char as a literal
+                    // no need for ignore case here
+                    char_matched = match_char(str[to_match], re[state+1], false, true);
+                    if (char_matched) {
+                        update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
+                        state_match = 1;
                     }
                 } else {
                     //printf("Invalid Character(%c)\n", (char)m);
@@ -224,8 +232,8 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                 break; // we already have a match - just break and return
         }
 
-        //if (count == 0)
-          //  break; // we can't match anything else
+        if (!options.state_group && count == 0)
+            break; // we can't match anything else
 
     }
     

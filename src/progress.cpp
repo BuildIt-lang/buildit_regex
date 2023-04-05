@@ -1,19 +1,6 @@
 #include "progress.h"
 
 /**
-Returns if `m` is an alphanumeric character.
-*/
-bool is_normal(char m) {
-    return (m >= 'a' && m <= 'z') || (m >= 'A' && m <= 'Z') || (m >= '0' && m <= '9') || m == ' ' || m == '~' || m == '-' || m == '\n' || m == '\r';
-}
-
-bool is_digit(char m) {
-    return m >= '0' && m <= '9';
-}
-
-
-
-/**
 It returns whether `re` is a valid regular expression.
 
 `next` ia an array of length `strlen(re)`; for each char in `re`,
@@ -30,29 +17,40 @@ so on, the last `|` has the index of `)`
 */
 bool process_re(const char *re, ReStates re_states) {
     int re_len = (int)strlen(re);
-    vector<int> closed_parans;
+    vector<int> closed_parens;
     vector<int> closed_brackets;
     vector<int> or_indices;
     int idx = re_len - 1;
     while (idx >= 0) {
+        if (idx > 0 && re[idx - 1] == '\\') {
+            // only mark '\\' with 1 / ignore the current char
+            idx--;
+            continue;
+        }        
         char c = re[idx];
         bool inside_brackets = closed_brackets.size() > 0;
         // keep track of () and [] pairs
         if (c == ']') closed_brackets.push_back(idx);
         else if (c == ')' && !inside_brackets) {
-            closed_parans.push_back(idx);
+            closed_parens.push_back(idx);
             or_indices.push_back(idx);
         } else if (c == '[') {
             int last_bracket = closed_brackets.back();
             re_states.brackets[idx] = last_bracket;
             re_states.brackets[last_bracket] = idx;
         } else if (c == '(' && !inside_brackets) {
-            int last_paran = closed_parans.back();
-            closed_parans.pop_back();
-            re_states.brackets[idx] = last_paran;
-            re_states.brackets[last_paran] = idx;
+            int last_paren = closed_parens.back();
+            closed_parens.pop_back();
+            re_states.brackets[idx] = last_paren;
+            re_states.brackets[last_paren] = idx;
             re_states.helper_states[idx] = or_indices.back();
             or_indices.pop_back();
+        }
+
+        bool escape = (c == '\\');
+        if (escape && (idx == re_len - 1)) {
+            cout << "\\ has to be followed by a character" << endl;
+            return false;
         }
 
         // if c has just been matched against the string
@@ -72,25 +70,26 @@ bool process_re(const char *re, ReStates re_states) {
             re_states.helper_states[idx] = or_indices.back();
             or_indices.pop_back();
             or_indices.push_back(idx);
-        } else if (re[idx+1] == '|') {
-            // we are right before |
-            // map to the state just after the enclosing () that contain the |'s
-            if (re[idx] == ')') {
-                int last = closed_parans.back();
-                closed_parans.pop_back();
-                re_states.next[idx] = re_states.next[closed_parans.back()];
-                closed_parans.push_back(last);
-            } else {
-                re_states.next[idx] = re_states.next[closed_parans.back()];
-            }
-        } else if (c == ']' || c == '[' || c == ')' ||  c == '(' || is_normal(c) || c == '*' || c == '.' || c == '?') {
-            int next_i = idx + 1;
+        } else if (is_special_internal(c) || is_normal(c)) {
+            int next_i = (escape) ? idx + 2 : idx + 1;
             char next_c = re[next_i];
-            if (is_normal(next_c) || next_c == '^' || next_c == '*' || next_c == '.' || next_c == '(' || next_c == '[') {
+            string normal_next = "([^*.\\";
+            if (is_normal(next_c) || normal_next.find(next_c) != std::string::npos) {
                 re_states.next[idx] = next_i;   
             } else if (next_c == ')' || next_c == ']' || next_c == '?') {
                 // if it's a `?` it means we've already had a match, so just skip it
                 re_states.next[idx] = re_states.next[next_i];    
+            } else if (next_c == '|') {
+                // we are right before |
+                // map to the state just after the enclosing () that contain the |'s
+                if (re[idx] == ')') {
+                    int last = closed_parens.back();
+                    closed_parens.pop_back();
+                    re_states.next[idx] = re_states.next[closed_parens.back()];
+                    closed_parens.push_back(last);
+                } else {
+                    re_states.next[idx] = re_states.next[closed_parens.back()];
+                }
             } else {
                 cout << "Invalid character: " << next_c << endl;
                 return false;
@@ -118,6 +117,12 @@ void progress(const char *re, ReStates re_states, int p, Cache cache) {
     
     if (strlen(re) == ns) {
         cache.temp_states[ns] = true;
+    } else if (ns > 0 && re[ns-1] == '\\') {
+        // do nothing
+    } else if (re[ns] == '\\') {
+        // mark pnly '\\' as active
+        // for repeatition enclose in () -> (\\.)*
+        cache.temp_states[ns] = true;    
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         if ('*' == re[ns+1] || '?' == re[ns+1]) {
             // we can also skip this char
@@ -199,8 +204,14 @@ void cache_states(const char* re, int* next) {
     // for each state, fill the cache with the states
     // that can be reached starting from that state
     for (int state = -1; state < re_len; state++) {
-        progress(re, re_states, state, cache);   
-        reset_array(cache.temp_states, re_len + 1);
+        if ((state > -1 && never_active(re[state])) || (state > 0 && re[state-1] == '\\')) {
+            for (int i = 0; i < re_len + 1; i++) {
+                cache.next_states[(state + 1) * (re_len + 1) + i] = 0;
+            }
+        } else {
+            progress(re, re_states, state, cache);   
+            reset_array(cache.temp_states, re_len + 1);
+        }
     }
 
     delete[] re_states.next;

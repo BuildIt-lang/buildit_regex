@@ -121,20 +121,28 @@ tuple<int, float, float> buildit_time(string text, string regex, RegexOptions op
     // compile
     auto start = high_resolution_clock::now();
     vector<Matcher> funcs = get<0>(compile(regex, options, match_type, false));
-    for (int iter = 0; iter < n_iters; iter++)
-        funcs = get<0>(compile(regex, options, match_type, false));
     auto end = high_resolution_clock::now();
     float compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
 
     // run
     int result = 0;
+    int block_size = options.block_size;
     const char* s = text.c_str();
     int s_len = text.length();
     if (options.interleaving_parts == 1) {
         // only one function to call
         start = high_resolution_clock::now();
         for (int iter = 0; iter < n_iters; iter++)
-            result = funcs[0](s, s_len, 0);
+            if (block_size == -1) {
+                result = funcs[0](s, s_len, 0);
+            } else {
+                #pragma omp parallel for
+                for (int chunk = 0; chunk < s_len; chunk += block_size) {
+                    int res = funcs[0](s, s_len, chunk);
+                    if (res > -1)
+                        result = res;
+                }
+            }
         end = high_resolution_clock::now();
         result = (result > -1) ? 1 : 0;
     } else {
@@ -329,6 +337,7 @@ void compare_all(int n_iters, string text, string match) {
         options.ignore_case = stoi(config["ignore_case"]);
         options.flags = config["flags"];
         options.binary = true;
+        options.block_size = -1; //(int)(text.length() / 32);
         cout << regex << endl;
         tuple<int, float, float> buildit_result = buildit_time(text, regex, options, match_type, n_iters);
         tuple<int, float, float> re2_result = re2_time(text, regex, match_type, n_iters);
