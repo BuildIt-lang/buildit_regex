@@ -68,7 +68,8 @@ Matcher compile_helper(const char* regex, const char* flags, bool partial, int* 
 // generate a comment to add at the top of the generated code file
 string generate_headers(string regex, MatchType match_type, RegexOptions options) {
     
-    string headers = (regex.find('\n') == std::string::npos) ? "// regex: " + regex + "\n" : "";
+    //string headers = (regex.find('\n') == std::string::npos) ? "// regex: " + regex + "\n" : "";
+    string headers = "";
     string mt = (match_type == MatchType::FULL) ? "full" : "partial";
     headers += "// match type: " + mt + "\n"; 
     headers += "// config: (interleaving_parts: " + to_string(options.interleaving_parts) + "), (ignore_case: " + to_string(options.ignore_case) + "), (flags: " + options.flags +  ")\n";

@@ -146,6 +146,12 @@ tuple<string, int, string> expand_sub_regex(string re, int start, string flags) 
         for (int si = 0; si < (int)s.length(); si++) {
             curr_flags += flags[start];   
         }
+        // can't allow null chars in a middle of a string
+        // because we convert to c strings later
+        if (hx == '\0') {
+            s = "";
+            curr_flags = "";
+        }
         return tuple<string, int, string>{s, new_start, curr_flags};
     }
     if (start > 0 && re[start-1] == '\\') {

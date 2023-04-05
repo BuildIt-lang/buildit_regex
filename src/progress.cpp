@@ -178,7 +178,6 @@ locations, and then fills `next` by calling progress for each state.
 */
 void cache_states(const char* re, int* next) {
     int re_len = (int)strlen(re);
-    
     // initialize arrays for caching
     Cache cache;
     cache.next_states = next; // the array storing the reachable states

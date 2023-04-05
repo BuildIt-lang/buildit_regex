@@ -204,7 +204,7 @@ void test_ignore_case(MatchType type) {
 }
 
 void test_extra(MatchType type) {
-    compare_result("00dcR\\x0A\\x00\\x00\\x01\\x00\\x0AR\\x00P\\x00<UU\\x11\\x00", "some string", "", type);
+    compare_result("(00dcR\\x0A\\x00\\x00\\x01\\x00\\x0AR\\x00P\\x00<UU\\x11\\x00)", "some string", "", type);
     compare_result("(a.)*b", "abb", "", type);     
     compare_result("ab\ncd", "dsadab\ncdfgfg", "", type);
     compare_result("ab\\ncd", "dsadab\\ncdfgfg", "", type);
