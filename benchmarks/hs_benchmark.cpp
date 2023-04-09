@@ -25,6 +25,16 @@ using namespace std::chrono;
 using namespace builder;
 
 
+string make_lazy(string greedy_regex) {
+    string lazy = "";
+    for (int i = 0; i < greedy_regex.length(); i++) {
+        lazy += greedy_regex[i];
+        char c = greedy_regex[i];
+        if (c == '*' || c == '+' || c == '?' || c == '}')
+            lazy += "?";
+    }
+    return lazy;
+}
 /** 
  This function will get called when a match is found.
  Returning a non-zero number should halt the scanning.
@@ -120,7 +130,6 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
     const char* s = text.c_str();
     int s_len = text.length();
     cout << "text len: " << s_len << endl;
-    int chunk_len = 3350522;
     Schedule opt;
     auto start = high_resolution_clock::now();
     auto last_end = start;
@@ -179,6 +188,7 @@ void run_re2(vector<string> patterns, string text, int n_iters, bool individual,
     for (int i = 2 * n_patterns * batch_id; i < n_patterns * 2 * (batch_id + 1); i = i + 2) {
         string re = patterns[i];
         string regex = (re[0] == '^') ? "^(" + re.substr(1, re.length() - 1) + ")" : "(" + re + ")";
+        regex = make_lazy(regex);
         string flags = patterns[i+1];
         RE2::Options opt;
         opt.set_dot_nl(flags.find('s') != std::string::npos);
@@ -230,7 +240,7 @@ void run_hyperscan(vector<string> patterns, string text, int n_iters, bool indiv
         compiled_patterns.push_back(database);
     }
     auto end = high_resolution_clock::now();
-    float compile_time = (duration_cast<nanoseconds>(end - start)).count() / (1e6f * n_iters);
+    float compile_time = (duration_cast<nanoseconds>(end - start)).count() / (1e6f);
     cout << "Hyperscan compilation time: " << compile_time << "ms" << endl;
 
     // run
@@ -309,14 +319,14 @@ int main(int argc, char **argv) {
         batch_id = stoi(argv[1]);
     }
     cout << "Running batch " << batch_id << endl;
-    bool run_teakettle = false;
-    bool run_snort = true;
+    bool run_teakettle = true;
+    bool run_snort = false;
     string data_dir = "data/hsbench-samples/";
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
-    int n_iters = 1;
+    int n_iters = 100;
     bool individual_times = true;
     int n_patterns = 50;
-    int n_chunks = 32;
+    int n_chunks = 1;
     if (run_teakettle) {
         int block_size = (int)(gutenberg.length() / n_chunks);
         if (n_chunks == 1) block_size = -1;

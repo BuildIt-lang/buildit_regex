@@ -11,7 +11,7 @@ leftmost longest matches
 
 We support the following operators and expressions.
 
-| Expresssion                  | Description                                      |
+| Expression                  | Description                                      |
 |------------------------------|--------------------------------------------------|
 | `.`                          | any character                                    |
 | `[xyz]`, `[^xyz]`            | character class                                  |
