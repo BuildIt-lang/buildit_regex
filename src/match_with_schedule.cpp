@@ -8,6 +8,16 @@ bool is_in_group(int index, const char* flags, int re_len) {
 
 dyn_var<int(char*, char*, int)> dyn_memcmp = builder::as_global("memcmp");
 
+int get_group_length(string flags, int idx, int increment) {
+    int re_len = flags.length();
+    int len = 0;
+    while (idx >= 0 && idx < re_len && flags[idx] == 'j') {
+        len++;
+        idx += increment;
+    }
+    return len;
+}
+
 // same as update_from_cache but updates a dynamic array in case of grouped states
 bool update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool reverse, bool update, bool read_only) {
     if (!update)
@@ -128,16 +138,27 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                 if (!update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, true, true))
                     continue;
                 static_var<char> m = re[state];
-                if (is_normal(m)) {
-                    if (flags[state] == 'j') {
-                        char_matched = dyn_memcmp(str + state, re + state, 5); // TODO: change 5
-                        if (char_matched != 0) {
-                            update_states(options, dyn_next, next, flags, cache, state+4, re_len, options.reverse, update);
+                if (flags[state] == 'j') {
+                    bool is_first = (!options.reverse) ? (state == 0 || flags[state-1] != 'j') : (state == re_len - 1 || flags[state+1] != 'j');
+                    if (is_first) {
+                        // this is the first j state, do memcmp from here
+                        int len = get_group_length(flags, state, increment);
+                        int factor = options.reverse;
+                        char_matched = dyn_memcmp(str + to_match - factor * (len - 1), re + state - factor * (len - 1), len);
+                        if (char_matched == 0) {
+                            // TODO: if last state just return
+                            update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
                             state_match = 1;
                         }
-                        to_match = to_match + (increment * 4);
-                        
-                    } else if (-1 == early_break) {
+                    } else {
+                        // if we are here, that means that the entire j group was matched
+                        // with memcmp so we don't have to do the normal char by char comparison
+                        update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
+                        state_match = 1;
+
+                    }
+                } else if (is_normal(m)) {
+                    if (-1 == early_break) {
                         // Normal character
                         str_to_match = str[to_match];
                         char_matched = match_char(str_to_match, m, ignore_case);

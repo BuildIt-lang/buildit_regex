@@ -18,6 +18,9 @@ struct Schedule {
 
 bool is_in_group(int index, const char* flags, int re_len);
 
+int get_group_length(string flags, int idx, int increment);
+
+
 bool update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool reverse, bool update, bool read_only=false);
 
 bool update_states(Schedule options, dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool reverse, bool update, bool read_only=false);

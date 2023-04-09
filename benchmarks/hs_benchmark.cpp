@@ -93,7 +93,10 @@ string generate_flags(string pattern) {
         } else {
             flags += ".";    
         }
+    
     }
+    cout << pattern << endl;
+    return ".jjjjjj..jjjjjjj......jjjjjjjjjj......jjjjjj.";
     return flags;
     
 }
@@ -325,7 +328,7 @@ int main(int argc, char **argv) {
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
     int n_iters = 100;
     bool individual_times = true;
-    int n_patterns = 50;
+    int n_patterns = 1;
     int n_chunks = 1;
     if (run_teakettle) {
         int block_size = (int)(gutenberg.length() / n_chunks);
