@@ -6,6 +6,8 @@ bool is_in_group(int index, const char* flags, int re_len) {
     return index < re_len && (flags[index] == 'g');
 }
 
+dyn_var<int(char*, char*, int)> dyn_memcmp = builder::as_global("memcmp");
+
 // same as update_from_cache but updates a dynamic array in case of grouped states
 bool update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool reverse, bool update, bool read_only) {
     if (!update)
@@ -108,6 +110,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     dyn_var<char> str_to_match;
     static_var<int> mc = 0;
     int increment = (options.reverse) ? -1 : 1;
+    // idea: use a dynamic array to store the current to_match for each state?
     while (to_match >= 0 && to_match < str_len) {
 
         // Don’t do anything for $.
@@ -126,7 +129,15 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     continue;
                 static_var<char> m = re[state];
                 if (is_normal(m)) {
-                    if (-1 == early_break) {
+                    if (flags[state] == 'j') {
+                        char_matched = dyn_memcmp(str + state, re + state, 5); // TODO: change 5
+                        if (char_matched != 0) {
+                            update_states(options, dyn_next, next, flags, cache, state+4, re_len, options.reverse, update);
+                            state_match = 1;
+                        }
+                        to_match = to_match + (increment * 4);
+                        
+                    } else if (-1 == early_break) {
                         // Normal character
                         str_to_match = str[to_match];
                         char_matched = match_char(str_to_match, m, ignore_case);

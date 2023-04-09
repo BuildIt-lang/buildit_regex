@@ -151,7 +151,7 @@ void test_or_split(MatchType type) {
 
 
 int main() {
-
+    compare_result("abcde", "abcdeeefg", "jjjjj", MatchType::PARTIAL_SINGLE);
     auto start = high_resolution_clock::now();
     cout << "--- FULL MATCHES ---" << endl;
     test_simple(MatchType::FULL);
