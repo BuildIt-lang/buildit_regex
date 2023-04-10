@@ -60,15 +60,25 @@ vector<string> load_patterns(string fname) {
     while (getline(patterns_file, pattern_line)) {
         string token;
         int tok_id = 0;
+        vector<string> tokens;
         stringstream line(pattern_line);
         while (getline(line, token, '/')) {
             // push both the pattern and its flags
-            if (tok_id > 0)
-                patterns.push_back(token);
+            tokens.push_back(token);
             tok_id++;
         }
-        if (tok_id == 2) // empty flags
-            patterns.push_back("");
+        string pattern = "";
+        for (int tid = 1; tid < tokens.size()-1; tid++) {
+            if (tokens[tid].length() > 0) {
+                pattern += tokens[tid];
+                if (tid < tokens.size() - 2) {
+                    pattern += "/";    
+                }
+            }
+        }
+        patterns.push_back(pattern);
+        // only the string after the last / is the flags
+        patterns.push_back(tokens.back());
     }
     patterns_file.close();
     return patterns;
@@ -109,7 +119,7 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns,
         string flags = patterns[re_id + 1];
         cout << "Flags: " << flags << "; ";
         RegexOptions opt;
-        opt.interleaving_parts = 1; // TODO: change this!!
+        opt.interleaving_parts = 32; // TODO: change this!!
         opt.binary = true; // we don't care about the specific match
         //opt.flags = "";
         opt.flags = generate_flags(regex); // split for faster compilation
@@ -319,8 +329,8 @@ int main(int argc, char **argv) {
         batch_id = stoi(argv[1]);
     }
     cout << "Running batch " << batch_id << endl;
-    bool run_teakettle = true;
-    bool run_snort = false;
+    bool run_teakettle = false;
+    bool run_snort = true;
     string data_dir = "data/hsbench-samples/";
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
     int n_iters = 100;
