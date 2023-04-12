@@ -106,9 +106,7 @@ tuple<char, int> convert_to_hx(string re, int start) {
 Transform the escaped character into the corresponding char class.
 */
 string escape_char(char c) {
-    if (c == 'n') return "\n";
-    else if (c == 'r') return "\r";
-    else return "(\\" + string(1, c) + ")";
+    return "(\\" + string(1, c) + ")";
 }
 
 /**

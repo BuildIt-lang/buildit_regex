@@ -33,7 +33,11 @@ dyn_var<int> is_in_range(char left, char right, dyn_var<char> c, int ignore_case
 dyn_var<int> match_char(dyn_var<char> dyn_c, char static_c, bool ignore_case, bool escaped) {
     if (escaped) {
         // special classes
-        if (static_c == 'd') // a digit
+        if (static_c == 'n')
+            return dyn_c == '\n';
+        else if (static_c == 'r')
+            return dyn_c == '\r';
+        else if (static_c == 'd') // a digit
             return dyn_c >= '0' && dyn_c <= '9';
         else if (static_c == 'D') // not a digit
             return !(dyn_c >= '0' && dyn_c <= '9');
