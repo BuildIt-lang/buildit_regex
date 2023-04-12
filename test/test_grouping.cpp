@@ -149,18 +149,24 @@ void test_or_split(MatchType type) {
     compare_result("(ab|cd|ef)11(f|d|b)", "aaaa11fg", ".s..s..s.....s.s.s.", type);
 }
 
+void test_join(MatchType match_type) {
+    compare_result("1abd", "1abd", "..j.", match_type);
+    compare_result("1abd", "1abd", ".jj.", match_type);
+    compare_result("12abdd", "12abdd", "..jj..", match_type);
+    compare_result("abc", "1abcd", "jjj", match_type);
+    compare_result("abcd", "1abcd", "jjjj", match_type);
+    compare_result("abca*", "abcaa", "jjj..", match_type);
+    compare_result("123abcddd", "123abcddd", "...jjjj..", match_type);
+    compare_result("(abcd)(efgh)(ijk)", "abcdefghijklmn", ".jjjj..jjjj..jjj.", match_type);
+    compare_result("a{3}b{2}", "caaabbd", "jjjjjjjj", match_type);
+}
+
+
 
 int main() {
-    compare_result("abc", "1abcd", "...", MatchType::PARTIAL_SINGLE);
-    compare_result("abc", "1abcd", "jjj", MatchType::PARTIAL_SINGLE);
-    compare_result("abcd", "1abcd", "....", MatchType::PARTIAL_SINGLE);
-    compare_result("abcd", "1abcd", "jjjj", MatchType::PARTIAL_SINGLE);
-    /*compare_result("abcde", "abcdeeefg", ".....", MatchType::PARTIAL_SINGLE);
-    compare_result("abcde", "abcdeeefg", "jjjjj", MatchType::PARTIAL_SINGLE);
-    compare_result("ab", "ab", "jj", MatchType::PARTIAL_SINGLE);
-    compare_result("ab", "abcd", "jj", MatchType::PARTIAL_SINGLE);
     auto start = high_resolution_clock::now();
     cout << "--- FULL MATCHES ---" << endl;
+    test_join(MatchType::FULL);
     test_simple(MatchType::FULL);
     test_star(MatchType::FULL);
     test_brackets(MatchType::FULL);
@@ -170,6 +176,7 @@ int main() {
     test_or_split(MatchType::FULL);
     
     cout << "--- PARTIAL MATCHES ---" << endl;
+    test_join(MatchType::PARTIAL_SINGLE);
     test_simple(MatchType::PARTIAL_SINGLE);
     test_star(MatchType::PARTIAL_SINGLE);
     test_brackets(MatchType::PARTIAL_SINGLE);
@@ -177,8 +184,8 @@ int main() {
     test_repetition(MatchType::PARTIAL_SINGLE);
     test_combined(MatchType::PARTIAL_SINGLE);
     test_or_split(MatchType::PARTIAL_SINGLE);
+    
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
-    */
 }

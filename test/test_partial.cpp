@@ -247,9 +247,6 @@ void test_extra(MatchType type) {
 }
 
 int main() {    
-    compare_result("ab*c", "abc", "", MatchType::FULL);
-    compare_result("ab*c", "abc", "", MatchType::PARTIAL_SINGLE);
-    /*
     auto start = high_resolution_clock::now();
     MatchType type = MatchType::PARTIAL_SINGLE;
     test_extra(type);
@@ -271,7 +268,6 @@ int main() {
     auto end = high_resolution_clock::now();
     auto dur = (duration_cast<seconds>(end - start)).count();
     cout << "time: " << dur << "s" << endl;
-*/
 }
 
 

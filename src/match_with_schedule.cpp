@@ -149,11 +149,10 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                         else if (options.reverse && state - len == -1)
                             submatch_end = to_match - len;
                         else
-                            submatch_end = spawn_matcher(str, str_len, to_match+increment*len, state+increment*len, working_set, done_set);
+                            submatch_end = spawn_matcher(str, str_len, to_match+increment*len, state+increment*len + options.reverse * 2, working_set, done_set); // add options.reverse * 2 to the state because the first update_states call takes in first_state-1
                         bool cond = (options.reverse) ? (bool)(submatch_end < to_match - len + 1) : (bool)(submatch_end > to_match + len - 1);
                         if (cond) {
-                            // there is a match (there is no match for submatch_end == to_match
-                            // according to the str_match - 1 formula)
+                            // there is a match 
                             if (!options.last_eom)
                                 return submatch_end; // return any match
                                 // if we want the shortest match here we'll need to do more work

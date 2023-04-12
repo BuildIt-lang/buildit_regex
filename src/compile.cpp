@@ -117,7 +117,6 @@ tuple<vector<Matcher>, vector<Matcher>> compile(string regex, RegexOptions optio
     tuple<string, string> parsed = expand_regex(regex, options.flags);
     string parsed_regex = get<0>(parsed);
     string parsed_flags = get<1>(parsed);
-    cout << "parsed: " << parsed_regex << endl;
     const char* regex_cstr = parsed_regex.c_str();
     int re_len = parsed_regex.length();
         
@@ -127,7 +126,7 @@ tuple<vector<Matcher>, vector<Matcher>> compile(string regex, RegexOptions optio
     int* cache = new int[cache_size];
     cache_states(regex_cstr, cache);
     
-    print_cache(cache, re_len);
+    //print_cache(cache, re_len);
     
     string headers = generate_headers(regex, match_type, options);
     
@@ -209,6 +208,7 @@ int match(string regex, string str, RegexOptions options, MatchType match_type, 
     else
         som = *min_element(first_pass.begin(), first_pass.end());
     bool is_match = eom_to_binary(som, str_start, str.length(), match_type, schedule1);
+    //cout << "som: " << som << endl;
     // the first pass is reversed, the second one is forward
     if (!is_match) {
         *submatch = ""; // no match
@@ -221,6 +221,7 @@ int match(string regex, string str, RegexOptions options, MatchType match_type, 
 
         vector<int> second_pass = run_matchers(get<1>(funcs), str, som + 1, schedule2, match_type, false);
         int eom = *max_element(second_pass.begin(), second_pass.end());
+        //cout << "eom: " << eom << endl;
         *submatch = str.substr(som + 1, eom - som - 1);
         return 1;
     }
