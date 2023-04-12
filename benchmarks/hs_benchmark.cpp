@@ -131,7 +131,7 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns,
         string flags = patterns[re_id + 1];
         cout << "Flags: " << flags << "; ";
         RegexOptions opt;
-        opt.interleaving_parts = 1; // TODO: change this!!
+        opt.interleaving_parts = 32; // TODO: change this!!
         opt.binary = true; // we don't care about the specific match
         //opt.flags = "";
         if (re_id == 0 || (re_id >= 6 && re_id <= 10))
