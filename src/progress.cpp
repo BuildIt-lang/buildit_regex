@@ -1,5 +1,16 @@
 #include "progress.h"
 
+// checks if re[idx] is escaped
+bool is_escaped(const char* re, int idx) {
+    // preceded by '\\'
+    bool possibly_escaped = idx > 0 && re[idx - 1] == '\\';
+    if (!possibly_escaped)
+        return false;
+    // check if that '\\' is not itself escaped
+    return !is_escaped(re, idx-1);
+}
+
+
 /**
 It returns whether `re` is a valid regular expression.
 
@@ -22,7 +33,7 @@ bool process_re(const char *re, ReStates re_states) {
     vector<int> or_indices;
     int idx = re_len - 1;
     while (idx >= 0) {
-        if (idx > 0 && re[idx - 1] == '\\') {
+        if (is_escaped(re, idx)) {
             // only mark '\\' with 1 / ignore the current char
             idx--;
             continue;
@@ -120,8 +131,8 @@ void progress(const char *re, ReStates re_states, int p, Cache cache) {
     } else if (ns > 0 && re[ns-1] == '\\') {
         // do nothing
     } else if (re[ns] == '\\') {
-        // mark pnly '\\' as active
-        // for repeatition enclose in () -> (\\.)*
+        // mark only '\\' as active
+        // for repetition enclose in () -> (\\.)*
         cache.temp_states[ns] = true;    
     } else if (is_normal(re[ns]) || '.' == re[ns]) {
         if ('*' == re[ns+1] || '?' == re[ns+1]) {
@@ -194,8 +205,9 @@ void cache_states(const char* re, int* next) {
     re_states.next = new int[re_len]; 
     re_states.brackets = new int[re_len];
     re_states.helper_states = new int[re_len];
-
+    
     bool valid = process_re(re, re_states);
+    
     if (!valid) {
         std::cout << "Invalid regex in process_re" << std::endl;    
         return;

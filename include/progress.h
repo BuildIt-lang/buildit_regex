@@ -21,6 +21,7 @@ struct ReStates {
 };
 
 bool is_special_group(const char* re, int idx);
+bool is_escaped(const char* re, int idx);
 bool is_group_type(const char* re, int idx, char type);
 void reset_array(char* arr, int len);
 bool process_re(const char *re, ReStates re_states);

@@ -73,6 +73,8 @@ string generate_headers(string regex, MatchType match_type, RegexOptions options
     string mt = (match_type == MatchType::FULL) ? "full" : "partial";
     headers += "// match type: " + mt + "\n"; 
     headers += "// config: (interleaving_parts: " + to_string(options.interleaving_parts) + "), (ignore_case: " + to_string(options.ignore_case) + "), (flags: " + options.flags +  ")\n";
+    headers += "#include <stdio.h>\n#include <string.h>\n";
+    //headers += "int memcmp ( const void * ptr1, const void * ptr2, int num );\n";
     return headers;
 }
 
@@ -115,10 +117,9 @@ tuple<vector<Matcher>, vector<Matcher>> compile(string regex, RegexOptions optio
     tuple<string, string> parsed = expand_regex(regex, options.flags);
     string parsed_regex = get<0>(parsed);
     string parsed_flags = get<1>(parsed);
-    //cout << "parsed: " << parsed_regex << endl;
     const char* regex_cstr = parsed_regex.c_str();
     int re_len = parsed_regex.length();
-    
+        
     // precompute state transitions
     // mark grouped states and or groups
     int cache_size = (re_len + 1) * (re_len + 1);
@@ -206,8 +207,8 @@ int match(string regex, string str, RegexOptions options, MatchType match_type, 
         som = *max_element(first_pass.begin(), first_pass.end());
     else
         som = *min_element(first_pass.begin(), first_pass.end());
-    
     bool is_match = eom_to_binary(som, str_start, str.length(), match_type, schedule1);
+    //cout << "som: " << som << endl;
     // the first pass is reversed, the second one is forward
     if (!is_match) {
         *submatch = ""; // no match
@@ -220,6 +221,7 @@ int match(string regex, string str, RegexOptions options, MatchType match_type, 
 
         vector<int> second_pass = run_matchers(get<1>(funcs), str, som + 1, schedule2, match_type, false);
         int eom = *max_element(second_pass.begin(), second_pass.end());
+        //cout << "eom: " << eom << endl;
         *submatch = str.substr(som + 1, eom - som - 1);
         return 1;
     }

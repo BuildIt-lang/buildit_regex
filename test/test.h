@@ -35,6 +35,7 @@ void test_escaping(MatchType type);
 void test_expand_regex();
 void test_ignore_case(MatchType type);
 void test_extra(MatchType type);
+void test_join(MatchType match_type);
 
 string make_lazy(string greedy_regex);
 

@@ -153,8 +153,7 @@ tuple<string, int, string> expand_sub_regex(string re, int start, string flags) 
             curr_flags = "";
         }
         return tuple<string, int, string>{s, new_start, curr_flags};
-    }
-    if (start > 0 && re[start-1] == '\\') {
+    } else if (start > 0 && re[start-1] == '\\') {
         // character escaping
         string s = escape_char(re[start]);
         string curr_flags = "";
@@ -168,8 +167,8 @@ tuple<string, int, string> expand_sub_regex(string re, int start, string flags) 
 	    string curr_flags = "";
         int idx = start - 1;
         // repeatedly parse the expression until we
-        // reach the opening bracket
-        while (re[idx] != end) {
+        // reach an opening bracket that is not escaped
+        while (!(re[idx] == end && (idx == 0 || re[idx-1] != '\\'))) {
             tuple<string, int, string> sub_s = expand_sub_regex(re, idx, flags);
             string ss = get<0>(sub_s);
 	        string sub_flags = get<2>(sub_s);

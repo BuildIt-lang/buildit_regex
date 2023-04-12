@@ -6,6 +6,18 @@ bool is_in_group(int index, const char* flags, int re_len) {
     return index < re_len && (flags[index] == 'g');
 }
 
+dyn_var<int(char*, char*, int)> dyn_memcmp = builder::as_global("memcmp");
+
+int get_group_length(string flags, int idx, int increment) {
+    int re_len = flags.length();
+    int len = 0;
+    while (idx >= 0 && idx < re_len && flags[idx] == 'j') {
+        len++;
+        idx += increment;
+    }
+    return len;
+}
+
 // same as update_from_cache but updates a dynamic array in case of grouped states
 bool update_groups_from_cache(dyn_var<char[]>& dyn_states, static_var<char[]>& static_states, const char* flags, int* cache, int p, int re_len, bool reverse, bool update, bool read_only) {
     if (!update)
@@ -108,6 +120,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     dyn_var<char> str_to_match;
     static_var<int> mc = 0;
     int increment = (options.reverse) ? -1 : 1;
+    // idea: use a dynamic array to store the current to_match for each state?
     while (to_match >= 0 && to_match < str_len) {
 
         // Don’t do anything for $.
@@ -125,7 +138,30 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                 if (!update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, true, true))
                     continue;
                 static_var<char> m = re[state];
-                if (is_normal(m)) {
+                if (flags[state] == 'j') {
+                    int len = get_group_length(flags, state, increment);
+                    int factor = options.reverse;
+                    char_matched = dyn_memcmp(str + to_match - factor * (len - 1), re + state - factor * (len - 1), len);
+                    if (char_matched == 0) {
+                        dyn_var<int> submatch_end;
+                        if (!options.reverse && state + len == re_len + 1)
+                            submatch_end = to_match + len;
+                        else if (options.reverse && state - len == -1)
+                            submatch_end = to_match - len;
+                        else
+                            submatch_end = spawn_matcher(str, str_len, to_match+increment*len, state+increment*len + options.reverse * 2, working_set, done_set); // add options.reverse * 2 to the state because the first update_states call takes in first_state-1
+                        bool cond = (options.reverse) ? (bool)(submatch_end < to_match - len + 1) : (bool)(submatch_end > to_match + len - 1);
+                        if (cond) {
+                            // there is a match 
+                            if (!options.last_eom)
+                                return submatch_end; // return any match
+                                // if we want the shortest match here we'll need to do more work
+                            bool update_last_end = (options.reverse) ? (bool)(submatch_end < last_end) : (bool)(submatch_end > last_end);
+                            if (update_last_end)
+                                last_end = submatch_end;
+                        }
+                    }
+                } else if (is_normal(m)) {
                     if (-1 == early_break) {
                         // Normal character
                         str_to_match = str[to_match];
@@ -166,6 +202,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     }
                 } else {
                     //printf("Invalid Character(%c)\n", (char)m);
+                    // TODO: should be ok to remove the check?
                     if (!options.reverse)
                         return no_match;
                 }
@@ -211,6 +248,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             if (current[i])
                 count++;
         }
+        
         if (options.state_group) {
             for (dyn_idx = 0; dyn_idx < re_len + 1; dyn_idx = dyn_idx +1) {
                 dyn_current[dyn_idx] = dyn_next[dyn_idx];
@@ -226,14 +264,18 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             bool update_last_end = (options.reverse) ? (bool)(to_match < last_end) : (bool)(to_match > last_end);
             if (update_last_end)
                 last_end = to_match; // update the last end of match
-
-            // be careful when implementing shortest match!!
-            if (!options.last_eom)
+            if (!options.last_eom) {
+                // ant match is good - doesn't have to be the longest
+                last_end = to_match;
                 break; // we already have a match - just break and return
-        }
+            }
 
+        }
+        // no need to loop over the string anymore
+        // there are no more states active
         if (!options.state_group && count == 0)
             break; // we can't match anything else
+
 
     }
     

@@ -54,7 +54,7 @@ vector<string> load_patterns(string fname) {
     // load the patterns from a file
     ifstream patterns_file;
     patterns_file.open(fname);
-    
+
     vector<string> patterns;
     string pattern_line;
     while (getline(patterns_file, pattern_line)) {
@@ -83,7 +83,6 @@ vector<string> load_patterns(string fname) {
     patterns_file.close();
     return patterns;
 }
-
 /**
 Loads the text that is going to be searched for matches.
 */
@@ -103,7 +102,20 @@ string generate_flags(string pattern) {
         } else {
             flags += ".";    
         }
+    
     }
+    //return ".jjjjjj..jjjjjjj......jjjjjjjjjj......jjjjjj.";
+    return flags;
+    
+}
+
+string generate_j_flags(string pattern) {
+    cout << "j flags" << pattern << endl;
+    string flags = ".";
+    for (int i = 0; i < pattern.length()-2; i++) {
+        flags += (i < 15) ? 'j' : '.';
+    }
+    flags += '.';
     return flags;
     
 }
@@ -122,7 +134,10 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns,
         opt.interleaving_parts = 32; // TODO: change this!!
         opt.binary = true; // we don't care about the specific match
         //opt.flags = "";
-        opt.flags = generate_flags(regex); // split for faster compilation
+        if (re_id == 0 || (re_id >= 6 && re_id <= 10))
+            opt.flags = generate_j_flags(regex);
+        else
+            opt.flags = generate_flags(regex); // split for faster compilation
         cout << "Split positions: " << opt.flags << endl;
         opt.ignore_case = (flags.find("i") != std::string::npos);
         opt.dotall = (flags.find("s") != std::string::npos);
@@ -335,7 +350,7 @@ int main(int argc, char **argv) {
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
     int n_iters = 100;
     bool individual_times = true;
-    int n_patterns = 50;
+    int n_patterns = 15;
     int n_chunks = 1;
     if (run_teakettle) {
         int block_size = (int)(gutenberg.length() / n_chunks);
