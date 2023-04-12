@@ -54,26 +54,35 @@ vector<string> load_patterns(string fname) {
     // load the patterns from a file
     ifstream patterns_file;
     patterns_file.open(fname);
-    
+
     vector<string> patterns;
     string pattern_line;
     while (getline(patterns_file, pattern_line)) {
         string token;
         int tok_id = 0;
+        vector<string> tokens;
         stringstream line(pattern_line);
         while (getline(line, token, '/')) {
             // push both the pattern and its flags
-            if (tok_id > 0)
-                patterns.push_back(token);
+            tokens.push_back(token);
             tok_id++;
         }
-        if (tok_id == 2) // empty flags
-            patterns.push_back("");
+        string pattern = "";
+        for (int tid = 1; tid < tokens.size()-1; tid++) {
+            if (tokens[tid].length() > 0) {
+                pattern += tokens[tid];
+                if (tid < tokens.size() - 2) {
+                    pattern += "/";    
+                }
+            }
+        }
+        patterns.push_back(pattern);
+        // only the string after the last / is the flags
+        patterns.push_back(tokens.back());
     }
     patterns_file.close();
     return patterns;
 }
-
 /**
 Loads the text that is going to be searched for matches.
 */
@@ -95,8 +104,18 @@ string generate_flags(string pattern) {
         }
     
     }
-    cout << pattern << endl;
-    return ".jjjjjj..jjjjjjj......jjjjjjjjjj......jjjjjj.";
+    //return ".jjjjjj..jjjjjjj......jjjjjjjjjj......jjjjjj.";
+    return flags;
+    
+}
+
+string generate_j_flags(string pattern) {
+    cout << "j flags" << pattern << endl;
+    string flags = ".";
+    for (int i = 0; i < pattern.length()-2; i++) {
+        flags += (i < 15) ? 'j' : '.';
+    }
+    flags += '.';
     return flags;
     
 }
@@ -115,7 +134,10 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns,
         opt.interleaving_parts = 1; // TODO: change this!!
         opt.binary = true; // we don't care about the specific match
         //opt.flags = "";
-        opt.flags = generate_flags(regex); // split for faster compilation
+        if (re_id == 0 || (re_id >= 6 && re_id <= 10))
+            opt.flags = generate_j_flags(regex);
+        else
+            opt.flags = generate_flags(regex); // split for faster compilation
         cout << "Split positions: " << opt.flags << endl;
         opt.ignore_case = (flags.find("i") != std::string::npos);
         opt.dotall = (flags.find("s") != std::string::npos);
@@ -322,13 +344,13 @@ int main(int argc, char **argv) {
         batch_id = stoi(argv[1]);
     }
     cout << "Running batch " << batch_id << endl;
-    bool run_teakettle = true;
-    bool run_snort = false;
+    bool run_teakettle = false;
+    bool run_snort = true;
     string data_dir = "data/hsbench-samples/";
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
     int n_iters = 100;
     bool individual_times = true;
-    int n_patterns = 1;
+    int n_patterns = 15;
     int n_chunks = 1;
     if (run_teakettle) {
         int block_size = (int)(gutenberg.length() / n_chunks);

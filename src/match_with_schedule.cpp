@@ -139,23 +139,28 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     continue;
                 static_var<char> m = re[state];
                 if (flags[state] == 'j') {
-                    bool is_first = (!options.reverse) ? (state == 0 || flags[state-1] != 'j') : (state == re_len - 1 || flags[state+1] != 'j');
-                    if (is_first) {
-                        // this is the first j state, do memcmp from here
-                        int len = get_group_length(flags, state, increment);
-                        int factor = options.reverse;
-                        char_matched = dyn_memcmp(str + to_match - factor * (len - 1), re + state - factor * (len - 1), len);
-                        if (char_matched == 0) {
-                            // TODO: if last state just return
-                            update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
-                            state_match = 1;
+                    int len = get_group_length(flags, state, increment);
+                    int factor = options.reverse;
+                    char_matched = dyn_memcmp(str + to_match - factor * (len - 1), re + state - factor * (len - 1), len);
+                    if (char_matched == 0) {
+                        dyn_var<int> submatch_end;
+                        if (!options.reverse && state + len == re_len + 1)
+                            submatch_end = to_match + len;
+                        else if (options.reverse && state - len == -1)
+                            submatch_end = to_match - len;
+                        else
+                            submatch_end = spawn_matcher(str, str_len, to_match+increment*len, state+increment*len, working_set, done_set);
+                        bool cond = (options.reverse) ? (bool)(submatch_end < to_match - len + 1) : (bool)(submatch_end > to_match + len - 1);
+                        if (cond) {
+                            // there is a match (there is no match for submatch_end == to_match
+                            // according to the str_match - 1 formula)
+                            if (!options.last_eom)
+                                return submatch_end; // return any match
+                                // if we want the shortest match here we'll need to do more work
+                            bool update_last_end = (options.reverse) ? (bool)(submatch_end < last_end) : (bool)(submatch_end > last_end);
+                            if (update_last_end)
+                                last_end = submatch_end;
                         }
-                    } else {
-                        // if we are here, that means that the entire j group was matched
-                        // with memcmp so we don't have to do the normal char by char comparison
-                        update_states(options, dyn_next, next, flags, cache, state, re_len, options.reverse, update);
-                        state_match = 1;
-
                     }
                 } else if (is_normal(m)) {
                     if (-1 == early_break) {
@@ -198,6 +203,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                     }
                 } else {
                     //printf("Invalid Character(%c)\n", (char)m);
+                    // TODO: should be ok to remove the check?
                     if (!options.reverse)
                         return no_match;
                 }
@@ -243,6 +249,7 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             if (current[i])
                 count++;
         }
+        
         if (options.state_group) {
             for (dyn_idx = 0; dyn_idx < re_len + 1; dyn_idx = dyn_idx +1) {
                 dyn_current[dyn_idx] = dyn_next[dyn_idx];
@@ -258,14 +265,18 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
             bool update_last_end = (options.reverse) ? (bool)(to_match < last_end) : (bool)(to_match > last_end);
             if (update_last_end)
                 last_end = to_match; // update the last end of match
-
-            // be careful when implementing shortest match!!
-            if (!options.last_eom)
+            if (!options.last_eom) {
+                // ant match is good - doesn't have to be the longest
+                last_end = to_match;
                 break; // we already have a match - just break and return
-        }
+            }
 
+        }
+        // no need to loop over the string anymore
+        // there are no more states active
         if (!options.state_group && count == 0)
             break; // we can't match anything else
+
 
     }
     

@@ -151,11 +151,15 @@ void test_or_split(MatchType type) {
 
 
 int main() {
-    compare_result("abcde", "abcdeeefg", ".....", MatchType::PARTIAL_SINGLE);
+    compare_result("abc", "1abcd", "...", MatchType::PARTIAL_SINGLE);
+    compare_result("abc", "1abcd", "jjj", MatchType::PARTIAL_SINGLE);
+    compare_result("abcd", "1abcd", "....", MatchType::PARTIAL_SINGLE);
+    compare_result("abcd", "1abcd", "jjjj", MatchType::PARTIAL_SINGLE);
+    /*compare_result("abcde", "abcdeeefg", ".....", MatchType::PARTIAL_SINGLE);
     compare_result("abcde", "abcdeeefg", "jjjjj", MatchType::PARTIAL_SINGLE);
     compare_result("ab", "ab", "jj", MatchType::PARTIAL_SINGLE);
     compare_result("ab", "abcd", "jj", MatchType::PARTIAL_SINGLE);
-    /*auto start = high_resolution_clock::now();
+    auto start = high_resolution_clock::now();
     cout << "--- FULL MATCHES ---" << endl;
     test_simple(MatchType::FULL);
     test_star(MatchType::FULL);

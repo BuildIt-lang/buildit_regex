@@ -194,8 +194,9 @@ void cache_states(const char* re, int* next) {
     re_states.next = new int[re_len]; 
     re_states.brackets = new int[re_len];
     re_states.helper_states = new int[re_len];
-
+    
     bool valid = process_re(re, re_states);
+
     if (!valid) {
         std::cout << "Invalid regex in process_re" << std::endl;    
         return;
