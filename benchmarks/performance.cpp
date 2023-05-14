@@ -17,6 +17,9 @@
 #include <pcrecpp.h>
 #include "compile.h"
 
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
+
 using namespace std;
 using namespace re2;
 using namespace std::chrono;
@@ -139,11 +142,12 @@ tuple<int, float, float> buildit_time(string text, string regex, RegexOptions op
                 #pragma omp parallel for
                 for (int chunk = 0; chunk < s_len; chunk += block_size) {
                     int res = funcs[0](s, s_len, chunk);
-                    if (res > -1)
+                    if (res > chunk-1)
                         result = res;
                 }
             }
         end = high_resolution_clock::now();
+        cout << "eom: " << result << endl;
         result = (result > -1) ? 1 : 0;
     } else {
         // interleave / parallelize
@@ -162,12 +166,14 @@ tuple<int, float, float> buildit_time(string text, string regex, RegexOptions op
     return tuple<int, float, float>{result, compile_time, run_time};
 }
 
-tuple<int, float, float> re2_time(string text, string regex, MatchType match_type, int n_iters) {
+tuple<int, float, float> re2_time(string text, string regex, MatchType match_type, int n_iters, bool ignore_case) {
    
     // compile
     regex = make_lazy(regex);
     cout << "lazy regex: " << regex << endl;
-    RE2 re2_pattern(regex);
+    RE2::Options opt;
+    opt.set_case_sensitive(!ignore_case);
+    RE2 re2_pattern(regex, opt);
     auto start = high_resolution_clock::now();
     for (int iter = 0; iter < n_iters; iter++)
         RE2 re2_pattern_copy(regex);
@@ -210,7 +216,7 @@ tuple<int, float, float> re2_time(string text, string regex, MatchType match_typ
     return tuple<int, float, float>{result, compile_time, run_time}; 
 }
 
-tuple<int, float, float> hyperscan_time(string text, string regex, MatchType match_type, int n_iters) {
+tuple<int, float, float> hyperscan_time(string text, string regex, MatchType match_type, int n_iters, bool ignore_case) {
     
     char* re_cstr = (char*)regex.c_str();
     char* s = (char*)text.c_str();
@@ -219,7 +225,9 @@ tuple<int, float, float> hyperscan_time(string text, string regex, MatchType mat
     // compile
     hs_database_t *database;
     hs_compile_error_t *compile_error;
-    hs_compile(re_cstr, HS_FLAG_SOM_LEFTMOST, HS_MODE_BLOCK, NULL, &database, &compile_error);
+    unsigned int hs_flags = HS_FLAG_SINGLEMATCH;
+    if (ignore_case) hs_flags = hs_flags || HS_FLAG_CASELESS;
+    hs_compile(re_cstr, hs_flags, HS_MODE_BLOCK, NULL, &database, &compile_error);
     auto start = high_resolution_clock::now();
     for (int iter = 0; iter < n_iters; iter++) {
         hs_database_t *database_copy;
@@ -256,11 +264,67 @@ tuple<int, float, float> hyperscan_time(string text, string regex, MatchType mat
     return tuple<int, float, float>{result, compile_time, run_time};
 }
 
-tuple<int, float, float> pcre_time(string text, string regex, MatchType match_type, int n_iters) {
+tuple<int, float, float> pcre2_time(string regex, string text, int n_iters, bool ignore_case) {
+    // https://www.pcre.org/current/doc/html/pcre2demo.html
+    auto start = high_resolution_clock::now();
+    pcre2_code *re;
+    PCRE2_SPTR pattern;     /* PCRE2_SPTR is a pointer to unsigned code units of */
+    PCRE2_SPTR subject;     /* the appropriate width (in this case, 8 bits). */
+
+    int errornumber;
+    int i;
+    int rc;
+
+    uint32_t option_bits = (ignore_case) ? PCRE2_CASELESS : 0;
+
+    PCRE2_SIZE erroroffset;
+    PCRE2_SIZE *ovector;
+    PCRE2_SIZE subject_length;
+
+    pcre2_match_data *match_data;
+
+    pattern = (PCRE2_SPTR)regex.c_str();
+    subject = (PCRE2_SPTR)text.c_str();
+    subject_length = (PCRE2_SIZE)strlen((char *)subject);
+    re = pcre2_compile(
+            pattern,               /* the pattern */
+            PCRE2_ZERO_TERMINATED, /* indicates pattern is zero-terminated */
+            option_bits,                     /* default options */
+            &errornumber,          /* for error number */
+            &erroroffset,          /* for error offset */
+            NULL);                 /* use default compile context */
+    
+    match_data = pcre2_match_data_create_from_pattern(re, NULL);
+
+    auto end = high_resolution_clock::now();
+    float compile_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / 1e6f;
+    start = high_resolution_clock::now();
+    for (int iter = 0; iter < n_iters; iter++) {
+        rc = pcre2_match(
+                re,                   /* the compiled pattern */
+                subject,              /* the subject string */
+                subject_length,       /* the length of the subject */
+                0,                    /* start at offset 0 in the subject */
+                0,                    /* default options */
+                match_data,           /* block for storing the result */
+                NULL);                /* use default match context */
+
+        /* Matching failed: handle error cases */
+    }
+    end = high_resolution_clock::now();
+    int result = (int)(rc >= 0);
+    float run_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    return tuple<int, float, float>{result, compile_time, run_time};
+}
+
+
+tuple<int, float, float> pcre_time(string text, string regex, MatchType match_type, int n_iters, bool ignore_case) {
     
     //compile 
     regex = make_lazy(regex);
-    pcrecpp::RE pcre_re(regex);
+    pcrecpp::RE_Options opt;
+    opt.set_caseless(ignore_case);
+    pcrecpp::RE pcre_re(regex, opt);
     auto start = high_resolution_clock::now();
     for (int iter = 0; iter < n_iters; iter++)
         pcrecpp::RE pcre_re_copy(regex);
@@ -304,6 +368,7 @@ tuple<int, float, float> pcre_time(string text, string regex, MatchType match_ty
 
 void compare_matches(string regex, string text, int buildit_res, int re2_res, int hs_res, int pcre_res) {
     bool all_match = (buildit_res == re2_res) && (re2_res == hs_res) && (hs_res == pcre_res);
+    cout << "result: " << buildit_res << endl;
     if (all_match)
         return;
     cout << endl << "Correctness failed for regex " << regex << " and text " << text << ":" <<endl;
@@ -337,13 +402,14 @@ void compare_all(int n_iters, string text, string match) {
         options.ignore_case = stoi(config["ignore_case"]);
         options.flags = config["flags"];
         options.binary = true;
-        options.block_size = -1; //(int)(text.length() / 32);
+        options.block_size = -1; // (int)(text.length() / 50);
         cout << regex << endl;
         tuple<int, float, float> buildit_result = buildit_time(text, regex, options, match_type, n_iters);
-        tuple<int, float, float> re2_result = re2_time(text, regex, match_type, n_iters);
-        tuple<int, float, float> hs_result = hyperscan_time(text, regex, match_type, n_iters);
-        tuple<int, float, float> pcre_result = pcre_time(text, regex, match_type, n_iters);
-        compare_matches(regex, text_to_print, get<0>(buildit_result), get<0>(re2_result), get<0>(hs_result), get<0>(pcre_result));
+        tuple<int, float, float> re2_result = re2_time(text, regex, match_type, n_iters, options.ignore_case);
+        tuple<int, float, float> hs_result = hyperscan_time(text, regex, match_type, n_iters, options.ignore_case);
+        tuple<int, float, float> pcre_result = pcre_time(text, regex, match_type, n_iters, options.ignore_case);
+        tuple<int, float, float> pcre2_result = pcre2_time(regex, text, n_iters, options.ignore_case);
+        compare_matches(regex, text_to_print, get<0>(buildit_result), get<0>(re2_result), get<0>(hs_result), get<0>(pcre2_result));
         print_times(regex, text_to_print, "buildit", match, buildit_result, options);
         cout << endl;
         print_times(regex, text_to_print, "re2", match, re2_result, options);
@@ -352,8 +418,8 @@ void compare_all(int n_iters, string text, string match) {
         cout << endl;
         print_times(regex, text_to_print, "pcre", match, pcre_result, options);
         cout << endl << endl;
-
-        // TODO: pass the ignore case flag to the other libs
+        print_times(regex, text_to_print, "pcre2", match, pcre2_result, options);
+        cout << endl << endl;
     }
     
 }
@@ -404,7 +470,7 @@ void all_partial_time(string str, string pattern) {
 }
 
 void run_twain_benchmark() {
-    int n_iters = 10;
+    int n_iters = 100;
     string corpus_file = "./data/twain.txt";
     string text = load_corpus(corpus_file);
     std::cout << "Twain Text Length: " << text.length() << std::endl;

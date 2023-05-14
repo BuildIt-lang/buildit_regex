@@ -17,7 +17,7 @@ CFLAGS=-g -std=c++11 -O0 -fopenmp
 LINKER_FLAGS=-rdynamic  -g -L$(BUILDIT_DIR)/build -L$(BUILDIT_REGEX_DIR)/build -L$(BUILD_DIR) -L$(RE2_DIR)/obj/so -L$(HYPERSCAN_DIR)/build/lib -l$(LIBRARY_NAME) -lbuildit -lbuildit_regex -lre2 -lhs -ldl -fopenmp -lpcrecpp -Wl,-rpath,$(RE2_DIR)/obj/so
 else
 CFLAGS=-std=c++11 -O3 -fopenmp
-LINKER_FLAGS=-rdynamic -L$(BUILDIT_DIR)/build -L$(BUILDIT_REGEX_DIR)/build -L$(BUILD_DIR) -L$(RE2_DIR)/obj/so -L$(HYPERSCAN_DIR)/build/lib -l$(LIBRARY_NAME) -lbuildit -lbuildit_regex -lre2 -lhs -ldl -fopenmp -lpcrecpp -Wl,-rpath,$(RE2_DIR)/obj/so
+LINKER_FLAGS=-rdynamic -L$(BUILDIT_DIR)/build -L$(BUILDIT_REGEX_DIR)/build -L$(BUILD_DIR) -L$(RE2_DIR)/obj/so -L$(HYPERSCAN_DIR)/build/lib -l$(LIBRARY_NAME) -lbuildit -lbuildit_regex -lre2 -lhs -ldl -lpcre2-8 -fopenmp -lpcrecpp -Wl,-rpath,$(RE2_DIR)/obj/so -L/data/commit/graphit/tamaram/buildit_regex/benchmarks/pcre2-10.42/install/usr/local/lib -Wl,-rpath,/data/commit/graphit/tamaram/buildit_regex/benchmarks/pcre2-10.42/install/usr/local/lib
 
 endif
 
@@ -26,7 +26,7 @@ LIBRARY=$(BUILD_DIR)/lib$(LIBRARY_NAME).a
 #CFLAGS+=-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated -Wdelete-non-virtual-dtor -Werror
 
 INCLUDES=$(wildcard $(BASE_DIR)/*.h) $(wildcard $(RE2_DIR)/*/*.h) $(wildcard $(BUILDIT_DIR)/include/*.h) $(wildcard $(BUILDIT_DIR)/include/*/*.h) $(BUILDIT_REGEX_DIR)/include/*.h 
-INCLUDE_FLAG=-I$(BASE_DIR) -I$(HYPERSCAN_DIR) -I$(RE2_DIR) -I$(BUILDIT_DIR)/include -I$(BUILDIT_DIR)/build/gen_headers -I$(BUILDIT_REGEX_DIR)/include
+INCLUDE_FLAG=-I$(BASE_DIR) -I$(HYPERSCAN_DIR) -I$(RE2_DIR) -I$(BUILDIT_DIR)/include -I$(BUILDIT_DIR)/build/gen_headers -I$(BUILDIT_REGEX_DIR)/include -I/data/commit/graphit/tamaram/buildit_regex/benchmarks/pcre2-10.42/install/usr/local/include
 
 all: $(BUILD_DIR)/performance.o $(BUILD_DIR)/performance $(BUILD_DIR)/hs_benchmark.o $(BUILD_DIR)/bench
 

@@ -5,6 +5,7 @@ benchmarks/data/hsbench-samples
 benchmarks/build
 benchmarks/logs
 benchmarks/hyperscan
+benchmarks/pcre2-10.42
 benchmarks/re2
 benchmarks/build
 benchmarks/run*
