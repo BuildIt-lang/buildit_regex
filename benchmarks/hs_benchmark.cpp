@@ -19,6 +19,9 @@
 #include <pcrecpp.h>
 #include "compile.h"
 
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
+
 using namespace std;
 using namespace re2;
 using namespace std::chrono;
@@ -94,13 +97,19 @@ string load_corpus(string fname) {
     return text;
 }
 
-string generate_flags(string pattern) {
+string generate_split_flags(string pattern) {
     string flags = "";
+    int counter = 0;
     for (int i = 0; i < pattern.length(); i++) {
-        if (i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '+' || pattern[i-1] == '}')) {
+        if (false && i > 0 && (pattern[i-1] == '*' || pattern[i-1] == '+' || pattern[i-1] == '}')) {
             flags += "s";
+            counter = 0;
+        } else if (counter >= 8 && is_letter(pattern[i])) {
+            flags += 's';
+            counter = 0;    
         } else {
-            flags += ".";    
+            flags += ".";
+            counter++;
         }
     
     }
@@ -120,8 +129,96 @@ string generate_j_flags(string pattern) {
     
 }
 
+tuple<string, string> generate_snort_flags(string pattern, bool ignore_case, int gr_len) {
+    if (ignore_case || pattern.find("\\x") != std::string::npos ||
+        pattern.find("\"") != std::string::npos) {
+        return tuple<string, string> {pattern, generate_split_flags(pattern)}; // split after *, +, }
+    }
+    string flags = "";
+    string regex = "";
+    int group_size = 0;
+    for (int i = 0; i < pattern.length(); i++) {
+        char c = pattern[i];
+        if (group_size == gr_len) {
+            group_size = 0;
+            regex += ')';
+            flags += '.';
+        }
+        if (group_size < gr_len && is_letter(c) && (i == 0 || pattern[i-1] != '\\') && (i == 0 || is_letter(pattern[i-1]) ||
+                i == pattern.length() - 1 || is_letter(pattern[i+1]))) {
+                    if (group_size == 0) {
+                        regex += '(';
+                        flags += '.';
+                    }
+                    flags += 'j';
+                    group_size++;
+                    regex += c;
+        } else {
+            if (group_size > 0) {
+                group_size = 0;
+                regex += ')';
+                flags += '.';
+            }
+            group_size = 0;
+            flags += '.';
+            regex += c;
+        }
+    }
+    if (group_size > 0) {
+        regex += ')';
+        flags += '.';
+        
+    }
+    return tuple<string, string> {regex, flags};
+}
 
-vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns, int block_size, int batch_id) {
+// helper function to generate flags for teakettle
+// 1. group all consecutive a-z chars when ignore_case = false
+// 2. limit the group size to 8 chars
+tuple<string, string> generate_teakettle_flags(string pattern, bool ignore_case, int gr_len) {
+    if (ignore_case) {
+        return tuple<string, string> {pattern, generate_split_flags(pattern)}; // split after *, +, }
+    }
+    string flags = "";
+    string regex = "";
+    int group_size = 0;
+    for (int i = 0; i < pattern.length(); i++) {
+        char c = pattern[i];
+        if (group_size == gr_len) {
+            group_size = 0;
+            regex += ')';
+            flags += '.';
+        }
+        if (group_size < gr_len && is_letter(c) && (i == 0 || is_letter(pattern[i-1]) ||
+                i == pattern.length() - 1 || is_letter(pattern[i+1]))) {
+                    if (group_size == 0) {
+                        regex += '(';
+                        flags += '.';
+                    }
+                    flags += 'j';
+                    group_size++;
+                    regex += c;
+        } else {
+            if (group_size > 0) {
+                group_size = 0;
+                regex += ')';
+                flags += '.';
+            }
+            group_size = 0;
+            flags += '.';
+            regex += c;
+        }
+    }
+    if (group_size > 0) {
+        regex += ')';
+        flags += '.';
+        
+    }
+    return tuple<string, string> {regex, flags};
+
+}
+
+vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns, int block_size, int batch_id, string dataset) {
     auto start = high_resolution_clock::now();
     vector<vector<Matcher>> compiled_patterns;
     for (int re_id = 2 * n_patterns * batch_id; re_id < n_patterns * 2 * (batch_id + 1); re_id = re_id + 2) {
@@ -131,16 +228,22 @@ vector<vector<Matcher>> compile_buildit(vector<string> patterns, int n_patterns,
         string flags = patterns[re_id + 1];
         cout << "Flags: " << flags << "; ";
         RegexOptions opt;
-        opt.interleaving_parts = 32; // TODO: change this!!
+        opt.interleaving_parts = 1; // TODO: change this!!
         opt.binary = true; // we don't care about the specific match
-        //opt.flags = "";
-        if (re_id == 0 || (re_id >= 6 && re_id <= 10))
-            opt.flags = generate_j_flags(regex);
-        else
-            opt.flags = generate_flags(regex); // split for faster compilation
-        cout << "Split positions: " << opt.flags << endl;
         opt.ignore_case = (flags.find("i") != std::string::npos);
         opt.dotall = (flags.find("s") != std::string::npos);
+        if (dataset == "teakettle") {
+            tuple<string, string> tup = generate_teakettle_flags(regex, opt.ignore_case, 16);
+            regex = get<0>(tup);
+            opt.flags = get<1>(tup);
+        } else {
+            tuple<string, string> tup = generate_snort_flags(regex, opt.ignore_case, 16);
+            regex = get<0>(tup);
+            opt.flags = get<1>(tup);
+            //opt.flags = "";
+        }
+        cout << "new regex: " << regex << endl;
+        cout << "Regex flags: " << opt.flags << endl;
         opt.block_size = block_size;
         vector<Matcher> funcs = get<0>(compile(regex, opt, MatchType::PARTIAL_SINGLE, false));
         compiled_patterns.push_back(funcs);
@@ -158,6 +261,7 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
     Schedule opt;
     auto start = high_resolution_clock::now();
     auto last_end = start;
+    cout << "n_iters: " << n_iters << endl;
     for (int iter = 0; iter < n_iters; iter++) {
         for (int i = 0; i < compiled_patterns.size(); i++) {
             vector<Matcher> funcs = compiled_patterns[i];
@@ -167,11 +271,14 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
                     result = funcs[0](s, s_len, 0);    
                 } else {
                     result = -1;
-                    #pragma omp parallel for
+                    //#pragma omp parallel for
                     for (int tid = 0; tid < funcs.size(); tid++) {
+                        if (result > -1)
+                            continue;
                         int curr_result = funcs[tid](s, s_len, 0);
-                        if (curr_result > -1)
+                        if (curr_result > -1) {
                             result = curr_result;
+                        }
                     }
                 }
             } else {
@@ -180,11 +287,10 @@ void run_buildit(vector<vector<Matcher>> compiled_patterns, string text, int n_i
                     if (result > -1)
                         continue;
                     if (funcs.size() == 1) {
-                        result = funcs[0](s, s_len, chunk);
-                        if (result == chunk - 1)
-                            result = -1;
+                        int curr_result = funcs[0](s, s_len, chunk);
+                        if (curr_result > chunk - 1)
+                            result = curr_result;
                     } else {
-                        result = -1;
                         #pragma omp parallel for
                         for (int tid = 0; tid < funcs.size(); tid++) {
                             int curr_result = funcs[tid](s, s_len, chunk);
@@ -242,10 +348,125 @@ void run_re2(vector<string> patterns, string text, int n_iters, bool individual,
     cout << "RE2 running time: " << elapsed_time << "ms" << endl;
 }
 
+
+void run_pcre2(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns, int batch_id) {
+    // text info
+    PCRE2_SPTR subject;
+    subject = (PCRE2_SPTR)text.c_str();
+    PCRE2_SIZE subject_length = (PCRE2_SIZE)text.length();
+    cout << "length: " << subject_length << endl; 
+    // compilation
+    auto start = high_resolution_clock::now();
+    vector<pcre2_code*> codes;
+    vector<pcre2_match_data*> matches;
+    for (int i = 2 * n_patterns * batch_id; i < n_patterns * 2 * (batch_id + 1); i = i + 2) {
+        string reg = patterns[i];
+        string regex = (reg[0] == '^') ? "^(" + reg.substr(1, reg.length() - 1) + ")" : "(" + reg + ")";
+        regex = make_lazy(regex);
+        string flags = patterns[i+1];
+        bool ignore_case = flags.find('i') != std::string::npos;
+        bool dotall = flags.find('s') != std::string::npos;
+        
+        // copmile pcre2 
+        pcre2_code *re;
+        PCRE2_SPTR pattern;   
+
+        int errornumber;
+        
+        // add flags
+        uint32_t option_bits = (ignore_case) ? PCRE2_CASELESS : 0;
+        if (dotall) option_bits |= PCRE2_DOTALL;
+        PCRE2_SIZE erroroffset;
+        PCRE2_SIZE *ovector;
+
+        pcre2_match_data *match_data;
+
+        pattern = (PCRE2_SPTR)regex.c_str();
+        re = pcre2_compile(
+                pattern,               /* the pattern */
+                PCRE2_ZERO_TERMINATED, /* indicates pattern is zero-terminated */
+                option_bits,           /* flags */
+                &errornumber,          /* for error number */
+                &erroroffset,          /* for error offset */
+                NULL);                 /* use default compile context */
+        match_data = pcre2_match_data_create_from_pattern(re, NULL);
+        codes.push_back(re);
+        matches.push_back(match_data);
+    }
+    auto end = high_resolution_clock::now();
+    float elapsed_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / 1e6f;
+    cout << "PCRE2 compilation time: " << elapsed_time << "ms" << endl;
+
+    // matching
+    start = high_resolution_clock::now();
+    auto last_end = start;
+    for (int iter = 0; iter < n_iters; iter++) {
+        for (int i = 0; i < codes.size(); i++) {
+            int result = pcre2_match(
+                    codes[i],             /* the compiled pattern */
+                    subject,              /* the subject string */
+                    subject_length,       /* the length of the subject */
+                    0,                    /* start at offset 0 in the subject */
+                    0,                    /* default options */
+                    matches[i],           /* block for storing the result */
+                    NULL);                /* use default match context */
+            
+            // convert result to 1 or 0
+            result = (int)(result >= 0);
+            if (iter == 0 && individual) {
+                end = high_resolution_clock::now();
+                elapsed_time = (duration_cast<nanoseconds>(end - last_end)).count() * 1.0 / 1e6f;
+                last_end = end;
+                cout << i << " running time: " << elapsed_time << "ms; result: " << result << endl;
+            }
+        }
+    }
+    end = high_resolution_clock::now();
+    elapsed_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    cout << "PCRE2 running time: " << elapsed_time << "ms" << endl;
+}
+
+
+void run_pcre(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns, int batch_id) {
+    auto start = high_resolution_clock::now();
+    vector<unique_ptr<pcrecpp::RE>> compiled_patterns;
+    for (int i = 2 * n_patterns * batch_id; i < n_patterns * 2 * (batch_id + 1); i = i + 2) {
+        string re = patterns[i];
+        string regex = (re[0] == '^') ? "^(" + re.substr(1, re.length() - 1) + ")" : "(" + re + ")";
+        regex = make_lazy(regex);
+        string flags = patterns[i+1];
+        pcrecpp::RE_Options opt;
+        opt.set_dotall(flags.find('s') != std::string::npos);
+        opt.set_caseless(flags.find('i') != std::string::npos);
+        compiled_patterns.push_back(unique_ptr<pcrecpp::RE>(new pcrecpp::RE(regex, opt)));
+    }
+    auto end = high_resolution_clock::now();
+    float elapsed_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / 1e6f;
+    cout << "PCRE compilation time: " << elapsed_time << "ms" << endl;
+
+    start = high_resolution_clock::now();
+    auto last_end = start;
+    for (int iter = 0; iter < n_iters; iter++) {
+        for (int i = 0; i < compiled_patterns.size(); i++) {
+            int result = (*compiled_patterns[i]).PartialMatch(text);    
+            if (iter == 0 && individual) {
+                end = high_resolution_clock::now();
+                elapsed_time = (duration_cast<nanoseconds>(end - last_end)).count() * 1.0 / 1e6f;
+                last_end = end;
+                cout << i << " running time: " << elapsed_time << "ms; result: " << result << endl;
+            }
+        }
+    }
+    end = high_resolution_clock::now();
+    elapsed_time = (duration_cast<nanoseconds>(end - start)).count() * 1.0 / (1e6f * n_iters);
+    cout << "PCRE running time: " << elapsed_time << "ms" << endl;
+}
+
 void run_hyperscan(vector<string> patterns, string text, int n_iters, bool individual, int n_patterns,  int batch_id) {
         
     char* s = (char*)text.c_str();
     int s_len = text.length();
+    cout << "hs text len: " << s_len << endl;
 
     // compile
     vector<hs_database_t*> compiled_patterns;
@@ -258,7 +479,7 @@ void run_hyperscan(vector<string> patterns, string text, int n_iters, bool indiv
         bool dotall = (flags.find("s") != std::string::npos);
         hs_database_t *database;
         hs_compile_error_t *compile_error;
-        unsigned int hs_flags = HS_FLAG_SOM_LEFTMOST;
+        unsigned int hs_flags = HS_FLAG_SINGLEMATCH;
         if (caseless) hs_flags = hs_flags || HS_FLAG_CASELESS;
         if (dotall) hs_flags = hs_flags || HS_FLAG_DOTALL;
         hs_compile(re_cstr, hs_flags, HS_MODE_BLOCK, NULL, &database, &compile_error);
@@ -348,28 +569,34 @@ int main(int argc, char **argv) {
     bool run_snort = true;
     string data_dir = "data/hsbench-samples/";
     string gutenberg = load_corpus(data_dir + "corpora/gutenberg.txt");    
-    int n_iters = 100;
+    int n_iters = 10;
     bool individual_times = true;
-    int n_patterns = 15;
+    int n_patterns = 20;
     int n_chunks = 1;
     if (run_teakettle) {
         int block_size = (int)(gutenberg.length() / n_chunks);
         if (n_chunks == 1) block_size = -1;
-        vector<string> teakettle = load_patterns(data_dir + "pcre/teakettle_2500");
-        //n_patterns = teakettle.size();
-        cout << "Num patterns: " << n_patterns << endl;
-        vector<vector<Matcher>> compiled_teakettle = compile_buildit(teakettle, n_patterns, block_size, batch_id); 
+        cout << "block size: " << block_size << endl;
+        vector<string> teakettle = load_patterns(data_dir + "pcre/teakettle_2500_small");
+        string dataset = "teakettle"; 
+        vector<vector<Matcher>> compiled_teakettle = compile_buildit(teakettle, n_patterns, block_size, batch_id, dataset); 
         run_buildit(compiled_teakettle, gutenberg, n_iters, individual_times, block_size, batch_id);
+        run_pcre(teakettle, gutenberg, n_iters, individual_times, n_patterns, batch_id);
         run_re2(teakettle, gutenberg, n_iters, individual_times, n_patterns, batch_id);
+        run_pcre2(teakettle, gutenberg, n_iters, individual_times, n_patterns, batch_id);
         run_hyperscan(teakettle, gutenberg, n_iters, individual_times, n_patterns, batch_id);
     }
     if (run_snort) {
-        vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_literals");
+        vector<string> snort_literals = load_patterns(data_dir + "pcre/snort_literals_small");
         string alexa = load_corpus(data_dir + "corpora/alexa200.txt");
         int block_size = (int)(alexa.length() / n_chunks);
         if (n_chunks == 1) block_size = -1;
-        vector<vector<Matcher>> compiled_snort = compile_buildit(snort_literals, n_patterns, block_size, batch_id); 
+        string dataset = "snort"; 
+        
+        vector<vector<Matcher>> compiled_snort = compile_buildit(snort_literals, n_patterns, block_size, batch_id, dataset); 
         run_buildit(compiled_snort, alexa, n_iters, individual_times, block_size, batch_id);
+        run_pcre2(snort_literals, alexa, n_iters, individual_times, n_patterns, batch_id);
+        run_pcre(snort_literals, alexa, n_iters, individual_times, n_patterns, batch_id);
         run_re2(snort_literals, alexa, n_iters, individual_times, n_patterns, batch_id);
         run_hyperscan(snort_literals, alexa, n_iters, individual_times, n_patterns, batch_id);
     }

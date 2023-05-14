@@ -189,8 +189,14 @@ int match(string regex, string str, RegexOptions options, MatchType match_type, 
     if (options.binary || submatch == nullptr) {
         // binary match - one pass is enough
         vector<Matcher> funcs = get<0>(compile(regex, options, match_type, false));
+        vector<int> result = run_matchers(funcs, str, 0, schedule1, match_type, true);
 
-        return run_matchers(funcs, str, 0, schedule1, match_type, true)[0];
+        // check if any of the threads resulted in a match
+        for (int tid = 0; tid < (int)result.size(); tid++) {
+            if (result[tid])
+                return 1;
+        }
+        return 0;
     }
     
     // for matches anchored at the start of string we need only a forward pass

@@ -73,7 +73,6 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
     const int re_len = strlen(re);
     bool ignore_case = options.ignore_case;
     int n_threads = options.interleaving_parts;
-
     // allocate two state vectors
     static_var<char[]> current;
     static_var<char[]> next;
@@ -141,10 +140,13 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
                 if (flags[state] == 'j') {
                     int len = get_group_length(flags, state, increment);
                     int factor = options.reverse;
-                    char_matched = dyn_memcmp(str + to_match - factor * (len - 1), re + state - factor * (len - 1), len);
+                    std::string string_to_match = re + state - factor * (len - 1);
+                    string_to_match = string_to_match.substr(0, len);
+                    
+                    char_matched = dyn_memcmp(str + to_match - factor * (len - 1), string_to_match.c_str(), len);
                     if (char_matched == 0) {
                         dyn_var<int> submatch_end;
-                        if (!options.reverse && state + len == re_len + 1)
+                        if (!options.reverse && state + len == re_len)
                             submatch_end = to_match + len;
                         else if (options.reverse && state - len == -1)
                             submatch_end = to_match - len;
@@ -273,7 +275,10 @@ dyn_var<int> match_with_schedule(const char* re, int first_state, std::set<int> 
         }
         // no need to loop over the string anymore
         // there are no more states active
-        if (!options.state_group && count == 0)
+        // if n_threads > 1 not every to_match iter inserts a new state
+        // so we don't want to break too early
+        // if options.state_group some dyn states might be active
+        if (n_threads == 1 && !options.state_group && count == 0)
             break; // we can't match anything else
 
 
