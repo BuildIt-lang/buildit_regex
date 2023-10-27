@@ -1,3 +1,4 @@
+-include Makefile.inc
 BASE_DIR=$(shell pwd)
 SRC_DIR=$(BASE_DIR)/src
 BUILD_DIR?=$(BASE_DIR)/build
@@ -25,16 +26,16 @@ BUILDIT_LIBRARY_PATH=$(BUILDIT_DIR)/build
 LIBRARY_NAME=buildit_regex
 DEBUG ?= 0
 ifeq ($(DEBUG),1)
-CFLAGS=-g -std=c++11 -O0
-LINKER_FLAGS=-rdynamic  -g -L$(BUILDIT_LIBRARY_PATH) -L$(BUILD_DIR) -l$(LIBRARY_NAME) -l$(BUILDIT_LIBRARY_NAME) -ldl -fopenmp -lpcrecpp
+CFLAGS+=-g -std=c++11 -O0
+LINKER_FLAGS+=-rdynamic  -g -L$(BUILDIT_LIBRARY_PATH) -L$(BUILD_DIR) -l$(LIBRARY_NAME) -l$(BUILDIT_LIBRARY_NAME) -ldl -fopenmp -lpcrecpp
 else
-CFLAGS=-std=c++11 -O3
-LINKER_FLAGS=-rdynamic  -L$(BUILDIT_LIBRARY_PATH) -L$(BUILD_DIR) -l$(LIBRARY_NAME) -l$(BUILDIT_LIBRARY_NAME) -ldl -fopenmp -lpcrecpp
+CFLAGS+=-std=c++11 -O3
+LINKER_FLAGS+=-rdynamic  -L$(BUILDIT_LIBRARY_PATH) -L$(BUILD_DIR) -l$(LIBRARY_NAME) -l$(BUILDIT_LIBRARY_NAME) -ldl -fopenmp -lpcrecpp 
 endif
 
 LIBRARY=$(BUILD_DIR)/lib$(LIBRARY_NAME).a
 
-CFLAGS+=-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated -Wdelete-non-virtual-dtor -Werror -fopenmp -fpermissive
+CFLAGS+=-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated -Wdelete-non-virtual-dtor -Werror -fopenmp -fpermissive 
 
 all: executables 
 
