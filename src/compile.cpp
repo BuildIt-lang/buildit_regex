@@ -315,11 +315,46 @@ int main(int argc, char *argv[])
 {
     // int match(string regex, string str, RegexOptions options, MatchType match_type, string *submatch). the arguments that main must take
 
-    // Define your regex, input string, and other options here
-    std::string regex = "your_regex_here";
-    std::string input_string = "your_input_string_here";
+    // command = [
+    //     "./src/compile.cpp",
+    //     regex_string,
+    //     input,
+    //     str(regex_options),
+    // ]
+    if(argc != 6)
+    {
+        std::cerr << "Usage: " << argv[0] << " <regex> <input_string> <regex_options> <match_type>" << std::endl;
+        return 1;
+    }
+
+    std::string regex = argv[1];
+    std::string input_string = argv[2];
     RegexOptions options;
-    MatchType match_type = MatchType::FULL;
+    MatchType match_type = static_cast<MatchType>(std::stoi(argv[4]));
+        // Parse the regex options from the stringified dictionary
+    std::string regex_options_str = argv[3];
+    std::istringstream iss(regex_options_str.substr(1, regex_options_str.length() - 2));
+    std::string item;
+        while (std::getline(iss, item, ',')) {
+            std::istringstream iss_item(item);
+            std::string key;
+            std::string value;
+            std::getline(iss_item, key, ':');
+            std::getline(iss_item, value, ':');
+            if (key == "ignore_case") {
+                options.ignore_case = std::stoi(value);
+            } else if (key == "dotall") {
+                options.dotall = std::stoi(value);
+            } else if (key == "interleaving_parts") {
+                options.interleaving_parts = std::stoi(value);
+            } else if (key == "flags") {
+                options.flags = value;
+            } else if (key == "greedy") {
+                options.greedy = std::stoi(value);
+            } else if (key == "binary") {
+                options.binary = std::stoi(value);
+            }
+        }
 
     // Call the match function to check if there is a match
     std::string submatch;
