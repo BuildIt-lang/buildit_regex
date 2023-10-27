@@ -1,4 +1,5 @@
 #include "compile.h"
+#include <sstream>
 
 Schedule get_schedule_options(string regex, RegexOptions regex_options, MatchType match_type, int pass)
 {
@@ -333,31 +334,32 @@ int main(int argc, char *argv[])
     MatchType match_type = static_cast<MatchType>(std::stoi(argv[4]));
         // Parse the regex options from the stringified dictionary
     std::string regex_options_str = argv[3];
-    std::istringstream iss(regex_options_str.substr(1, regex_options_str.length() - 2));
+    std::stringstream ss(regex_options_str);
     std::string item;
-        while (std::getline(iss, item, ',')) {
-            std::istringstream iss_item(item);
+        while (std::getline(ss, item, ',')) {
+            std::stringstream ss_item(item);
             std::string key;
             std::string value;
-            std::getline(iss_item, key, ':');
-            std::getline(iss_item, value, ':');
+            std::getline(ss_item, key, ':');
+            std::getline(ss_item, value, ':');
             if (key == "ignore_case") {
-                options.ignore_case = std::stoi(value);
+                options.ignore_case = (value=="True")?true:false;
             } else if (key == "dotall") {
-                options.dotall = std::stoi(value);
+                options.dotall = (value=="True")?true:false;
             } else if (key == "interleaving_parts") {
                 options.interleaving_parts = std::stoi(value);
             } else if (key == "flags") {
                 options.flags = value;
             } else if (key == "greedy") {
-                options.greedy = std::stoi(value);
+                options.greedy = (value=="True")?true:false;
             } else if (key == "binary") {
-                options.binary = std::stoi(value);
+                options.binary = (value=="True")?true:false;
+            } else if (key == "block_size") {
+                options.block_size = std::stoi(value);
             }
         }
 
-    // Call the match function to check if there is a match
-    std::string submatch;
+    std::string submatch = argv[5];
     int result = match(regex, input_string, options, match_type, &submatch);
 
     // Check the result and print the submatch if there is a match
