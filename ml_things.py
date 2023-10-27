@@ -7,16 +7,14 @@ import sqlite3  # for parsing the .db files for example inputs
 
 
 def launch(regex_string, input, regex_options, match_type, submatch):
-    
     command = [
         "./src/compile.cpp",
         regex_string,
         input,
         str(regex_options),
         match_type,
-        submatch
+        submatch,
     ]
-
 
     try:
         result = subprocess.run(
@@ -32,25 +30,24 @@ def launch(regex_string, input, regex_options, match_type, submatch):
     except subprocess.CalledProcessError:
         print("Unable to run C++ program!")
 
-def main():
 
+def main():
     make_command = "make -f Makefile"
     try:
         subprocess.run(make_command, shell=True, check=True)
     except subprocess.CalledProcessError:
         print("Makefile compilation failed!")
 
-
     # struct RegexOptions {
-#     bool ignore_case = false; // same as the PCRE i flag
-#     bool dotall = false; // same as the PCRE s flag
-#     int interleaving_parts = 1;
-#     string flags = "";
-#     bool greedy = false;
-#     bool binary = true;
-#     int block_size = -1; // split the string into blocks
-# };
-# for the C++ struct, we have to pass in all the attributes then initialize in our main() function
+    #     bool ignore_case = false; // same as the PCRE i flag
+    #     bool dotall = false; // same as the PCRE s flag
+    #     int interleaving_parts = 1;
+    #     string flags = "";
+    #     bool greedy = false;
+    #     bool binary = true;
+    #     int block_size = -1; // split the string into blocks
+    # };
+    # for the C++ struct, we have to pass in all the attributes then initialize in our main() function
     regex_options = {
         "ignore_case": False,
         "dotall": False,
@@ -60,4 +57,8 @@ def main():
         "binary": True,
         "block_size": -1,
     }
-    launch("sample", "sample", regex_options, 1, "submatch_sample")
+    launch("sample", "sample", regex_options, "1", "submatch_sample")
+
+
+if __name__ == "__main__":
+    main()
