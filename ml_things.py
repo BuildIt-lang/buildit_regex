@@ -8,7 +8,7 @@ import sqlite3  # for parsing the .db files for example inputs
 
 def launch(regex_string, input, regex_options, match_type, submatch):
     command = [
-        "./src/compile.cpp",
+        "./src/ml.cpp",
         regex_string,
         input,
         str(regex_options),
