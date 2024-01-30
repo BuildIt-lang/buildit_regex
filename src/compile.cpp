@@ -1,5 +1,8 @@
 #include "compile.h"
 
+#include <chrono>
+#include <iostream>
+
 Schedule get_schedule_options(string regex, RegexOptions regex_options, MatchType match_type, int pass) {
     Schedule options;
     options.or_split = regex_options.flags.find("s") != string::npos;
@@ -185,8 +188,21 @@ vector<int> run_matchers(vector<Matcher>& funcs, string str, int str_start, Sche
  Compiles and calls the generated function. Returns if there is a match or not.
 */
 int match(string regex, string str, RegexOptions options, MatchType match_type, string* submatch) {
+
+	const int T = 30;
+
     Schedule schedule1 = get_schedule_options(regex, options, match_type, 0);
     if (options.binary || submatch == nullptr) {
+
+		double duration = 0;
+		for(int i = 0; i < T; i++) {
+			auto t1 = std::chrono::high_resolution_clock::now();
+			compile(regex, options, match_type, false);
+			auto t2 = std::chrono::high_resolution_clock::now();
+			duration += std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+		}
+		std::cout << duration/(T*1000) << endl;
+		
         // binary match - one pass is enough
         vector<Matcher> funcs = get<0>(compile(regex, options, match_type, false));
         vector<int> result = run_matchers(funcs, str, 0, schedule1, match_type, true);
@@ -201,6 +217,15 @@ int match(string regex, string str, RegexOptions options, MatchType match_type, 
     
     // for matches anchored at the start of string we need only a forward pass
     bool two_pass = !(regex.length() > 0 && regex[0] == '^');
+
+	double duration = 0;
+	for(int i = 0; i < T; i++) {
+		auto t1 = std::chrono::high_resolution_clock::now();
+		compile(regex, options, match_type, two_pass);
+		auto t2 = std::chrono::high_resolution_clock::now();
+		duration += std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+	}
+	std::cout << duration/(T*1000) << endl;
     
     // need to extract the first match - need 2 passes
     tuple<vector<Matcher>, vector<Matcher>> funcs = compile(regex, options, match_type, two_pass);
