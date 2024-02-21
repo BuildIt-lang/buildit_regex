@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	std::cout << is_match << endl;
-	//std::cout << duration/(T*1000) << endl;
+	std::cout << duration/(T*1000) << endl;
 
 //	// Partial
 //

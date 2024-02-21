@@ -205,7 +205,11 @@ int match(string regex, string str, RegexOptions options, MatchType match_type, 
 		
         // binary match - one pass is enough
         vector<Matcher> funcs = get<0>(compile(regex, options, match_type, false));
+		auto t1 = std::chrono::high_resolution_clock::now();
         vector<int> result = run_matchers(funcs, str, 0, schedule1, match_type, true);
+		auto t2 = std::chrono::high_resolution_clock::now();
+		duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+		std::cout << duration/(T*1000) << endl;
 
         // check if any of the threads resulted in a match
         for (int tid = 0; tid < (int)result.size(); tid++) {
